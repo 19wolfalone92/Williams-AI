@@ -37,6 +37,8 @@ class AndroidOfflineContract(unittest.TestCase):
         self.assertIn('permissions == ["android.permission.INTERNET"]', script)
         layout = (MOBILE / "overlay/app/src/main/res/layout/activity_main.xml").read_text(encoding="utf-8")
         self.assertIn('android:id="@+id/web_enabled"', layout)
+        self.assertIn('android:id="@+id/book_button"', layout)
+        self.assertIn("BookKnowledge.kt", script)
 
     def test_secure_local_model_import(self):
         kotlin = (MOBILE / "overlay/app/src/main/java/com/example/llama/MainActivity.kt").read_text(encoding="utf-8")
@@ -47,12 +49,28 @@ class AndroidOfflineContract(unittest.TestCase):
         ):
             self.assertIn(required, kotlin)
         self.assertIn("WebResearch.shouldLookup", kotlin)
+        self.assertIn("BookKnowledge.retrieve", kotlin)
+        self.assertIn("bookPicker", kotlin)
         self.assertIn("webToggle.isChecked", kotlin)
         for forbidden in (
             "BinanceFuturesClient", "api.binance.com", "OPENAI_API_KEY",
             "api.binance.com", "orderEndpoint", "POST /fapi",
         ):
             self.assertNotIn(forbidden, kotlin)
+
+    def test_resumable_private_study_and_curriculum_are_packaged(self):
+        main = (MOBILE / "overlay/app/src/main/java/com/example/llama/MainActivity.kt").read_text()
+        study = (MOBILE / "overlay/app/src/main/java/com/example/llama/StudyMemory.kt").read_text()
+        script = (MOBILE / "build_offline_android.sh").read_text()
+        self.assertIn("StudyMemory.kt", script)
+        self.assertIn("LEARNING_CURRICULUM_RU.md", script)
+        self.assertIn("StudyMemory.save", main)
+        self.assertIn("StudyMemory.retrieve", main)
+        self.assertIn("StudyMemory.curriculum", main)
+        self.assertIn("generation?.cancel()", main)
+        self.assertIn("PRIMARY KEY(source_key,model_id)", study)
+        self.assertIn("contains(normalized(support))", study)
+        self.assertIn("android.system.Os.rename", main)
 
 
 if __name__ == "__main__":

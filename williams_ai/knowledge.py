@@ -12,6 +12,26 @@ from typing import Any
 _STOP = {"это", "как", "где", "для", "если", "что", "почему", "какой", "какая",
          "which", "where", "what", "about", "the", "and", "our", "with"}
 
+_TERM_GROUPS = (
+    ("фракт", "fractal"), ("ангуля", "angulation"),
+    ("аллигатор", "alligator"), ("мудрец", "wise"),
+    ("стоп", "stop"), ("волна", "волн", "wave"),
+    ("диверген", "divergenc"), ("баланс", "balance"),
+    ("ускор", "accelerat", "ac"), ("осциллятор", "oscillator", "ao"),
+    ("зон", "zone"), ("пирамид", "pyramid"), ("риск", "risk"),
+)
+
+
+def query_terms(text: str, *, limit: int = 20) -> list[str]:
+    """Small transparent RU/EN vocabulary, not an online translation service."""
+    original = sorted(_words(text))
+    aliases = []
+    for group in _TERM_GROUPS:
+        if any(word.startswith(stem) for word in original for stem in group):
+            aliases.extend(group)
+    # Alias roots first: an inflected Russian query must still reach English PDFs.
+    return list(dict.fromkeys(aliases + original))[:limit]
+
 
 def _words(text: str) -> set[str]:
     return {word for word in re.findall(r"[^\W_]+", text.casefold(), re.UNICODE)

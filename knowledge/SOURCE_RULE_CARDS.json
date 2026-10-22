@@ -1,0 +1,353 @@
+{
+  "schema_version": "1.0",
+  "disclaimer": "Авторские книги не включены. Ручной реестр кратких ПЕРЕСКАЗОВ; 100% книжная точность не подтверждена; эти правила не санкционируют исполнение сделок.",
+  "books": [
+    {
+      "id": "TC1",
+      "title": "Trading Chaos — 1-е издание",
+      "filename": "1. Торговый Хаос - 1.pdf",
+      "sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": 140
+    },
+    {
+      "id": "NTD",
+      "title": "New Trading Dimensions",
+      "filename": "Билл_Вильямс_Новые_измерения_в_биржевой_торговле_2_книга.pdf",
+      "sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": 156
+    },
+    {
+      "id": "TC2",
+      "title": "Trading Chaos — 2-е издание",
+      "filename": "Торговый Хаос 2 (3книга).pdf",
+      "sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": 224
+    },
+    {
+      "id": "COURSE",
+      "title": "Trading Chaos Course (исторический скан)",
+      "filename": "Bill Williams - Trading Chaos Course.pdf",
+      "sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": 122
+    }
+  ],
+  "rule_cards": [
+    {
+      "id": "TC2.WM1.BAR",
+      "source": "TC2",
+      "pdf_pages": [
+        121,
+        122
+      ],
+      "title": "Разворотный бар",
+      "summary": "Для бычьего разворота нижний минимум и закрытие в верхней половине диапазона; для медвежьего зеркально. Разворот внутри пасти сам по себе недостаточен.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.WM1.ANG",
+      "source": "TC2",
+      "pdf_pages": [
+        122,
+        123,
+        124
+      ],
+      "title": "Ангуляция к Аллигатору",
+      "summary": "Визуально сопоставить направление границы ценовых баров и линию вдоль пасти; расходящийся угол обязателен. Любой численный score — техническая аппроксимация, не авторская формула.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.WM1.TRIGGER",
+      "source": "TC2",
+      "pdf_pages": [
+        124,
+        125
+      ],
+      "title": "Цена входа WM1",
+      "summary": "После подтверждённого разворотного бара с ангуляцией вход при прохождении его экстремума по направлению нового движения; не входить на самом факте свечи.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.WM1.STOP",
+      "source": "TC2",
+      "pdf_pages": [
+        131
+      ],
+      "title": "Начальная защита WM1",
+      "summary": "Начальный защитный стоп за противоположным экстремумом сигнального разворотного бара; биржевое подтверждение — дополнительное обязательное инженерное условие.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.REVERSE",
+      "source": "TC2",
+      "pdf_pages": [
+        131
+      ],
+      "title": "Обратное направление и закрытие",
+      "summary": "Книжная иллюстрация допускает одновременно закрыть старое направление и развернуться по противоположному действительному сигналу. Не сводить все выходы во всех изданиях к одному SL.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.WM2",
+      "source": "TC2",
+      "pdf_pages": [
+        133,
+        138
+      ],
+      "title": "Второй Мудрец",
+      "summary": "Сигнал Super AO необходимо отличать от NTD-формаций AO; трёхбарные изменения момента и допустимый порядок мудрецов требуют подтверждения по источнику и тестам.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.WM3",
+      "source": "TC2",
+      "pdf_pages": [
+        153,
+        165
+      ],
+      "title": "Третий Мудрец и торговая кампания",
+      "summary": "Фрактал требует ожидания подтверждения; срабатывание на пробое, условия позиции относительно Teeth, добавления и сопровождение — отдельные этапы.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "TC2.CAMPAIGN",
+      "source": "TC2",
+      "pdf_pages": [
+        153,
+        165
+      ],
+      "title": "Торговая кампания",
+      "summary": "Три мудреца и управление позицией изучать как развитие кампании, не как одновременные булевы фильтры.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.FRACTAL",
+      "source": "NTD",
+      "pdf_pages": [
+        48,
+        49
+      ],
+      "title": "Внешний фрактал Аллигатора",
+      "summary": "В NTD начальный допуск строится вокруг срабатывания подходящего внешнего фрактала; пока он не пробит, другие измерения не заменяют его. Это не глобальный запрет раннего WM1 в TC2.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.ZONE",
+      "source": "NTD",
+      "pdf_pages": [
+        91,
+        92
+      ],
+      "title": "Зоны по AO и AC",
+      "summary": "Цвет зелёной/красной/серой зоны определяется согласованным изменением AO и AC, а не направлением тела свечи.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.ZONE.ADDED",
+      "source": "NTD",
+      "pdf_pages": [
+        92,
+        93
+      ],
+      "title": "Пирамидинг в зоне",
+      "summary": "Зональные добавления учитывают AO, AC и благоприятное закрытие цены; после пятого подряд цветного бара добавления по зоне прекращаются.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.ALLIGATOR",
+      "source": "NTD",
+      "pdf_pages": [
+        34,
+        53
+      ],
+      "title": "Аллигатор",
+      "summary": "Jaw, Teeth, Lips и их сдвиг во времени анализируются как рыночный контекст. Сдвинутые вперёд кривые нельзя использовать как свечи из будущего.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.AO",
+      "source": "NTD",
+      "pdf_pages": [
+        53,
+        83
+      ],
+      "title": "Формы AO",
+      "summary": "Saucer, Zero-line crossing и Twin Peaks являются самостоятельными формациями NTD и не равны TC2 WM2 Super AO.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.AC",
+      "source": "NTD",
+      "pdf_pages": [
+        76,
+        90
+      ],
+      "title": "Ускорение AC",
+      "summary": "Оценивать изменение AC относительно предыдущего столбца; знак AC и цвет AC — не одно и то же.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.BALANCE",
+      "source": "NTD",
+      "pdf_pages": [
+        115,
+        122
+      ],
+      "title": "Торговля от линии Баланса",
+      "summary": "Нужны отдельные условия выполнения сигнала Balance Line; нельзя автоматически заменять его обычным WM3.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "NTD.EXITS",
+      "source": "NTD",
+      "pdf_pages": [
+        120,
+        138
+      ],
+      "title": "Сопровождение и выходы NTD",
+      "summary": "Защитные выходы NTD необходимо держать отдельно от TC2: правила Teeth/Lips, зон и рынoчных разворотов не включаются без профиля.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "TC1.W3",
+      "source": "TC1",
+      "pdf_pages": [
+        53
+      ],
+      "title": "Признаки завершения импульса третьей волны",
+      "summary": "Фрактальные экстремумы, цель, замедление моментума и дополнительные признаки истощения рассматриваются совместно, не как гарантия разворота.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC1.W4",
+      "source": "TC1",
+      "pdf_pages": [
+        53,
+        54
+      ],
+      "title": "Четвёртая волна",
+      "summary": "После предполагаемой W3 изучать смену режима, чередование коррекций и нулевую область 5/34 по выбранной степени; одиночный AO у нуля не доказывает конец W4.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC1.W5",
+      "source": "TC1",
+      "pdf_pages": [
+        54
+      ],
+      "title": "Пятая волна и вложенность",
+      "summary": "Точки завершения W5 оцениваются через целевые зоны, фракталы, моментум и структуру младшей степени, не через одну дивергенцию.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC1.RHYTHM",
+      "source": "TC1",
+      "pdf_pages": [
+        54
+      ],
+      "title": "100–140 баров",
+      "summary": "Относится к подходящему масштабу рассматриваемой последовательности; менять таймфрейм для наблюдения, не подменять рынок растягиванием свечей.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "TC1.FRACTAL",
+      "source": "TC1",
+      "pdf_pages": [
+        59,
+        65
+      ],
+      "title": "Фрактальная организация",
+      "summary": "Разметка фракталов и внутренних степеней волн — проверяемые модели, допускающие альтернативы и необходимость ждать подтверждающие бары.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "COURSE.AO5345",
+      "source": "COURSE",
+      "pdf_pages": [
+        42
+      ],
+      "title": "Profitunity 5/34/5",
+      "summary": "Схему 5/34/5 и индикаторы ритма нельзя автоматически считать тождественными AO и AC как единый сигнал; курс использует их для оценки волн.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "COURSE.W4.ZERO",
+      "source": "COURSE",
+      "pdf_pages": [
+        43
+      ],
+      "title": "Окончание волны 3 и начало коррекции 4",
+      "summary": "При подборе масштаба отслеживать движение 5/34 к нулю после W3; если на текущем масштабе не произошло, это может быть не выбранная степень W4.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "COURSE.RHYTHM",
+      "source": "COURSE",
+      "pdf_pages": [
+        43
+      ],
+      "title": "Масштаб наблюдения",
+      "summary": "Исследовать степень волны на том ТФ, где волновая последовательность занимает примерно 100–140 свечей; не превращать число свечей в отдельный торговый триггер.",
+      "status": "REVIEWED_PAGES",
+      "category": "signal"
+    },
+    {
+      "id": "COURSE.HUMP",
+      "source": "COURSE",
+      "pdf_pages": [
+        77,
+        84
+      ],
+      "title": "Ритм и графические эталоны",
+      "summary": "Графические модели Course и их вложенность требуют визуальной сверки; текстовый OCR не служит доказательством распознавания.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "COURSE.THUMB",
+      "source": "COURSE",
+      "pdf_pages": [
+        39,
+        45
+      ],
+      "title": "Ритм и смена степени",
+      "summary": "Графические модели Thumb/Hump требуют отдельной маркировки на изображениях, а не простого словесного определения.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    },
+    {
+      "id": "COURSE.TRADING_PARTNER",
+      "source": "COURSE",
+      "pdf_pages": [
+        89,
+        94
+      ],
+      "title": "Торговая программа и роль контроля",
+      "summary": "Дисциплина и контроль торгового процесса — отдельная часть курса; нельзя объявлять её автоматическим паттерном входа.",
+      "status": "PRIOR_AUDIT_NOT_YET_RECHECKED",
+      "category": "signal"
+    }
+  ]
+}
