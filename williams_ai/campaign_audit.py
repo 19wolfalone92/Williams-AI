@@ -90,8 +90,8 @@ def audit_campaign(journal: dict[str, Any]) -> dict[str, Any]:
             stop = None
             if not ack:
                 report("OPEN_NOT_VERIFIED_BY_EXCHANGE", "CRITICAL", at)
-            # Even a supposedly immediate protective stop must be separately ACKed.
-            report("STOP_NOT_YET_CONFIRMED_AFTER_OPEN", "CRITICAL", at)
+            # A protective stop is separately acknowledged. A same-timestamp
+            # ACK does not prove an interval of unprotected exposure.
 
         elif kind in {"STOP_ACK", "STOP_REPLACE_ACK"}:
             level = _positive(event.get("stop_price"), "stop price")
@@ -99,6 +99,9 @@ def audit_campaign(journal: dict[str, Any]) -> dict[str, Any]:
                 report("STOP_EVENT_WITHOUT_OPEN_POSITION", "WARNING", at)
             elif not ack:
                 report("STOP_UNCONFIRMED_BY_EXCHANGE", "CRITICAL", at)
+            elif stop is None and at > _utc(position["opened_at"]):
+                report("EXPOSURE_INTERVAL_BEFORE_FIRST_STOP_ACK", "CRITICAL", at)
+                stop = level
             elif stop is not None and (
                 (position["side"] == "LONG" and level < stop)
                 or (position["side"] == "SHORT" and level > stop)
@@ -129,8 +132,8 @@ def audit_campaign(journal: dict[str, Any]) -> dict[str, Any]:
                 report("OPPOSITE_SIGNAL_MISTAKEN_FOR_EXECUTED_REVERSAL", "CRITICAL", at)
             if reason == "UNKNOWN":
                 report("CLOSE_REASON_UNKNOWN", "CRITICAL", at)
-            if reason == "SL_TRIGGERED" and stop is None:
-                report("STOP_FILL_WITHOUT_PRIOR_STOP_ACK", "CRITICAL", at)
+            if stop is None:
+                report("CLOSE_FILL_WITHOUT_PRIOR_STOP_ACK", "CRITICAL", at)
             if reason in {"MANUAL", "RISK_EMERGENCY"}:
                 report("NON_STRATEGY_EXIT_REQUIRES_SEPARATE_EVIDENCE", "INFO", at)
             position = None
