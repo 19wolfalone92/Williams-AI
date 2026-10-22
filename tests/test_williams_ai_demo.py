@@ -11,9 +11,15 @@ class FakeVenue:
         self.calls = []
         self.stop_ok = stop_ok
         self.market_submissions = 0
+        self.uncertain_entry = False
 
     def __call__(self, method, path, body, headers):
         self.calls.append((method, path, parse_qs(body), headers))
+        if method == "GET" and path == "/fapi/v1/exchangeInfo":
+            return {"symbols": [{"symbol": "ETHUSDT", "status": "TRADING",
+                "filters": [{"filterType": "MARKET_LOT_SIZE", "stepSize": "0.001",
+                             "minQty": "0.001", "maxQty": "100"},
+                            {"filterType": "PRICE_FILTER", "tickSize": "0.01"}]}]}
         if method == "GET" and path == "/fapi/v1/premiumIndex":
             return {"markPrice": "100"}
         if method == "GET" and path == "/fapi/v1/positionSide/dual":
@@ -30,6 +36,8 @@ class FakeVenue:
             }
         if method == "POST" and path == "/fapi/v1/order":
             self.market_submissions += 1
+            if self.uncertain_entry:
+                raise TimeoutError("fake exchange timeout")
             return {"symbol": "ETHUSDT", "orderId": 42, "status": "FILLED"}
         if method == "DELETE" and path == "/fapi/v1/algoOrder":
             return {"algoId": 99999, "algoStatus": "CANCELED"}
@@ -90,6 +98,22 @@ class DemoGatewayTests(unittest.TestCase):
             self.engine.propose("ETHUSDT", "BUY", "0.2", "120")
         with self.assertRaisesRegex(DemoSafetyError, "лимит"):
             self.engine.propose("ETHUSDT", "BUY", "5", "95")
+        self.assertEqual(self.venue.market_submissions, 0)
+
+    def test_uncertain_market_response_leaves_protection_in_place(self):
+        self.venue.uncertain_entry = True
+        p = self.engine.propose("ETHUSDT", "BUY", "0.2", "95")
+        with self.assertRaises(DemoSafetyError):
+            self.engine.execute(p.ticket, confirmation="PLACE_DEMO_ORDER")
+        self.assertFalse(any(method == "DELETE" for method, *_ in self.venue.calls))
+        self.assertEqual(self.venue.market_submissions, 1)
+        with self.assertRaises(DemoSafetyError):
+            self.engine.execute(p.ticket, confirmation="PLACE_DEMO_ORDER")
+
+    def test_order_qty_fails_exchange_precision_without_post(self):
+        p = self.engine.propose("ETHUSDT", "BUY", "0.12345", "95")
+        with self.assertRaises(DemoSafetyError):
+            self.engine.execute(p.ticket, confirmation="PLACE_DEMO_ORDER")
         self.assertEqual(self.venue.market_submissions, 0)
 
     def test_no_external_timestamp_or_signature(self):
