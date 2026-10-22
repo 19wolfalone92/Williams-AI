@@ -48,7 +48,7 @@ class WaveMemoryTests(unittest.TestCase):
         self.assertIsNone(diagonal["trade_action"])
 
     def test_w2_origin_and_w3_shortest_rejected(self):
-        x=structural_exam({"pattern":"IMPULSE","pivots":[100,120,99,125,120,170]})
+        x=structural_exam({"pattern":"IMPULSE","pivots":[100,120,99,115,110,150]})
         self.assertIn("W2_BREACHES_ORIGIN",x["violations"])
         self.assertIn("W3_SHORTEST",x["violations"])
 
