@@ -28,6 +28,9 @@ jobs:
         run: python -m unittest discover -s tests -p "test_williams_ai_*.py" -v
       - name: Compile Python
         run: python -m compileall -q williams_ai
+      - name: Verify no book extracts committed
+        run: |
+          test -z "$(find knowledge williams_ai -type f \( -name '*.pdf' -o -name '*.sqlite3' -o -name '*.db' \))"
       - name: CLI offline smoke
         run: |
           python -m williams_ai.cli examples/ai_market_snapshot.json

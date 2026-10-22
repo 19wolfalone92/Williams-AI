@@ -64,3 +64,11 @@ models/
 # Native Android build outputs
 mobile/.build/
 mobile/out/
+
+# Licensed book excerpts / local RAG must never enter public git
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+private_books/
+private_ocr/
