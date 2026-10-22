@@ -32,7 +32,7 @@ class AndroidOfflineContract(unittest.TestCase):
         for required in (
             "MessageDigest.getInstance", "SHA-256", "File.createTempFile",
             "contentResolver.openInputStream", "partial.renameTo(destination)",
-            "inference.sendUserPrompt", "AiChat.getInferenceEngine",
+            "engine.sendUserPrompt", "AiChat.getInferenceEngine",
         ):
             self.assertIn(required, kotlin)
         for forbidden in (

@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity() {
                 return destination
             }
             check(partial.renameTo(destination)) { "Не удалось сохранить GGUF" }
-            return final
+            return destination
         } finally {
             partial.delete()
         }
