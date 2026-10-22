@@ -27,6 +27,17 @@ class AndroidOfflineContract(unittest.TestCase):
         self.assertIn('rev-parse HEAD', script)
         self.assertIn('= "$pin"', script)
 
+    def test_native_builder_copies_research_layout_and_checks_permissions(self):
+        script = (MOBILE / "build_offline_android.sh").read_text(encoding="utf-8")
+        for path in (
+            "app/src/main/java/com/example/llama/WebResearch.kt",
+            "app/src/main/res/layout/activity_main.xml",
+        ):
+            self.assertIn(path, script)
+        self.assertIn('permissions == ["android.permission.INTERNET"]', script)
+        layout = (MOBILE / "overlay/app/src/main/res/layout/activity_main.xml").read_text(encoding="utf-8")
+        self.assertIn('android:id="@+id/web_enabled"', layout)
+
     def test_secure_local_model_import(self):
         kotlin = (MOBILE / "overlay/app/src/main/java/com/example/llama/MainActivity.kt").read_text(encoding="utf-8")
         for required in (
