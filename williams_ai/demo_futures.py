@@ -27,6 +27,7 @@ DEMO_HOST = "demo-fapi.binance.com"
 ALLOWED_SYMBOLS = frozenset({"BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"})
 _ALLOWED = {
     ("GET", "/fapi/v1/premiumIndex"),
+    ("GET", "/fapi/v1/exchangeInfo"),
     ("GET", "/fapi/v1/positionSide/dual"),
     ("GET", "/fapi/v3/positionRisk"),
     ("GET", "/fapi/v1/algoOrder"),
@@ -181,6 +182,37 @@ class DemoFutures:
             self._issued[proposal.ticket] = proposal
         return proposal
 
+    def _check_contract_filters(self, proposal: TradeProposal) -> None:
+        info = self._client.request(
+            "GET", "/fapi/v1/exchangeInfo", {"symbol": proposal.symbol}
+        )
+        listing = info.get("symbols")
+        if not isinstance(listing, list) or len(listing) != 1:
+            raise DemoSafetyError("Нет точных биржевых ограничений символа")
+        item = listing[0]
+        if item.get("symbol") != proposal.symbol or item.get("status") != "TRADING":
+            raise DemoSafetyError("Контракт недоступен на DEMO")
+        qty = _decimal(proposal.quantity)
+        stop = _decimal(proposal.stop_price)
+        found_market_lot = False
+        found_price_filter = False
+        for rule in item.get("filters", []):
+            typ = rule.get("filterType")
+            if typ == "MARKET_LOT_SIZE":
+                step = _decimal(rule["stepSize"])
+                minimum = _decimal(rule["minQty"])
+                maximum = _decimal(rule["maxQty"])
+                if qty < minimum or qty > maximum or qty % step:
+                    raise DemoSafetyError("Объём не соответствует MARKET_LOT_SIZE")
+                found_market_lot = True
+            if typ == "PRICE_FILTER":
+                tick = _decimal(rule["tickSize"])
+                if stop % tick:
+                    raise DemoSafetyError("Уровень SL не соответствует PRICE_FILTER")
+                found_price_filter = True
+        if not found_market_lot or not found_price_filter:
+            raise DemoSafetyError("Неполные ограничения Binance exchangeInfo")
+
     def _flat_one_way(self, symbol: str) -> None:
         dual = self._client.request("GET", "/fapi/v1/positionSide/dual", signed=True)
         if dual.get("dualSidePosition") is not False:
@@ -223,6 +255,7 @@ class DemoFutures:
         if self._clock() > proposal.expires_at:
             raise DemoSafetyError("Подтверждение устарело — создайте новую заявку")
         self._flat_one_way(proposal.symbol)
+        self._check_contract_filters(proposal)
         # Re-evaluate market for adverse move since the quote was prepared.
         now = self._client.request(
             "GET", "/fapi/v1/premiumIndex", {"symbol": proposal.symbol}
@@ -239,6 +272,7 @@ class DemoFutures:
 
         algo_id: str | None = None
         entered = False
+        entry_attempted = False
         try:
             protective = self._client.request(
                 "POST", "/fapi/v1/algoOrder", {
@@ -256,7 +290,8 @@ class DemoFutures:
             algo_id = str(protective["algoId"])
             if not self._stop_confirmed(algo_id, proposal):
                 raise DemoSafetyError("DEMO STOP не подтверждён, вход запрещён")
-            self._client.request(
+            entry_attempted = True  # After this point a timeout may mean FILLED.
+            order_response = self._client.request(
                 "POST", "/fapi/v1/order", {
                     "symbol": proposal.symbol,
                     "side": proposal.side,
@@ -267,7 +302,9 @@ class DemoFutures:
                     "newClientOrderId": "WAIEN" + ticket[:23],
                 }, signed=True
             )
-            entered = True  # Also conservatively assumed after timeout below.
+            entered = True
+            if order_response.get("symbol") != proposal.symbol or order_response.get("status") != "FILLED":
+                raise DemoSafetyError("Демо-вход не подтверждён как FILLED; сверить вручную")
             if not self._stop_confirmed(algo_id, proposal):
                 raise DemoSafetyError("После входа подтверждение защитного SL потеряно")
             return {
@@ -281,8 +318,8 @@ class DemoFutures:
         except Exception as exc:
             with self._lock:
                 self._fatal = True
-            # Never blindly send duplicate entry. If POST timed out, result
-            # is unknown and must be verified by operator.
+            # Never blindly send a duplicate entry. If POST timed out,
+            # the result is unknown: retain the stop and require reconciliation.
             if entered:
                 try:
                     self._client.request(
@@ -298,8 +335,8 @@ class DemoFutures:
                     )
                 except Exception:
                     pass
-            # If entry may have happened on timeout, do NOT remove SL.
-            if algo_id and not entered and isinstance(exc, DemoSafetyError):
+            # If entry may have happened on timeout, DO NOT remove SL.
+            if algo_id and not entry_attempted and isinstance(exc, DemoSafetyError):
                 try:
                     self._client.request(
                         "DELETE", "/fapi/v1/algoOrder",
