@@ -99,6 +99,19 @@ class FrozenMarketTests(unittest.TestCase):
         self.assertEqual(_exit_price(c,100,"LONG"),100*(1-0.0002))
         self.assertEqual(_exit_price(c,100,"SHORT"),105*(1+0.0002))
 
+    def test_model_learns_only_past_training_labels_on_15_pairs(self):
+        from williams_ai.experience_journal import study_15
+        r=study_15()
+        self.assertEqual(r["trained_models"],15)
+        self.assertFalse(r["execution_allowed"])
+        self.assertFalse(r["language_model_weights_modified"])
+        self.assertEqual(len(r["reports"]),15)
+        for item in r["reports"]:
+            self.assertGreater(item["train_count"],0)
+            self.assertGreater(item["test_samples"],0)
+            self.assertTrue(0<=item["test_brier"]<=1)
+            self.assertFalse(item["execution_allowed"])
+
     def test_future_must_not_enter_past_candidate(self):
         rows=synthetic()
         bars,_=validate_closed_bars(rows,"H1",rows[-1]["close_time"])
