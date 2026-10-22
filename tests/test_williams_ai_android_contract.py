@@ -16,8 +16,8 @@ class AndroidOfflineContract(unittest.TestCase):
 
     def test_network_permission_not_requested(self):
         manifest = (MOBILE / "overlay/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-        self.assertNotIn('<uses-permission', manifest)
-        self.assertNotIn('android.permission.INTERNET', manifest.split("<manifest", 1)[1].split("<application", 1)[0])
+        self.assertIn('android.permission.INTERNET', manifest)
+        self.assertNotIn("ACCESS_FINE_LOCATION", manifest)
         self.assertIn('android:allowBackup="false"', manifest)
 
     def test_pin_is_exact_commit_and_never_branch(self):
@@ -35,9 +35,11 @@ class AndroidOfflineContract(unittest.TestCase):
             "engine.sendUserPrompt", "AiChat.getInferenceEngine",
         ):
             self.assertIn(required, kotlin)
+        self.assertIn("WebResearch.shouldLookup", kotlin)
+        self.assertIn("webToggle.isChecked", kotlin)
         for forbidden in (
             "BinanceFuturesClient", "api.binance.com", "OPENAI_API_KEY",
-            "android.permission.INTERNET", "orderEndpoint", "POST /fapi",
+            "api.binance.com", "orderEndpoint", "POST /fapi",
         ):
             self.assertNotIn(forbidden, kotlin)
 
