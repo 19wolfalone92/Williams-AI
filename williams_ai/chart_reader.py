@@ -277,6 +277,16 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
                 "status":"UNCONFIRMED_WAVE_DEGREE",
                 "source":"TC1 PDF 53-54 / Course PDF 42-43",
             })
+    from .wave_evidence import wave_context
+    waves=wave_context(candles,lines["ao"])
+    result["wave_structure"]=waves
+    if waves["impulse_alternatives"]:
+        result["hypotheses"].append({
+            "hypothesis":"Confirmed swing pivots admit tentative impulse-shaped alternatives.",
+            "alternatives": waves["impulse_alternatives"],
+            "status":"UNCONFIRMED_WAVE_DEGREE",
+            "source":"TC1 PDF 53-54 / Course PDF 42-43",
+        })
     result["warnings"].append(
         "WM1 angulation numerical check is an approximation; no verified nested Elliott wave labelling.")
     return result
