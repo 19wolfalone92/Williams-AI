@@ -1,0 +1,57 @@
+# Environment and secrets
+.env
+deploy/.env
+keystore.properties
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Runtime database
+data/*.sqlite3
+data/*.sqlite3-wal
+data/*.sqlite3-shm
+
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+
+# Signing keys
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# Build artifacts / archives
+*.apk
+*.aab
+*.zip
+
+# Deployment runtime data
+deploy/credentials/
+deploy/backups/
+
+# Local encrypted credential key
+data/binance_credentials.enc
+data/credential_master.key
+
+# Runtime logs
+*.log
+server.log
+
+# Android signing material
+.signing/
+*.jks
+
+# Local development backups / temporary test data
+*.before_*
+data/test_backups/
+data/test_tmp/
+
+# All local runtime data
+data/
+
+# Local Binance historical kline cache (generated at runtime)
+data_cache/

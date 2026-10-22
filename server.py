@@ -1,0 +1,1266 @@
+import os, threading, time, asyncio, json
+from datetime import datetime, timezone
+from typing import Optional
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, Response
+from pydantic import BaseModel
+from db import Database
+from futures_williams_runtime import FuturesWilliamsRuntime as Trader
+from portfolio_trader import MultiPositionTrader
+from data import fetch_klines
+from strategy import calculate_indicators, config_from_env
+from ws_hub import WebSocketHub
+from credentials_store import CredentialStore
+from market_context import ContextCache
+from mtf_context_service import MultiTimeframeContextService
+from feature_store import FeatureStore
+from binance_futures_client import BinanceFuturesClient
+
+load_dotenv()
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, str(default)).strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+API_TOKEN = os.getenv('MOBILE_API_TOKEN', '').strip()
+VERSION = '4.33.0'
+
+app = FastAPI(title='Williams Binance Bot API', version=VERSION)
+hub = WebSocketHub()
+context_cache = ContextCache()
+mtf_service = MultiTimeframeContextService(context_cache)
+quant_store = FeatureStore()
+
+
+class MetricsRegistry:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.counters = {
+            "http_requests_total": 0,
+            "http_errors_total": 0,
+            "ws_connections_total": 0,
+            "trading_starts_total": 0,
+            "kill_switch_total": 0,
+        }
+        self.latency = {"http_request_seconds_sum": 0.0, "http_request_seconds_count": 0}
+
+    def inc(self, name, value=1):
+        with self.lock:
+            self.counters[name] = self.counters.get(name, 0) + value
+
+    def observe_http(self, seconds):
+        with self.lock:
+            self.latency["http_request_seconds_sum"] += seconds
+            self.latency["http_request_seconds_count"] += 1
+
+    def render(self, state):
+        with self.lock:
+            counters = dict(self.counters)
+            latency = dict(self.latency)
+        lines = [
+            "# HELP williams_http_requests_total Total HTTP requests.",
+            "# TYPE williams_http_requests_total counter",
+            f"williams_http_requests_total {counters['http_requests_total']}",
+            "# HELP williams_http_errors_total Total HTTP 4xx/5xx responses.",
+            "# TYPE williams_http_errors_total counter",
+            f"williams_http_errors_total {counters['http_errors_total']}",
+            "# HELP williams_http_request_seconds HTTP request latency.",
+            "# TYPE williams_http_request_seconds summary",
+            f"williams_http_request_seconds_sum {latency['http_request_seconds_sum']}",
+            f"williams_http_request_seconds_count {latency['http_request_seconds_count']}",
+            "# HELP williams_ws_connections_total WebSocket client connections.",
+            "# TYPE williams_ws_connections_total counter",
+            f"williams_ws_connections_total {counters['ws_connections_total']}",
+            "# HELP williams_trading_starts_total Trading starts.",
+            "# TYPE williams_trading_starts_total counter",
+            f"williams_trading_starts_total {counters['trading_starts_total']}",
+            "# HELP williams_kill_switch_total Kill switch invocations.",
+            "# TYPE williams_kill_switch_total counter",
+            f"williams_kill_switch_total {counters['kill_switch_total']}",
+            "# HELP williams_running Trading engine running state.",
+            "# TYPE williams_running gauge",
+            f"williams_running {1 if state.running else 0}",
+            "# HELP williams_paused Trading engine paused state.",
+            "# TYPE williams_paused gauge",
+            f"williams_paused {1 if state.paused else 0}",
+            "# HELP williams_open_positions Open managed positions.",
+            "# TYPE williams_open_positions gauge",
+            f"williams_open_positions {len(state.ensure_multi().open_positions())}",
+            "# HELP williams_reconciliation_required Reconciliation barrier state.",
+            "# TYPE williams_reconciliation_required gauge",
+            f"williams_reconciliation_required {1 if (_canonical_execution_state(state.ensure_multi())[1] or _canonical_execution_state(state.ensure_multi())[2]) else 0}",
+        ]
+        return "\n".join(lines) + "\n"
+
+metrics = MetricsRegistry()
+
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    started = time.perf_counter()
+    metrics.inc("http_requests_total")
+    try:
+        response = await call_next(request)
+        if response.status_code >= 400:
+            metrics.inc("http_errors_total")
+        return response
+    finally:
+        metrics.observe_http(time.perf_counter() - started)
+
+@app.get("/metrics")
+def prometheus_metrics():
+    return Response(content=metrics.render(state), media_type="text/plain; version=0.0.4")
+
+
+class CredentialPayload(BaseModel):
+    api_key: str
+    api_secret: str
+    testnet: bool = True
+
+
+class ControlState:
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.trader = None
+        self.scanner = None
+        self.thread = None
+        self.running = False
+        self.paused = False
+        self.last_error = None
+        self.desired_running = False
+        self._control_epoch = 0
+        self.api_key = ''
+        self.api_secret = ''
+        self.testnet = True
+        self.credentials = CredentialStore()
+        stored = self.credentials.load()
+        if stored:
+            self.api_key = stored['api_key']
+            self.api_secret = stored['api_secret']
+            self.testnet = stored['testnet']
+
+    def configure(self, key, secret, testnet=True):
+        key = key.strip()
+        secret = secret.strip()
+        testnet = bool(testnet)
+        if not key or not secret:
+            raise RuntimeError('Binance API key and secret are required.')
+
+        # Validate USDⓈ-M Futures credentials before persisting them. A valid
+        # Spot key/account is not sufficient for the Futures trading path.
+        candidate = BinanceFuturesClient(key, secret, testnet=testnet)
+        try:
+            candidate.sync_time()
+            account = candidate.account()
+            if str(account.get('accountType', 'FUTURES')).upper() not in {'FUTURES', 'USD_M_FUTURES'}:
+                raise RuntimeError('Configured Binance account is not USD-M Futures.')
+            if not testnet:
+                restrictions = candidate.api_restrictions()
+                futures_permission = restrictions.get('enableFutures')
+                if futures_permission is None:
+                    futures_permission = restrictions.get('enableUmFutures')
+                if futures_permission is False:
+                    raise RuntimeError('Live Futures API key does not permit USD-M Futures trading.')
+                if not bool(restrictions.get('enableReading', False)):
+                    raise RuntimeError('Live Futures API key must allow account reading.')
+                if bool(restrictions.get('enableWithdrawals', True)):
+                    raise RuntimeError('Live Futures API key must have withdrawals disabled.')
+        except Exception as exc:
+            raise RuntimeError(f'Binance credential validation failed: {exc}') from exc
+
+        with self.lock:
+            if self.running and (
+                key != self.api_key
+                or secret != self.api_secret
+                or testnet != self.testnet
+            ):
+                raise RuntimeError(
+                    'Stop the bot before changing Binance credentials.'
+                )
+            if self.running and (
+                key == self.api_key
+                and secret == self.api_secret
+                and testnet == self.testnet
+            ):
+                return
+            self.api_key = key
+            self.api_secret = secret
+            self.testnet = testnet
+            self.trader = None
+            self.scanner = None
+            self.credentials.save(
+                self.api_key,
+                self.api_secret,
+                self.testnet,
+            )
+        # Futures trading is backend-authoritative. Spot websocket/MTF services
+        # are not started in Futures mode to avoid a second exchange state source.
+        if os.getenv("BINANCE_MARKET", "futures_usdt").strip().lower() == "spot":
+            hub.configure_credentials(self.api_key, self.api_secret, self.testnet)
+            mtf_service.configure_credentials(self.api_key, self.api_secret, self.testnet)
+
+    def ensure_trader(self):
+        with self.lock:
+            if self.trader is None:
+                self.trader = Trader(
+                    api_key=self.api_key or None,
+                    api_secret=self.api_secret or None,
+                    testnet=self.testnet,
+                    context_cache=context_cache,
+                )
+            return self.trader
+
+    def ensure_scanner(self):
+        with self.lock:
+            t = self.ensure_trader()
+            if self.scanner is None:
+                self.scanner = t.scanner
+            return self.scanner
+
+    def ensure_multi(self):
+        with self.lock:
+            t = self.ensure_trader()
+            if getattr(t, 'is_futures_runtime', False):
+                return t
+            if not hasattr(t, '_multi_position_trader'):
+                t._multi_position_trader = MultiPositionTrader(
+                    t.client,
+                    db=t.db,
+                    symbols=t.auto_scan_symbols,
+                    execution_barrier=t.execution_barrier,
+                )
+            return t._multi_position_trader
+
+    def loop(self, control_epoch=None):
+        t = self.ensure_trader()
+        try:
+            t.setup()
+            with self.lock:
+                if control_epoch is not None and (control_epoch != self._control_epoch or not self.desired_running):
+                    return
+                # Only the still-current explicit START may re-arm after KILL.
+                t.db.state_set('kill_switch_latched', 'false')
+                t.db.state_set('entry_admission_paused', str(self.paused).lower())
+                self.running = True
+                self.desired_running = True
+                self.last_error = None
+            while self.running:
+                try:
+                    if self.paused:
+                        if getattr(t, 'is_futures_runtime', False):
+                            t.recover()
+                            if callable(getattr(t, 'manage_open_positions', None)):
+                                t.manage_open_positions()
+                    else:
+                        t.process()
+                except Exception as e:
+                    self.last_error = f'{type(e).__name__}: {e}'
+                    t.db.log_event('ERROR', 'api_loop_error', self.last_error)
+                time.sleep(t.poll_seconds)
+        except Exception as e:
+            self.last_error = f'{type(e).__name__}: {e}'
+            try:
+                t.db.log_event('ERROR', 'api_loop_fatal', self.last_error)
+            except Exception:
+                pass
+        finally:
+            with self.lock:
+                self.running = False
+
+    def start(self):
+        with self.lock:
+            if (
+                self.thread is not None
+                and self.thread.is_alive()
+            ):
+                return False
+            self.paused = False
+            self.desired_running = True
+            self._control_epoch += 1
+            self.thread = threading.Thread(
+                target=self.loop,
+                args=(self._control_epoch,),
+                daemon=True,
+                name='williams-trader',
+            )
+            self.thread.start()
+            metrics.inc("trading_starts_total")
+            return True
+
+    def stop(self):
+        with self.lock:
+            self.desired_running = False
+            self._control_epoch = getattr(self, '_control_epoch', 0) + 1
+            self.running = False
+            self.paused = False
+            thread = self.thread
+            if self.trader is not None:
+                self.trader.db.state_set('entry_admission_paused', 'true')
+        if (
+            thread is not None
+            and thread.is_alive()
+            and thread is not threading.current_thread()
+        ):
+            thread.join(timeout=5)
+        return True
+
+    def pause(self):
+        with self.lock:
+            self.paused = True
+            self.ensure_trader().db.state_set('entry_admission_paused', 'true')
+        return True
+
+    def resume(self):
+        with self.lock:
+            self.ensure_trader().db.state_set('entry_admission_paused', 'false')
+            self.paused = False
+        return True
+
+    def kill(self):
+        metrics.inc("kill_switch_total")
+        with self.lock:
+            self.desired_running = False
+            self._control_epoch = getattr(self, '_control_epoch', 0) + 1
+            # Close only Williams-managed Futures campaigns; never cancel
+            # unrelated account orders.
+            self.running = False
+            self.paused = True
+            thread = self.thread
+
+        t = self.ensure_trader()
+        # Persist the emergency latch before attempting any close operation.
+        t.db.state_set('kill_switch_latched', 'true')
+        t.db.state_set('entry_admission_paused', 'true')
+        multi = self.ensure_multi()
+        errors = []
+        closed = []
+
+        cancel_pending = getattr(multi, 'cancel_pending_entries', None)
+        if callable(cancel_pending):
+            try:
+                cancelled = cancel_pending()
+                if not cancelled.get('ok', False):
+                    errors.append('pending entries: ' + str(cancelled))
+            except Exception as exc:
+                errors.append('pending entries: ' + str(exc))
+
+        try:
+            open_trades = list(multi.open_trades())
+        except Exception as exc:
+            open_trades = []
+            errors.append("open_trades: " + str(exc))
+
+        for trade in open_trades:
+            symbol = str(trade.get("symbol", "")).upper()
+            if not symbol:
+                continue
+            try:
+                result = multi.manual_sell(symbol)
+                if result.get('sold') is True and result.get('state', 'CLOSED') in {'CLOSED', 'FLAT'}:
+                    closed.append({"symbol": symbol, "result": result})
+                else:
+                    errors.append(f"{symbol}: close not confirmed: {result}")
+            except Exception as exc:
+                errors.append(f"{symbol}: {exc}")
+
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=3)
+        worker_stopped = thread is None or not thread.is_alive()
+        if not worker_stopped:
+            errors.append('Trading worker has not stopped; entry admission remains latched')
+
+        t.db.log_event(
+            "ERROR" if errors else "WARNING",
+            "kill_switch",
+            "Emergency kill switch executed",
+            {
+                "closed_positions": [x["symbol"] for x in closed],
+                "errors": errors,
+            },
+        )
+        try:
+            t.notify(
+                "KILL SWITCH\n"
+                "Trading stopped; Williams-managed positions were closed.\n"
+                + ("Errors: " + "; ".join(errors) if errors else "No errors.")
+            )
+        except Exception:
+            pass
+
+        return {
+            "killed": True,
+            "trading_stopped": worker_stopped,
+            "closed_positions": closed,
+            "errors": errors,
+            "state": "RECONCILE_REQUIRED" if errors else "FLAT",
+        }
+
+
+state = ControlState()
+
+scanner_lock = threading.RLock()
+scanner_cache = {
+    "time": 0.0,
+    "data": [],
+    "scanning": False,
+    "last_error": None,
+    "started_at": 0.0,
+    "duration_ms": 0,
+    "symbols_scanned": 0,
+    "symbols_configured": 0,
+    "long_candidates": 0,
+    "short_candidates": 0,
+    "scan_status": {},
+}
+
+SCANNER_CACHE_SECONDS = max(
+    10,
+    int(os.getenv("SCANNER_CACHE_SECONDS", "30")),
+)
+SCANNER_AUTO_REFRESH_SECONDS = max(
+    30,
+    int(os.getenv("SCANNER_AUTO_REFRESH_SECONDS", "60")),
+)
+scanner_watchdog_stop = threading.Event()
+scanner_watchdog_thread = None
+supervisor_stop = threading.Event()
+supervisor_thread = None
+heartbeat_stop = threading.Event()
+heartbeat_thread = None
+
+
+def _scanner_snapshot():
+    with scanner_lock:
+        now = time.time()
+        age = (
+            round(now - scanner_cache["time"], 2)
+            if scanner_cache["time"]
+            else None
+        )
+        fresh = bool(
+            scanner_cache["time"]
+            and age is not None
+            and age < SCANNER_CACHE_SECONDS
+        )
+        scanning = bool(scanner_cache["scanning"])
+        last_error = scanner_cache["last_error"]
+        scan_state = str((scanner_cache.get("scan_status") or {}).get("state", "")).upper()
+        if scanning:
+            state_name = "RUNNING"
+        elif last_error:
+            state_name = "ERROR"
+        elif scan_state in {"BLOCKED", "PARTIAL"}:
+            state_name = scan_state
+        elif scanner_cache["time"]:
+            state_name = "READY"
+        else:
+            state_name = "NOT_RUN"
+        return {
+            "cached": bool(scanner_cache["time"]),
+            "has_candidates": bool(scanner_cache["data"]),
+            "candidate_count": len(scanner_cache["data"]),
+            "duration_ms": int(scanner_cache["duration_ms"]),
+            "symbols_scanned": int(scanner_cache["symbols_scanned"]),
+            "symbols_configured": int(scanner_cache["symbols_configured"]),
+            "long_candidates": int(scanner_cache["long_candidates"]),
+            "short_candidates": int(scanner_cache["short_candidates"]),
+            "scan_status": dict(scanner_cache["scan_status"]),
+            "scanner_symbols": int(scanner_cache["symbols_scanned"]),
+            "fresh": fresh,
+            "cache_ttl_seconds": SCANNER_CACHE_SECONDS,
+            "scanning": scanning,
+            "scanner_state": state_name,
+            "age_seconds": age,
+            "scanner_age_seconds": age,
+            "last_error": last_error,
+            "scanner_error": last_error or (scanner_cache.get("scan_status") or {}).get("reason"),
+            "started_at": scanner_cache["started_at"],
+            "candidates": list(scanner_cache["data"]),
+        }
+
+
+def _scanner_cache_fresh():
+    with scanner_lock:
+        if not scanner_cache["time"]:
+            return False
+        return (
+            time.time() - scanner_cache["time"]
+        ) < SCANNER_CACHE_SECONDS
+
+
+def _scanner_worker():
+    try:
+        with scanner_lock:
+            scanner_cache["last_error"] = None
+            scanner_cache["scan_status"] = {
+                "state": "RUNNING",
+                "reason": None,
+                "configured_symbols": int(scanner_cache.get("symbols_configured", 0)),
+                "evaluated_symbols": 0,
+            }
+            scanner_cache["symbols_scanned"] = 0
+            scanner_cache["long_candidates"] = 0
+            scanner_cache["short_candidates"] = 0
+
+        started = time.monotonic()
+        scanner = state.ensure_scanner()
+        results = scanner.scan()
+        data = [
+            candidate.to_dict()
+            for candidate in results
+        ]
+
+        with scanner_lock:
+            scanner_cache["time"] = time.time()
+            scanner_cache["data"] = data
+            scanner_cache["duration_ms"] = int(
+                (time.monotonic() - started) * 1000
+            )
+            scan_status = dict(getattr(scanner, "last_scan_status", {}) or {})
+            scanner_cache["scan_status"] = scan_status
+            scanner_cache["symbols_configured"] = int(
+                scan_status.get("configured_symbols", len(getattr(scanner, "symbols", []) or [])) or 0
+            )
+            scanner_cache["symbols_scanned"] = int(
+                scan_status.get("evaluated_symbols", 0) or 0
+            )
+            scanner_cache["long_candidates"] = sum(
+                1 for candidate in data
+                if str(candidate.get("side", "")).upper() == "LONG"
+            )
+            scanner_cache["short_candidates"] = sum(
+                1 for candidate in data
+                if str(candidate.get("side", "")).upper() == "SHORT"
+            )
+
+    except Exception as exc:
+        with scanner_lock:
+            scanner_cache["last_error"] = (
+                f"{type(exc).__name__}: {exc}"
+            )
+            scanner_cache["scan_status"] = {
+                "state": "ERROR",
+                "reason": scanner_cache["last_error"],
+                "configured_symbols": int(scanner_cache.get("symbols_configured", 0)),
+                "evaluated_symbols": int(scanner_cache.get("symbols_scanned", 0)),
+            }
+
+    finally:
+        with scanner_lock:
+            scanner_cache["scanning"] = False
+
+
+def _scanner_watchdog():
+    while not scanner_watchdog_stop.wait(SCANNER_AUTO_REFRESH_SECONDS):
+        try:
+            if not state.running or state.paused:
+                continue
+            if not _scanner_cache_fresh():
+                _start_scanner_background()
+        except Exception as exc:
+            with scanner_lock:
+                scanner_cache["last_error"] = f"watchdog: {type(exc).__name__}: {exc}"
+
+
+def _start_scanner_background(force=False):
+    with scanner_lock:
+        if scanner_cache["scanning"]:
+            return False
+        if force:
+            scanner_cache["data"] = []
+            scanner_cache["time"] = 0.0
+            scanner_cache["duration_ms"] = 0
+        scanner_cache["last_error"] = None
+        scanner_cache["started_at"] = time.time()
+        scanner_cache["scanning"] = True
+        thread = threading.Thread(
+            target=_scanner_worker,
+            daemon=True,
+            name="williams-scanner",
+        )
+        thread.start()
+        return True
+
+
+def _runtime_supervisor():
+    """Keep the autonomous backend alive without auto-restarting deliberate STOP/KILL."""
+    while not supervisor_stop.wait(10):
+        try:
+            with state.lock:
+                wanted = bool(state.desired_running)
+                alive = bool(state.thread and state.thread.is_alive())
+                paused = bool(state.paused)
+            if wanted and not alive and not paused:
+                # Never auto-rearm a latched emergency stop or unresolved recovery.
+                try:
+                    t = state.ensure_trader()
+                    latched = str(t.db.state_get('kill_switch_latched', 'false')).lower() == 'true'
+                    unresolved = bool(state.ensure_multi().unresolved_symbols())
+                except Exception as exc:
+                    state.last_error = f'supervisor probe: {type(exc).__name__}: {exc}'
+                    continue
+                if not latched and not unresolved:
+                    state.start()
+        except Exception as exc:
+            state.last_error = f'supervisor: {type(exc).__name__}: {exc}'
+
+
+def _heartbeat_loop():
+    interval = max(300, int(os.getenv('HEARTBEAT_SECONDS', '3600')))
+    while not heartbeat_stop.wait(interval):
+        try:
+            if not state.running or state.paused:
+                continue
+            t = state.ensure_trader()
+            multi = state.ensure_multi()
+            positions = multi.open_positions()
+            account = t.client.account()
+            equity = float(account.get('totalWalletBalance', 0) or 0)
+            available = float(account.get('availableBalance', 0) or 0)
+            t.notify(
+                'WILLIAMS HEARTBEAT\\n'
+                f'state={_canonical_execution_state(multi)[0]}\\n'
+                f'positions={len(positions)}\\n'
+                f'equity≈{equity:.2f} USDT\\n'
+                f'available≈{available:.2f} USDT\\n'
+                f'testnet={t.client.testnet}\\n'
+                f'market=USD_M_FUTURES'
+            )
+        except Exception as exc:
+            try:
+                state.ensure_trader().db.log_event(
+                    'ERROR', 'heartbeat_error',
+                    f'{type(exc).__name__}: {exc}'
+                )
+            except Exception:
+                pass
+
+
+@app.on_event('startup')
+def startup():
+    global scanner_watchdog_thread, supervisor_thread, heartbeat_thread
+    scanner_watchdog_stop.clear()
+    supervisor_stop.clear()
+    heartbeat_stop.clear()
+    scanner_watchdog_thread = threading.Thread(
+        target=_scanner_watchdog,
+        daemon=True,
+        name="williams-scanner-watchdog",
+    )
+    scanner_watchdog_thread.start()
+    supervisor_thread = threading.Thread(
+        target=_runtime_supervisor,
+        daemon=True,
+        name='williams-runtime-supervisor',
+    )
+    supervisor_thread.start()
+    heartbeat_thread = threading.Thread(
+        target=_heartbeat_loop,
+        daemon=True,
+        name='williams-heartbeat',
+    )
+    heartbeat_thread.start()
+    market_mode = os.getenv("BINANCE_MARKET", "futures_usdt").strip().lower()
+    if market_mode == "spot":
+        hub.configure_credentials(state.api_key, state.api_secret, state.testnet)
+        mtf_service.configure_credentials(state.api_key, state.api_secret, state.testnet)
+        mtf_service.db = state.ensure_trader().db
+        hub.start()
+        if _env_bool('MTF_CONTEXT_ENABLED', True):
+            mtf_service.start()
+    if (
+        _env_bool('AUTO_START', True)
+        and state.api_key
+        and state.api_secret
+    ):
+        state.start()
+
+
+@app.on_event('shutdown')
+def shutdown():
+    scanner_watchdog_stop.set()
+    supervisor_stop.set()
+    heartbeat_stop.set()
+    mtf_service.stop()
+    hub.stop()
+    state.stop()
+
+
+def auth(authorization: Optional[str] = Header(None)):
+    if len(API_TOKEN) < 32:
+        raise HTTPException(
+            503,
+            'MOBILE_API_TOKEN is not configured or is too short '
+            '(minimum 32 characters).',
+        )
+    if authorization != f'Bearer {API_TOKEN}':
+        raise HTTPException(401, 'Unauthorized')
+
+
+def db():
+    return state.ensure_trader().db
+
+
+def _canonical_execution_state(multi, positions=None):
+    """Single backend execution-state contract used by health, status and recovery."""
+    unresolved_symbols = list(multi.unresolved_symbols())
+    pending_symbols = [symbol for symbol, _ in multi._pending_entries()]
+
+    # Preserve legacy persisted state only for recovery/compatibility; the
+    # authoritative runtime is risk-budgeted MultiPositionTrader.
+    legacy_state = str(
+        multi.db.state_get('position_state', 'FLAT')
+    ).upper()
+    active_symbol = str(
+        multi.db.state_get('active_symbol')
+        or (multi.symbols[0] if multi.symbols else '')
+    ).upper()
+    legacy_pending = str(
+        multi.db.state_get('entry_client_order_id', '')
+    ).strip()
+
+    if legacy_state == 'RECONCILE_REQUIRED' and active_symbol:
+        if active_symbol not in unresolved_symbols:
+            unresolved_symbols.append(active_symbol)
+    if legacy_pending and active_symbol:
+        if active_symbol not in pending_symbols:
+            pending_symbols.append(active_symbol)
+
+    if unresolved_symbols or pending_symbols:
+        return 'RECONCILE_REQUIRED', sorted(unresolved_symbols), sorted(pending_symbols)
+
+    if positions is None:
+        positions = multi.open_positions()
+    return ('OPEN' if positions else 'READY_FLAT'), unresolved_symbols, pending_symbols
+
+
+@app.get('/api/v1/health')
+def health():
+    t = state.ensure_trader()
+    multi = state.ensure_multi()
+    execution_state, unresolved_symbols, pending_symbols = _canonical_execution_state(multi)
+    unresolved = bool(unresolved_symbols or pending_symbols)
+    p0_ready = bool(t.preflight_report and t.preflight_report.get('ready'))
+    open_positions = multi.open_positions()
+    kill_switch_latched = str(
+        t.db.state_get('kill_switch_latched', 'false')
+    ).lower() == 'true'
+    execution_enabled = (
+        p0_ready
+        and not unresolved
+        and state.running
+        and not state.paused
+        and not kill_switch_latched
+    )
+    return {
+        'ok': True,
+        'service': 'williams-binance-bot',
+        'version': VERSION,
+        'execution_state_contract': {
+            'version': 1,
+            'state': execution_state,
+            'execution_enabled': execution_enabled,
+            'reconciliation_required': unresolved,
+            'kill_switch_latched': kill_switch_latched,
+        },
+        'unresolved_symbols': unresolved_symbols,
+        'pending_entry_symbols': pending_symbols,
+        'websocket': True,
+        'auth_configured': len(API_TOKEN) >= 32,
+        'max_open_positions': multi.max_open_positions,
+        'max_total_risk_pct': multi.max_total_risk_pct,
+        'max_risk_per_trade_pct': multi.max_risk_per_trade_pct,
+        'open_positions': len(open_positions),
+        'execution_enabled': execution_enabled,
+        'testnet': t.client.testnet,
+    }
+
+
+@app.post(
+    '/api/v1/config/binance',
+    dependencies=[Depends(auth)],
+)
+def configure(payload: CredentialPayload):
+    if not payload.api_key or not payload.api_secret:
+        raise HTTPException(
+            400,
+            'API key and secret are required',
+        )
+    try:
+        state.configure(
+            payload.api_key,
+            payload.api_secret,
+            payload.testnet,
+        )
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+    return {
+        'configured': True,
+        'testnet': payload.testnet,
+    }
+
+
+@app.delete(
+    '/api/v1/config/binance',
+    dependencies=[Depends(auth)],
+)
+def clear_binance_config():
+    t = state.ensure_trader()
+    multi = state.ensure_multi()
+    try:
+        managed_positions = multi.open_positions()
+        exchange_orders = t.client.open_orders()
+    except Exception as exc:
+        raise HTTPException(
+            503,
+            'Cannot verify Futures account state before credential removal: ' + str(exc),
+        )
+    if managed_positions or exchange_orders:
+        raise HTTPException(
+            409,
+            'Credentials cannot be removed while Futures positions or open orders exist. '
+            'Close/reconcile the account first.',
+        )
+
+    state.stop()
+    with state.lock:
+        state.api_key = ''
+        state.api_secret = ''
+        state.trader = None
+        state.last_error = None
+        state.paused = False
+    state.credentials.clear()
+    if os.getenv("BINANCE_MARKET", "futures_usdt").strip().lower() == "spot":
+        hub.configure_credentials('', '', True)
+        mtf_service.configure_credentials('', '', True)
+    return {
+        'configured': False,
+        'cleared': True,
+    }
+
+
+@app.websocket('/api/v1/ws')
+async def realtime_ws(websocket: WebSocket):
+    if (
+        len(API_TOKEN) < 32
+        or websocket.headers.get('authorization')
+        != f'Bearer {API_TOKEN}'
+    ):
+        await websocket.close(1008)
+        return
+    await websocket.accept()
+    metrics.inc("ws_connections_total")
+    client = type('RealtimeClient', (), {})()
+    client.websocket = websocket
+    client.loop = asyncio.get_running_loop()
+    client.queue = asyncio.Queue()
+    hub.add_client(client)
+    sender = asyncio.create_task(
+        _ws_sender(client)
+    )
+    try:
+        while True:
+            msg = await websocket.receive_text()
+            if msg.lower() == 'ping':
+                await websocket.send_text(
+                    '{"type":"pong"}'
+                )
+            elif msg.lower() == 'snapshot':
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            'type': 'snapshot',
+                            'data': hub.snapshot(),
+                        },
+                        separators=(',', ':'),
+                    )
+                )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        sender.cancel()
+        hub.remove_client(client)
+
+
+async def _ws_sender(client):
+    while True:
+        await client.websocket.send_text(
+            json.dumps(
+                await client.queue.get(),
+                separators=(',', ':'),
+            )
+        )
+
+
+def _position_payload(t, trade):
+    symbol = str(trade['symbol']).upper()
+    position = {}
+    try:
+        position = t.client.position(symbol)
+        current = float(position.get('markPrice', 0) or 0)
+        exchange_entry = float(position.get('entryPrice', 0) or 0)
+        qty_signed = float(position.get('positionAmt', 0) or 0)
+    except Exception:
+        current = 0.0
+        exchange_entry = 0.0
+        qty_signed = 0.0
+
+    entry = exchange_entry or float(trade.get('entry_price') or 0.0)
+    qty = abs(qty_signed) or abs(float(trade.get('quantity') or 0.0))
+    side = str(trade.get('side') or ('LONG' if qty_signed >= 0 else 'SHORT')).upper()
+    stop = float(trade.get('stop_price') or 0.0) or None
+    take = None
+    pnl = None
+    pnl_pct = None
+    if current > 0 and entry > 0:
+        if side == 'SHORT':
+            pnl = (entry - current) * qty
+            pnl_pct = entry / current - 1.0
+        else:
+            pnl = (current - entry) * qty
+            pnl_pct = current / entry - 1.0
+
+    return {
+        'trade_id': int(trade['id']),
+        'symbol': symbol,
+        'side': side,
+        'quantity': qty,
+        'entry_price': entry,
+        'current_price': current or None,
+        'stop_price': stop,
+        'take_profit_price': take,
+        'unrealized_pnl': pnl,
+        'unrealized_pnl_pct': pnl_pct,
+        'exit_order_list_id': None,
+        'exit_order_list_client_id': None,
+        'futures_position_amt': qty_signed,
+        'liquidation_price': float(position.get('liquidationPrice', 0) or 0),
+        'mark_price': current or None,
+    }
+
+@app.get(
+    '/api/v1/market/klines',
+    dependencies=[Depends(auth)],
+)
+def market_klines(
+    limit: int = 120,
+    symbol: Optional[str] = None,
+    interval: Optional[str] = None,
+):
+    t = state.ensure_trader()
+    target_symbol = str(symbol or t.symbol).strip().upper()
+    raw_interval = str(interval or t.interval).strip()
+    target_interval = "1M" if raw_interval == "1M" else raw_interval.lower()
+    allowed_intervals = {
+        "1m", "3m", "5m", "15m", "30m", "1h", "2h",
+        "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M",
+    }
+    if target_interval not in allowed_intervals:
+        raise HTTPException(400, f"Unsupported Binance interval: {target_interval}")
+    if not target_symbol.endswith("USDT") or not target_symbol.isalnum():
+        raise HTTPException(400, "Invalid Futures symbol")
+    df = fetch_klines(
+        t.client,
+        target_symbol,
+        target_interval,
+        limit=max(30, min(limit, 250)),
+    )
+    if df is None or df.empty:
+        raise HTTPException(503, "No market data available")
+    closed = df.iloc[:-1].copy() if len(df) > 1 else df.copy()
+    ind = calculate_indicators(closed, config_from_env())
+    rows = []
+    for idx, row in ind.iterrows():
+        rows.append(
+            {
+                "time": idx.isoformat(),
+                "open": float(row.open),
+                "high": float(row.high),
+                "low": float(row.low),
+                "close": float(row.close),
+                "jaw": None if row.jaw_shifted != row.jaw_shifted else float(row.jaw_shifted),
+                "teeth": None if row.teeth_shifted != row.teeth_shifted else float(row.teeth_shifted),
+                "lips": None if row.lips_shifted != row.lips_shifted else float(row.lips_shifted),
+                "ao": None if row.ao != row.ao else float(row.ao),
+                "long_signal": bool(row.long_signal),
+                "short_signal": bool(row.short_signal),
+                "fractal_up": bool(row.fractal_up),
+                "fractal_down": bool(row.fractal_down),
+            }
+        )
+    return {"symbol": target_symbol, "interval": target_interval, "candles": rows}
+
+@app.get('/api/v1/status', dependencies=[Depends(auth)])
+def status():
+    t = state.ensure_trader()
+    multi = state.ensure_multi()
+    trades = multi.open_positions()
+
+    positions = []
+    for trade in trades:
+        try:
+            positions.append(
+                _position_payload(t, trade)
+            )
+        except Exception as exc:
+            state.last_error = (
+                f'position-status: {exc}'
+            )
+
+    balance = None
+    try:
+        balance = t.available_quote()
+    except Exception as exc:
+        state.last_error = f'status-balance: {exc}'
+
+    total_pnl = sum(
+        float(item['unrealized_pnl'] or 0.0)
+        for item in positions
+    )
+    reserved_risk_quote = multi.reserved_risk_quote()
+    account_equity_quote = max(
+        0.0,
+        float(balance or 0.0),
+    ) + sum(
+        max(0.0, float(item.get('current_price') or 0.0))
+        * max(0.0, float(item.get('quantity') or 0.0))
+        for item in positions
+    )
+    reserved_risk_pct = (
+        reserved_risk_quote / account_equity_quote
+        if account_equity_quote > 0.0
+        else 0.0
+    )
+
+    execution_state, unresolved_symbols, pending_symbols = _canonical_execution_state(
+        multi,
+        positions=positions,
+    )
+    p0_ready = bool(t.preflight_report and t.preflight_report.get('ready'))
+    kill_switch_latched = str(
+        t.db.state_get('kill_switch_latched', 'false')
+    ).lower() == 'true'
+    remaining_risk_quote = max(
+        0.0,
+        account_equity_quote * multi.max_total_risk_pct - reserved_risk_quote,
+    )
+    execution_enabled = (
+        p0_ready
+        and not bool(unresolved_symbols or pending_symbols)
+        and remaining_risk_quote > 0.0
+        and state.running
+        and not state.paused
+        and not kill_switch_latched
+    )
+    risk_capacity_positions = (
+        int(multi.max_total_risk_pct / multi.max_risk_per_trade_pct)
+        if multi.max_risk_per_trade_pct > 0
+        else 0
+    )
+
+    selected_position = None
+    if positions:
+        selected_position = positions[0]
+
+    return {
+        'version': VERSION,
+        'symbol': t.symbol,
+        'interval': t.interval,
+        'entry_time_policy': t.config.entry_time_policy.to_dict(),
+        'decision_traces': t.decision_trace_snapshot(),
+        'testnet': t.client.testnet,
+        'running': state.running,
+        'paused': state.paused,
+        'state': execution_state,
+        'recovered': t.recovered,
+        'last_error': state.last_error,
+        'binance_configured': bool(
+            t.client.api_key and t.client.api_secret
+        ),
+        'price': (
+            selected_position['current_price']
+            if selected_position
+            else None
+        ),
+        'quote_balance': balance,
+        'position': selected_position,
+        'positions': positions,
+        'open_positions': len(positions),
+        'max_open_positions': multi.max_open_positions,
+        'reserved_risk_quote': reserved_risk_quote,
+        'reserved_risk_pct': reserved_risk_pct,
+        'max_total_risk_pct': multi.max_total_risk_pct,
+        'max_risk_per_trade_pct': multi.max_risk_per_trade_pct,
+        'unrealized_pnl_quote': total_pnl,
+        'stop_loss_pct': t.stop_pct,
+        'take_profit_pct': 0.0,
+        'risk_per_trade_pct': t.risk_per_trade_pct,
+        'max_daily_loss_pct': t.max_daily_loss_pct,
+        'max_trades_per_day': t.max_trades_day,
+        'consecutive_losses': max(
+            [
+                t.db.consecutive_losses(x['symbol'])
+                for x in positions
+            ] or [0]
+        ),
+        'trades_today': sum(
+            t.db.trades_today(x['symbol'])
+            for x in positions
+        ) if positions else t.db.trades_today(t.symbol),
+        'server_time': datetime.now(
+            timezone.utc
+        ).isoformat(),
+        'market_mode': 'USD_M_FUTURES',
+        'futures_leverage': t.config.futures_leverage,
+        'futures_symbol_leverages': {symbol: t.config.leverage_for(symbol) for symbol in t.config.symbols},
+        'futures_margin_type': t.config.futures_margin_type,
+        'futures_force_one_way': t.config.futures_force_one_way,
+        'allow_long': t.config.allow_long,
+        'allow_short': t.config.allow_short,
+        'scanner_scanning': bool(_scanner_snapshot()['scanning']),
+        'scanner_symbols': int(_scanner_snapshot()['symbols_scanned']),
+        'scanner_configured_symbols': int(_scanner_snapshot()['symbols_configured']),
+        'scanner_universe': list(t.config.symbols),
+        'scanner_long_candidates': int(_scanner_snapshot()['long_candidates']),
+        'scanner_short_candidates': int(_scanner_snapshot()['short_candidates']),
+        'scanner_scan_status': dict(_scanner_snapshot()['scan_status']),
+        'scanner_duration_ms': int(_scanner_snapshot()['duration_ms']),
+        'scanner_state': _scanner_snapshot()['scanner_state'],
+        'scanner_error': _scanner_snapshot()['scanner_error'],
+        'scanner_age_seconds': _scanner_snapshot()['scanner_age_seconds'],
+        'market_ws_connected': bool(hub.market_connected),
+        'user_ws_connected': bool(hub.user_connected),
+        'user_stream_sync_required': bool(hub.user_sync_required),
+        'history_ready': bool(mtf_service.snapshot_status().get('contexts', 0) >= len(t.config.symbols) * len(t.config.structural_timeframes)),
+        'p0_gate_passed': bool(t.preflight_report and t.preflight_report.get('ready')),
+        'p0_gate_reason': ('PASS' if t.preflight_report and t.preflight_report.get('ready') else 'NOT_READY'),
+        'max_open_positions_locked': False,
+        'reconcile_required': bool(unresolved_symbols or pending_symbols),
+        'unresolved_symbols': unresolved_symbols,
+        'pending_entry_symbols': pending_symbols,
+        'execution_state_contract': {
+            'version': 1,
+            'state': execution_state,
+            'execution_enabled': execution_enabled,
+            'reconciliation_required': bool(unresolved_symbols or pending_symbols),
+            'kill_switch_latched': kill_switch_latched,
+        },
+    }
+
+
+@app.get('/api/v1/portfolio', dependencies=[Depends(auth)])
+def portfolio():
+    """Authoritative Binance USDⓈ-M Futures account and managed campaign snapshot."""
+    t = state.ensure_trader()
+    account = t.client.account()
+    total_wallet = float(account.get('totalWalletBalance', 0) or 0)
+    unrealized_account = float(account.get('totalUnrealizedProfit', 0) or 0)
+    total_margin = float(
+        account.get('totalMarginBalance', total_wallet + unrealized_account)
+        or (total_wallet + unrealized_account)
+    )
+    available_margin = float(account.get('availableBalance', 0) or 0)
+
+    assets = []
+    for row in account.get('balances', []) if isinstance(account, dict) else []:
+        if not isinstance(row, dict):
+            continue
+        asset = str(row.get('asset', '')).upper()
+        free = float(row.get('free', 0) or 0)
+        locked = float(row.get('locked', 0) or 0)
+        total = free + locked
+        if asset and total > 1e-15:
+            assets.append({
+                'asset': asset,
+                'free': free,
+                'locked': locked,
+                'total': total,
+                'price_usdt': 1.0 if asset == 'USDT' else None,
+                'value_usdt': total if asset == 'USDT' else 0.0,
+                'free_value_usdt': free if asset == 'USDT' else 0.0,
+                'locked_value_usdt': locked if asset == 'USDT' else 0.0,
+            })
+
+    multi = state.ensure_multi()
+    positions = []
+    for trade in multi.open_positions():
+        try:
+            raw = _position_payload(t, trade)
+            current = float(raw.get('current_price') or 0.0)
+            qty = float(raw.get('quantity') or 0.0)
+            position_value = current * qty if current > 0 and qty > 0 else 0.0
+            positions.append({
+                **raw,
+                'avg_entry_price': raw.get('entry_price'),
+                'stop_loss': raw.get('stop_price'),
+                'take_profit': None,
+                'position_value_usdt': position_value,
+                'allocation_pct': position_value / total_margin if total_margin > 0 else 0.0,
+                'unrealized_pnl_usdt': float(raw.get('unrealized_pnl') or 0.0),
+                'unrealized_pnl_pct': float(raw.get('unrealized_pnl_pct') or 0.0),
+                'oco_list_id': None,
+                'oco_list_client_id': None,
+            })
+        except Exception as exc:
+            state.last_error = f'portfolio-position: {exc}'
+
+    unrealized_pnl_usdt = sum(
+        float(p.get('unrealized_pnl_usdt') or 0.0) for p in positions
+    )
+    realized_pnl_usdt = 0.0
+    try:
+        row = db().conn.execute(
+            "SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) AS pnl "
+            "FROM trades WHERE pnl IS NOT NULL"
+        ).fetchone()
+        realized_pnl_usdt = float(row['pnl'] or 0.0) if row else 0.0
+    except Exception:
+        pass
+
+    for row in assets:
+        row['allocation_pct'] = (
+            row['value_usdt'] / total_margin if total_margin > 0 else 0.0
+        )
+
+    return {
+        'configured': bool(t.client.api_key and t.client.api_secret),
+        'testnet': bool(t.client.testnet),
+        'source': 'binance_usdm_futures_account',
+        'account_type': 'FUTURES',
+        'total_wallet_balance_usdt': total_wallet,
+        'total_unrealized_pnl_usdt': unrealized_account,
+        'total_equity_usdt': total_margin,
+        'free_equity_usdt': available_margin,
+        'locked_equity_usdt': max(0.0, total_margin - available_margin),
+        'realized_pnl_usdt': realized_pnl_usdt,
+        'unrealized_pnl_usdt': unrealized_pnl_usdt,
+        'assets': assets,
+        'positions': positions,
+        'server_time': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get('/api/v1/positions', dependencies=[Depends(auth)])
+def positions():
+    t = state.ensure_trader()
+    multi = state.ensure_multi()
+    rows = multi.open_positions()
+    return [
+        _position_payload(t, trade)
+        for trade in rows
+    ]
+
+
+@app.get('/api/v1/scanner', dependencies=[Depends(auth)])
+def scanner(refresh: bool = False):
+    started = False
+    if refresh:
+        # A manual SCAN must always request a fresh snapshot even if the
+        # previous result is still inside the normal cache TTL.
+        started = _start_scanner_background(force=True)
+    result = _scanner_snapshot()
+    result["version"] = VERSION
+    if refresh:
+        result["started"] = started
+    return result
