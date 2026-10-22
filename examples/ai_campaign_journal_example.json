@@ -1,0 +1,38 @@
+{
+  "description": "СИНТЕТИЧЕСКИЙ пример формата журнала; не представляет фактическую сделку Binance.",
+  "edition": "TC2",
+  "symbol": "ETHUSDT",
+  "as_of": "2026-10-20T11:00:00Z",
+  "events": [
+    {
+      "type": "OPEN_FILL",
+      "at": "2026-10-20T10:00:00Z",
+      "side": "SHORT",
+      "price": 3900,
+      "exchange_confirmed": true
+    },
+    {
+      "type": "STOP_ACK",
+      "at": "2026-10-20T10:00:00Z",
+      "stop_price": 3970,
+      "exchange_confirmed": true
+    },
+    {
+      "type": "OPPOSITE_SIGNAL",
+      "at": "2026-10-20T10:05:00Z",
+      "side": "LONG"
+    },
+    {
+      "type": "STOP_REPLACE_ACK",
+      "at": "2026-10-20T10:20:00Z",
+      "stop_price": 3935,
+      "exchange_confirmed": true
+    },
+    {
+      "type": "CLOSE_FILL",
+      "at": "2026-10-20T10:50:00Z",
+      "reason": "SL_TRIGGERED",
+      "exchange_confirmed": true
+    }
+  ]
+}
