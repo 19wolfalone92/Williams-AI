@@ -279,8 +279,10 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
             })
     from .wave_evidence import wave_context
     from .ntd_evidence import ntd_closed_bar_evidence
+    from .market_position import market_position
     waves=wave_context(candles,lines["ao"])
     result["wave_structure"]=waves
+    result["market_position"]=market_position(candles,lines["ao"])
     # NTD remains an independent, observation-only source profile. A NTD
     # entry requires a separate proven initial outside-mouth fractal breakout
     # and must never piggyback TC2's Wise Men first-entry policy.
