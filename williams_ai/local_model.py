@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from .llm import SYSTEM_INSTRUCTIONS
+from .instructions import SYSTEM_INSTRUCTIONS
 
 
 def _checked_report(report: dict[str, Any]) -> dict[str, Any]:

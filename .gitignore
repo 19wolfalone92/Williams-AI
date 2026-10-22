@@ -55,3 +55,8 @@ data/
 
 # Local Binance historical kline cache (generated at runtime)
 data_cache/
+
+# Local AI weights stay on user's device; don't commit or disclose them
+*.gguf
+*.safetensors
+models/
