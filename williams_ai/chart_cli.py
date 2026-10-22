@@ -97,10 +97,35 @@ def main():
     if a.study_memory:
         from .study import recall
         learned=recall(a.study_memory,a.question,edition=a.edition,limit=1)
-    # Primary pages retain priority. Study memory can fill only a spare slot.
-    notes=(book_pages[:2]+book_cards[:1]+chart_notes[:1]) if (book_pages or book_cards) else chart_notes[:2]
+    # Primary pages always win. Wave handout is NOT another Williams book;
+    # when requested, it replaces an optional paraphrase card, not a primary
+    # page or the closed-candle chart evidence.
+    from .wave_reference import recall_wave, recall_annotated_charts
+    wave_query = any(tag in a.question.casefold() for tag in (
+        "волн", "импульс", "эллиот", "зигзаг", "треуголь",
+        "диагонал", "клин", "коррекц", "wave", "elliott",
+        "zigzag", "triangle", "flat", "w-x-y",
+    ))
+    wave_notes = recall_wave(a.question, limit=1) if wave_query else []
+    image_query = any(tag in a.question.casefold() for tag in (
+        "схем", "картин", "рисунк", "вложенн", "син", "диверг", "скрин",
+        "график", "annotation", "chart screenshot",
+    ))
+    annotated_notes = recall_annotated_charts(a.question,limit=1) if image_query else []
+    # Prefer specifically requested hand-marked examples to a generic
+    # archetype. Neither source displaces original verified book pages.
+    context_note = annotated_notes if annotated_notes else wave_notes
+    notes=book_pages[:2]
+    if not notes:
+        notes+=book_cards[:1]
+    if chart_notes:
+        notes+=chart_notes[:1]
+    notes+=context_note
+    if len(notes)<4 and book_pages:
+        notes+=book_cards[:1]
     if len(notes)<4:
         notes+=learned[:4-len(notes)]
+    notes=notes[:4]
     model=LocalWilliamsModel(a.local_model)
     report=build_report(_to_snapshot(observations))
     print("\n--- Локальное объяснение (не торговый приказ) ---")

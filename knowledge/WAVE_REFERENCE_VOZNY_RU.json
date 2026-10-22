@@ -1,0 +1,168 @@
+{
+  "schema": "WAVE_REFERENCE_CARDS_V1",
+  "reference": {
+    "title": "Памятка для подсчета волн",
+    "author_provenance": "Составлена по мотивам Д. Возного «Код Эллиотта: волновой анализ рынка Forex»",
+    "sha256": "295bc6616170b19bf03b8d0179365582956e246358a7758adba4d4452eb70aeb",
+    "total_pages": 6,
+    "license_note": "Only short independently paraphrased pattern metadata; PDF and illustrated pages not committed",
+    "is_bill_williams_book": false,
+    "truth_status": "USER_WAVE_REFERENCE_NOT_PROVEN_PRICE_LABELS"
+  },
+  "cards": [
+    {
+      "id": "IMPULSE",
+      "title": "Импульс 1–2–3–4–5",
+      "page": 1,
+      "summary": "Пять крупных волн; для классического импульса схема внутренних подволн 5-3-5-3-5. W2 не переходит начало W1; W3 не самая короткая среди 1/3/5; W4 не пересекает территорию W1. W5 может быть усечена.",
+      "keywords": "wave impulse 1 2 3 4 5 w3 w4 волна импульс третья четвертая пятая",
+      "checks": [
+        "5-3-5-3-5",
+        "W2_ORIGIN",
+        "W3_NOT_SHORTEST",
+        "W4_NO_OVERLAP"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "LEADING_DIAGONAL",
+      "title": "Начальный клин",
+      "page": 2,
+      "summary": "Пятиволновая ведущая диагональ с перекрытием W1/W4; структура 5-3-5-3-5 по этой памятке. Нельзя признать подтверждённой без разметки внутренних подволн.",
+      "keywords": "leading diagonal wedge клин начальный перекрытие",
+      "checks": [
+        "LEADING_DIAGONAL",
+        "OVERLAP_ALLOWED"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "ENDING_DIAGONAL",
+      "title": "Конечная диагональ",
+      "page": 2,
+      "summary": "Конечная диагональ рассматривается отдельно от обычного импульса; допустимо перекрытие волн 1 и 4, характерны коррекционные внутренние структуры 3-3-3-3-3; возможна усеченная пятая.",
+      "keywords": "ending diagonal конечный треугольник диагональ усечение",
+      "checks": [
+        "ENDING_DIAGONAL",
+        "3-3-3-3-3"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "ZIGZAG",
+      "title": "Одиночный зигзаг A-B-C",
+      "page": 3,
+      "summary": "Коррекция A-B-C с внутренней схемой 5-3-5, где A и C движущие; по одной геометрии без подтверждения подструктуры зигзаг не доказан.",
+      "keywords": "zigzag abc зигзаг коррекция пять три пять",
+      "checks": [
+        "ABC",
+        "5-3-5"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "DOUBLE_ZIGZAG",
+      "title": "Двойной зигзаг W-X-Y",
+      "page": 3,
+      "summary": "Составная коррекция W-X-Y: W и Y обычно зигзаги, X связка; внутренние W-X-Y подтверждать отдельно, не воспринимать X как торговый сигнал.",
+      "keywords": "double zigzag двойной зигзаг wxy",
+      "checks": [
+        "WXY"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "TRIPLE_ZIGZAG",
+      "title": "Тройной зигзаг W-X-Y-X-Z",
+      "page": 3,
+      "summary": "Несколько коррекций связаны X-волнами; пять крупных компонентов W-X-Y-X-Z. Без подтверждения внутренних моделей сохранять неопределённость.",
+      "keywords": "triple zigzag тройной зигзаг wxyxz",
+      "checks": [
+        "WXYXZ"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "DOUBLE_THREE",
+      "title": "Двойная тройка",
+      "page": 4,
+      "summary": "Комбинация W-X-Y часто боковая; не путать с двойным зигзагом, хотя буквенная разметка совпадает.",
+      "keywords": "double three двойная тройка комбинации боковик",
+      "checks": [
+        "COMBINATION"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "TRIPLE_THREE",
+      "title": "Тройная тройка",
+      "page": 4,
+      "summary": "Комбинация W-X-Y-X-Z; отличать от тройного зигзага по составляющим и контексту, без догадок по одному рисунку.",
+      "keywords": "triple three тройная тройка комбинации",
+      "checks": [
+        "COMBINATION"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "EXPANDING_TRIANGLE",
+      "title": "Расходящийся треугольник",
+      "page": 5,
+      "summary": "Коррекция A-B-C-D-E, раздвигающиеся границы; утверждения о росте размеров последующих колен применяются только к расходящемуся типу.",
+      "keywords": "expanding triangle расходящийся треугольник abcde",
+      "checks": [
+        "ABCDE",
+        "EXPANDING"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "CONTRACTING_TRIANGLE",
+      "title": "Сходящийся треугольник",
+      "page": 5,
+      "summary": "Коррекция A-B-C-D-E с последовательным сужением границ; не применять ограничения расходящегося типа.",
+      "keywords": "contracting triangle сходящийся треугольник abcde",
+      "checks": [
+        "ABCDE",
+        "CONTRACTING"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "RUNNING_TRIANGLE",
+      "title": "Наклонный треугольник",
+      "page": 6,
+      "summary": "Коррекция A-B-C-D-E с направленными границами; в памятке выделена отдельно от начальной/конечной диагонали. Граница без внутренней структуры не даёт доказанного паттерна.",
+      "keywords": "running triangle наклонный треугольник abcde",
+      "checks": [
+        "ABCDE",
+        "RUNNING"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    },
+    {
+      "id": "FLAT",
+      "title": "Плоскость A-B-C",
+      "page": 6,
+      "summary": "Плоская коррекция A-B-C, обычно схема 3-3-5; отличать от зигзага 5-3-5, проверять локальные подволны.",
+      "keywords": "flat плоскость флэт горизонтальная abc",
+      "checks": [
+        "ABC",
+        "3-3-5"
+      ],
+      "status": "RULE_REFERENCE_ONLY",
+      "execution_authority": false
+    }
+  ]
+}

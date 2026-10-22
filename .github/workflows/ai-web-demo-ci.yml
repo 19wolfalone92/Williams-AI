@@ -36,3 +36,25 @@ jobs:
           python -m williams_ai.cli examples/ai_market_snapshot.json
           python -m williams_ai.chart_cli examples/ai_chart_example.json > /tmp/chart-evidence.json
           python -m williams_ai.book_cli --db /tmp/empty_williams.db report
+      - name: Frozen 15-pair walk-forward evaluation (no internet, no trades)
+        run: |
+          python - <<'PY'
+          from williams_ai.causal_paper_lab import run_15
+          report=run_15()
+          print("AGGREGATE",report["aggregate"])
+          print("WM3_BENCHMARK_PER_PAIR: SYMBOL CLOSED WINS REALIZED_PCT BUY_HOLD_PCT OPEN")
+          for x in report["results"]:
+              if x["mode"]=="WM3":
+                  print(x["symbol"],x["closed"],x["wins"],x["realized_return_pct"],x["benchmark_buy_and_hold_pct"],bool(x["open_position"]))
+          PY
+
+      - name: Fifteen independent past-only learning experiments
+        run: |
+          python - <<'PY'
+          from williams_ai.experience_journal import study_15
+          result=study_15()
+          print("LEARNING_15_SUMMARY",result["trained_models"],result["outperformed_constant_baseline_test_count"])
+          print("PAIR TRAIN_COUNT TEST_BRIER PRIOR_BRIER TEST_DELTA")
+          for x in result["reports"]:
+              print(x["symbol"],x["train_count"],x["test_brier"],x["test_constant_prior_brier"],x["test_delta_lower_is_better"])
+          PY
