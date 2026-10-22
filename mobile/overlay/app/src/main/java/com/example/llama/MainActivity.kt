@@ -327,6 +327,15 @@ class MainActivity : AppCompatActivity() {
                         adapter.notifyItemChanged(row)
                     }
                 }
+                if (bookExtracts.isNotEmpty()) {
+                    response.append("\n\n📚 Источники из локальной библиотеки:\n")
+                    bookExtracts.forEach { source ->
+                        response.append(source.book + ", PDF с. " + source.page + "\n")
+                    }
+                    val last = messages.lastIndex
+                    messages[last] = messages[last].copy(content = response.toString())
+                    adapter.notifyItemChanged(last)
+                }
             } catch (_: CancellationException) {
                 // Cancelled when activity goes to background.
             } catch (e: Exception) {
