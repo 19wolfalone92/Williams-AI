@@ -1,0 +1,34 @@
+{
+  "symbol": "ETHUSDT",
+  "as_of": "2026-10-22T18:00:00Z",
+  "timeframes": {
+    "H1": {
+      "last_closed_at": "2026-10-22T18:00:00Z",
+      "phase": "CORRECTION",
+      "ao": -0.2,
+      "ac": -0.03,
+      "wave_hypothesis": "Возможная четвёртая волна; не подтверждена"
+    },
+    "H4": {
+      "last_closed_at": "2026-10-22T16:00:00Z",
+      "phase": "EATING",
+      "ao": 0.4,
+      "ac": 0.02,
+      "wave_hypothesis": "Возможное импульсное движение"
+    }
+  },
+  "signals": [
+    {
+      "name": "WM3",
+      "direction": "LONG",
+      "timeframe": "H1",
+      "confirmed": false,
+      "confirmed_at": "2026-10-22T18:00:00Z",
+      "reason": "Нет подтверждённого пробоя фрактала"
+    }
+  ],
+  "position": {
+    "status": "NONE"
+  },
+  "fake_api_key_should_never_be_forwarded": "NEVER_SEND_THIS"
+}
