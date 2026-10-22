@@ -36,3 +36,14 @@ jobs:
           python -m williams_ai.cli examples/ai_market_snapshot.json
           python -m williams_ai.chart_cli examples/ai_chart_example.json > /tmp/chart-evidence.json
           python -m williams_ai.book_cli --db /tmp/empty_williams.db report
+      - name: Frozen 15-pair walk-forward evaluation (no internet, no trades)
+        run: |
+          python - <<'PY'
+          from williams_ai.causal_paper_lab import run_15
+          report=run_15()
+          print("AGGREGATE",report["aggregate"])
+          print("WM3_BENCHMARK_PER_PAIR: SYMBOL CLOSED WINS REALIZED_PCT BUY_HOLD_PCT OPEN")
+          for x in report["results"]:
+              if x["mode"]=="WM3":
+                  print(x["symbol"],x["closed"],x["wins"],x["realized_return_pct"],x["benchmark_buy_and_hold_pct"],bool(x["open_position"]))
+          PY
