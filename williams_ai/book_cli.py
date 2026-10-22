@@ -16,6 +16,13 @@ def main():
     search = sub.add_parser("search")
     search.add_argument("question")
     search.add_argument("--edition", choices=["TC1","NTD","TC2","COURSE"], default=None)
+    ocr = sub.add_parser("ocr", help="Resumable local Poppler/Tesseract OCR; extracted text is unreviewed")
+    ocr.add_argument("edition", choices=["TC1","NTD","TC2","COURSE"])
+    ocr.add_argument("pdf")
+    ocr.add_argument("--output", required=True)
+    ocr.add_argument("--start-page", type=int, default=1)
+    ocr.add_argument("--limit", type=int, default=8)
+    ocr.add_argument("--language", default="eng")
     sub.add_parser("report")
     opts = p.parse_args()
     if opts.action == "ingest":
@@ -23,6 +30,10 @@ def main():
     elif opts.action == "search":
         result = {"page_matches": search_pages(opts.db, opts.question, edition=opts.edition),
                   "rule_cards": lookup_rules(opts.question, edition=opts.edition)}
+    elif opts.action == "ocr":
+        from .book_ocr import ocr_book
+        result = ocr_book(opts.edition, opts.pdf, opts.output,
+                          start_page=opts.start_page, limit=opts.limit, language=opts.language)
     else:
         result = {"books_index": index_report(opts.db), "rule_cards": coverage()}
     print(json.dumps(result, ensure_ascii=False, indent=2))

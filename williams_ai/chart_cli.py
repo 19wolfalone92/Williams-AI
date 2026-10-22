@@ -69,12 +69,15 @@ def main():
     p.add_argument("--question")
     p.add_argument("--local-model",type=Path)
     p.add_argument("--book-index",type=Path,help="Private index OUTSIDE git, optional")
+    p.add_argument("--study-memory",type=Path,help="Private unverified study notes, optional")
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE"])
     a=p.parse_args()
     if a.question and not a.local_model:
         p.error("--question requires --local-model")
     if a.book_index and not a.question:
         p.error("--book-index requires --question")
+    if a.study_memory and not a.question:
+        p.error("--study-memory requires --question")
 
     chart=json.loads(a.chart.read_text(encoding="utf-8"))
     observations=analyze_timeframes(chart)
@@ -90,7 +93,14 @@ def main():
         book_pages=search_pages(a.book_index,a.question,edition=a.edition,limit=2)
     book_cards=lookup_rules(a.question,edition=a.edition,max_cards=2)
     chart_notes=_chart_notes(observations)
+    learned=[]
+    if a.study_memory:
+        from .study import recall
+        learned=recall(a.study_memory,a.question,edition=a.edition,limit=1)
+    # Primary pages retain priority. Study memory can fill only a spare slot.
     notes=(book_pages[:2]+book_cards[:1]+chart_notes[:1]) if (book_pages or book_cards) else chart_notes[:2]
+    if len(notes)<4:
+        notes+=learned[:4-len(notes)]
     model=LocalWilliamsModel(a.local_model)
     report=build_report(_to_snapshot(observations))
     print("\n--- Локальное объяснение (не торговый приказ) ---")

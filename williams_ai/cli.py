@@ -20,7 +20,7 @@ def main() -> None:
     parser.add_argument("snapshot", type=Path, help="Read-only local JSON snapshot")
     parser.add_argument("--local-model", type=Path, help="Existing GGUF model path; never downloaded automatically")
     parser.add_argument("--question", help="Question to ask the local language model")
-    parser.add_argument("--knowledge-dir", type=Path, help="Local Markdown/text research notes, no cloud")
+    parser.add_argument("--knowledge-dir", type=Path, help="Local Markdown/text research notes, no cloud; defaults to bundled curriculum")
     parser.add_argument("--gpu-layers", type=int, default=0, help="llama.cpp GPU offload (default CPU)")
     args = parser.parse_args()
     if args.question and not args.local_model:
@@ -35,7 +35,8 @@ def main() -> None:
     print(render_russian_report(report))
     if args.question:
         from .local_model import LocalWilliamsModel
-        notes = retrieve_notes(args.question, args.knowledge_dir) if args.knowledge_dir else []
+        folder = args.knowledge_dir or Path(__file__).resolve().parents[1] / "knowledge"
+        notes = retrieve_notes(args.question, folder)
         model = LocalWilliamsModel(args.local_model, gpu_layers=args.gpu_layers)
         print("\n--- Ответ локальной модели (не торговая команда) ---")
         print(model.answer(args.question, report, notes=notes))

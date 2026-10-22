@@ -1,0 +1,66 @@
+{
+  "status": "EXPERIMENTAL_RESEARCH_ONLY",
+  "model": {
+    "algorithm": "logistic_regression_v1",
+    "features": [
+      "bias",
+      "side_ao_atr",
+      "side_ac_atr",
+      "mouth_width_atr",
+      "side_price_lips_atr",
+      "atr_fraction"
+    ],
+    "weights": [
+      -0.22948960323124004,
+      0.07464142003654843,
+      -0.006868199540837291,
+      -0.10086927329995123,
+      0.026042071334641106,
+      -0.10908899032191133
+    ],
+    "train_count": 92,
+    "trained_through": "2026-10-06T03:59:59.999000+00:00",
+    "training_positive_rate": 0.3804347826086957
+  },
+  "validation": {
+    "samples": 31,
+    "decision_times": 16,
+    "brier_score": 0.23052601972998976,
+    "selected_at_fixed_0_6": 0,
+    "mean_selected_net_return": null,
+    "constant_prior_brier": 0.22958335874138666
+  },
+  "test": {
+    "samples": 32,
+    "decision_times": 16,
+    "brier_score": 0.23426098424076142,
+    "selected_at_fixed_0_6": 0,
+    "mean_selected_net_return": null,
+    "constant_prior_brier": 0.22693171077504726
+  },
+  "dataset_sha256": "d6eae53cb6434e426cd1fc1ce23858cf95a8c0afe8ced6c2e8ec27d79d68f9d1",
+  "configuration": {
+    "timeframe": "H1",
+    "horizon": 12,
+    "fee_bps": 4,
+    "slippage_bps": 2,
+    "stop_atr": 2
+  },
+  "trade_action": null,
+  "execution_allowed": false,
+  "limitations": [
+    "Research examples are not verified Williams entries.",
+    "Horizon mark-to-market is a label, not an authorized campaign exit.",
+    "Funding, order book, partial fills and portfolio exposure are not simulated.",
+    "Repeated use of the test set invalidates it as an untouched holdout.",
+    "A favorable score is not evidence of future profitability."
+  ],
+  "symbol": "ETHUSDT",
+  "source": "Binance public USD-M Futures H1 klines, retrieved via read-only Binance connector",
+  "source_range": [
+    "2026-09-11T06:59:59.999Z",
+    "2026-10-22T20:59:59.999Z"
+  ],
+  "source_candles": 999,
+  "conclusion": "On this fixed holdout the fitted scorer is worse than its constant training-prior baseline. It is not accepted as a trading model."
+}
