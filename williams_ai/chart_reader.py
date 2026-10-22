@@ -278,14 +278,33 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
                 "source":"TC1 PDF 53-54 / Course PDF 42-43",
             })
     from .wave_evidence import wave_context
+    from .ntd_evidence import ntd_closed_bar_evidence
     waves=wave_context(candles,lines["ao"])
     result["wave_structure"]=waves
+    # NTD remains an independent, observation-only source profile. A NTD
+    # entry requires a separate proven initial outside-mouth fractal breakout
+    # and must never piggyback TC2's Wise Men first-entry policy.
+    result["edition_evidence"]={
+        "NTD": ntd_closed_bar_evidence(
+            lines["ao"],lines["ac"],initial_fractal_triggered=False
+        ),
+        "TC2": {"profile":"TC2_THREE_WISE_MEN",
+                "candidate_count":len(result["candidates"]),
+                "trade_action":None},
+    }
     if waves["impulse_alternatives"]:
         result["hypotheses"].append({
             "hypothesis":"Confirmed swing pivots admit tentative impulse-shaped alternatives.",
             "alternatives": waves["impulse_alternatives"],
             "status":"UNCONFIRMED_WAVE_DEGREE",
             "source":"TC1 PDF 53-54 / Course PDF 42-43",
+        })
+    if waves["corrective_alternatives"]:
+        result["hypotheses"].append({
+            "hypothesis":"Price extrema permit unverified zigzag/flat/triangle shapes.",
+            "alternatives":waves["corrective_alternatives"],
+            "status":"SHAPE_ONLY_SUBWAVE_COUNTS_NOT_CONFIRMED",
+            "source":"TC1 PDF 53-54; manual graph validation required",
         })
     result["warnings"].append(
         "WM1 angulation numerical check is an approximation; no verified nested Elliott wave labelling.")
