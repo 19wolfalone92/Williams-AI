@@ -17,7 +17,9 @@ test "$(git -C "$work" rev-parse HEAD)" = "$pin"
 project="$work/examples/llama.android"
 for file in \
   app/src/main/java/com/example/llama/MainActivity.kt \
+  app/src/main/java/com/example/llama/WebResearch.kt \
   app/src/main/res/values/strings.xml \
+  app/src/main/res/layout/activity_main.xml \
   app/src/main/AndroidManifest.xml; do
   cp "$root/mobile/overlay/$file" "$project/$file"
 done
@@ -32,10 +34,15 @@ assert data.count(needle) == 1, "Upstream changed: review before patching"
 p.write_text(data.replace(needle, 'applicationId = "com.williamsai.offline"'))
 PY
 
-if grep -E 'uses-permission|android.permission.INTERNET' \
-  "$project/app/src/main/AndroidManifest.xml"; then
-  echo "Unexpected app permissions" >&2; exit 1
-fi
+python3 - "$project/app/src/main/AndroidManifest.xml" <<'PY'
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+root = ET.fromstring(Path(sys.argv[1]).read_text())
+ns = "{http://schemas.android.com/apk/res/android}"
+permissions = [x.attrib.get(ns + "name") for x in root.findall("uses-permission")]
+assert permissions == ["android.permission.INTERNET"], f"Unexpected permissions: {permissions}"
+PY
 
 cd "$project"
 chmod +x ./gradlew

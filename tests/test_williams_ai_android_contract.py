@@ -14,10 +14,10 @@ class AndroidOfflineContract(unittest.TestCase):
         self.assertNotIn("com.williamsbot", script)
         self.assertNotIn("19wolfalone92/Williams.git", script)
 
-    def test_network_permission_not_requested(self):
+    def test_opt_in_internet_search_permission(self):
         manifest = (MOBILE / "overlay/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-        self.assertNotIn('<uses-permission', manifest)
-        self.assertNotIn('android.permission.INTERNET', manifest.split("<manifest", 1)[1].split("<application", 1)[0])
+        self.assertIn('android.permission.INTERNET', manifest)
+        self.assertNotIn("ACCESS_FINE_LOCATION", manifest)
         self.assertIn('android:allowBackup="false"', manifest)
 
     def test_pin_is_exact_commit_and_never_branch(self):
@@ -27,6 +27,17 @@ class AndroidOfflineContract(unittest.TestCase):
         self.assertIn('rev-parse HEAD', script)
         self.assertIn('= "$pin"', script)
 
+    def test_native_builder_copies_research_layout_and_checks_permissions(self):
+        script = (MOBILE / "build_offline_android.sh").read_text(encoding="utf-8")
+        for path in (
+            "app/src/main/java/com/example/llama/WebResearch.kt",
+            "app/src/main/res/layout/activity_main.xml",
+        ):
+            self.assertIn(path, script)
+        self.assertIn('permissions == ["android.permission.INTERNET"]', script)
+        layout = (MOBILE / "overlay/app/src/main/res/layout/activity_main.xml").read_text(encoding="utf-8")
+        self.assertIn('android:id="@+id/web_enabled"', layout)
+
     def test_secure_local_model_import(self):
         kotlin = (MOBILE / "overlay/app/src/main/java/com/example/llama/MainActivity.kt").read_text(encoding="utf-8")
         for required in (
@@ -35,9 +46,11 @@ class AndroidOfflineContract(unittest.TestCase):
             "engine.sendUserPrompt", "AiChat.getInferenceEngine",
         ):
             self.assertIn(required, kotlin)
+        self.assertIn("WebResearch.shouldLookup", kotlin)
+        self.assertIn("webToggle.isChecked", kotlin)
         for forbidden in (
             "BinanceFuturesClient", "api.binance.com", "OPENAI_API_KEY",
-            "android.permission.INTERNET", "orderEndpoint", "POST /fapi",
+            "api.binance.com", "orderEndpoint", "POST /fapi",
         ):
             self.assertNotIn(forbidden, kotlin)
 
