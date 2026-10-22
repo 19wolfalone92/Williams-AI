@@ -1,0 +1,29 @@
+name: Williams AI read-only tests
+
+on:
+  push:
+    branches:
+      - feature/read-only-ai-analyst
+  pull_request:
+    paths:
+      - "williams_ai/**"
+      - "tests/test_williams_ai_*.py"
+      - "examples/ai_market_snapshot.json"
+      - ".github/workflows/ai-readonly-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Offline unit tests (no credentials, no network needed)
+        run: python -m unittest discover -s tests -p "test_williams_ai_*.py" -v
+      - name: CLI read-only example
+        run: python -m williams_ai.cli examples/ai_market_snapshot.json
