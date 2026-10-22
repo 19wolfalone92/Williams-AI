@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Build only the independent Williams AI app from a pinned upstream llama.cpp example.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+pin="$(tr -d '\r\n' < "$root/mobile/UPSTREAM_LLAMA_CPP_SHA")"
+if [[ ! "$pin" =~ ^[0-9a-f]{40}$ ]]; then echo "Invalid pinned SHA" >&2; exit 1; fi
+work="$root/mobile/.build/llama.cpp"
+mkdir -p "$work"
+if [[ ! -d "$work/.git" ]]; then
+  git -C "$work" init -q
+  git -C "$work" remote add origin https://github.com/ggml-org/llama.cpp.git
+fi
+git -C "$work" fetch --depth 1 origin "$pin"
+git -C "$work" checkout --detach -f FETCH_HEAD
+test "$(git -C "$work" rev-parse HEAD)" = "$pin"
+
+project="$work/examples/llama.android"
+for file in \
+  app/src/main/java/com/example/llama/MainActivity.kt \
+  app/src/main/res/values/strings.xml \
+  app/src/main/AndroidManifest.xml; do
+  cp "$root/mobile/overlay/$file" "$project/$file"
+done
+
+python3 - "$project/app/build.gradle.kts" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+data = p.read_text()
+needle = 'applicationId = "com.example.llama.aichat"'
+assert data.count(needle) == 1, "Upstream changed: review before patching"
+p.write_text(data.replace(needle, 'applicationId = "com.williamsai.offline"'))
+PY
+
+if grep -E 'uses-permission|android.permission.INTERNET' \
+  "$project/app/src/main/AndroidManifest.xml"; then
+  echo "Unexpected app permissions" >&2; exit 1
+fi
+
+cd "$project"
+chmod +x ./gradlew
+./gradlew :app:assembleDebug --no-daemon --max-workers=2
+
+output="$root/mobile/out"
+mkdir -p "$output"
+apk="$project/app/build/outputs/apk/debug/app-debug.apk"
+test -s "$apk"
+cp "$apk" "$output/WilliamsAI-offline-debug.apk"
+cd "$output"
+sha256sum WilliamsAI-offline-debug.apk > WilliamsAI-offline-debug.sha256
+cat WilliamsAI-offline-debug.sha256
