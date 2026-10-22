@@ -18,6 +18,7 @@ project="$work/examples/llama.android"
 for file in \
   app/src/main/java/com/example/llama/MainActivity.kt \
   app/src/main/java/com/example/llama/WebResearch.kt \
+  app/src/main/java/com/example/llama/BookKnowledge.kt \
   app/src/main/res/values/strings.xml \
   app/src/main/res/layout/activity_main.xml \
   app/src/main/AndroidManifest.xml; do

@@ -7,6 +7,8 @@
  <TextView android:id="@+id/gguf" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:textSize="14sp"
   android:padding="12dp" android:text="Williams AI • загрузка…" />
+ <Button android:id="@+id/book_button" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:text="📚 Загрузить личную библиотеку Вильямса (SQLite)" />
  <CheckBox android:id="@+id/web_enabled" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:checked="false"
   android:text="🌐 Искать в интернете, когда информации недостаточно (отправляется только мой вопрос)"
