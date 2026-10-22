@@ -1,38 +1,25 @@
-# Williams AI 🧠 — полностью локальный ИИ (исследовательская версия)
+# Williams AI 🧠 — полностью локальный ИИ
 
-**Отдельный GitHub-проект на основе снимка [Williams Bot](https://github.com/19wolfalone92/Williams).** Оригинальная торговая система не изменяется.
+Отдельная исследовательская копия Williams Bot. Исходный торговый проект НЕ изменяется.
 
-## Что уже умеет
+## Создано
+- Python: локальный GGUF runtime (llama-cpp-python), анализ JSON снимков, no-lookahead.
+- Знания: локальный поиск по заметкам Markdown/text, без облачной БД.
+- Android: отдельное приложение com.williamsai.offline, выбор GGUF через Android file picker, атомарное копирование модели по SHA-256.
+- Нативный Android backend из фиксированного коммита официального llama.cpp. Сборка проходит в GitHub Actions.
+- В локальном AI нет вызовов OpenAI API, а Android manifest не запрашивает INTERNET.
 
-- `williams_ai.analyst` анализирует локальные JSON-снимки, проверяет время закрытых свечей, помечает гипотезы и предупреждает о неподтверждённом защитном SL.
-- `williams_ai.local_model` запускает настоящий **локальный GGUF LLM** через `llama-cpp-python`. Без OpenAI, облачной модели, API-ключей и запросов к сервисам инференса.
-- `williams_ai.knowledge` ищет подходящие отрывки в локальных текстовых заметках и передаёт их модели как справочные материалы.
-- CLI отвечает на русском языке; никакие сигналы не передаются в исполнительный модуль Binance.
-- Автоматические тесты не требуют ни интернета, ни настоящих весов модели.
+## Как использовать
+[Инструкция по Android](mobile/README_RU.md).
+[Сборки APK](https://github.com/19wolfalone92/Williams-AI/actions/workflows/ai-android-apk.yml).
+[Полная архитектура](docs/WILLIAMS_AI_ARCHITECTURE.md).
+[Черновой PR #1](https://github.com/19wolfalone92/Williams-AI/pull/1).
 
-## Быстрый старт
+Весов нейросети внутри APK НЕТ. Получите лицензионный совместимый GGUF отдельно, проверьте контрольную сумму и выберите файл в приложении. До аппаратной приёмки APK является экспериментальным.
 
-Сначала установить `llama-cpp-python`, затем самостоятельно положить легально полученный GGUF-файл в `models/williams-local.gguf`.
+На компьютере установить llama-cpp-python и выполнить:
 
-```sh
-python -m pip install llama-cpp-python
-python -m williams_ai.cli examples/ai_market_snapshot.json \
-  --local-model models/williams-local.gguf \
-  --knowledge-dir knowledge \
-  --question "Что известно о H1 и волне?"
-```
+    python -m williams_ai.cli examples/ai_market_snapshot.json
+    python -m williams_ai.cli examples/ai_market_snapshot.json --local-model models/williams-local.gguf --question "Что происходит на H1?"
 
-Если весов пока нет, можно проверить встроенный детерминированный анализ:
-
-```sh
-python -m williams_ai.cli examples/ai_market_snapshot.json
-```
-
-Подробная инструкция: [docs/WILLIAMS_AI_OFFLINE_RU.md](docs/WILLIAMS_AI_OFFLINE_RU.md).
-Снимок исходного Williams: [SOURCE_SNAPSHOT.md](SOURCE_SNAPSHOT.md).
-
-## Принципиальные ограничения
-
-**На GitHub хранится исходный код, но сама нейросеть исполняется на твоём ПК или другом совместимом устройстве.** GitHub не предоставляет постоянно работающий Python/GPU-сервер в рамках репозитория. Файл GGUF не включён, полноценная работа нейросети с ним ещё требует проверки на целевом оборудовании. Android-версия пока не собрана.
-
-**Запрещено использовать ответы AI как торговые команды.** Исходный код Williams хранится для исследований; API-ключи Binance и исполняющие модули не подключаются к AI.
+Пока ИИ не получает живые свечи, не доказана точность книжного анализа и не разрешены торговые команды. GitHub хранит код и собирает APK, а нейросеть выполняется на устройстве.

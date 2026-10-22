@@ -60,3 +60,7 @@ data_cache/
 *.gguf
 *.safetensors
 models/
+
+# Native Android build outputs
+mobile/.build/
+mobile/out/
