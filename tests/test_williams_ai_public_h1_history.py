@@ -29,6 +29,8 @@ def public_bars(symbol):
 
 class PublicHistoricalEvidenceTests(unittest.TestCase):
     SYMBOLS = ("ETHUSDT", "SOLUSDT", "XRPUSDT")
+    # Binance USD-M PRICE_FILTER tickSize (public exchangeInfo, 2026-10-23).
+    TICKS = {"ETHUSDT": 0.01, "SOLUSDT": 0.01, "XRPUSDT": 0.0001}
 
     def test_all_three_real_pairs_causal_math(self):
         for symbol in self.SYMBOLS:
@@ -48,7 +50,7 @@ class PublicHistoricalEvidenceTests(unittest.TestCase):
                     places=7,
                 )
                 chart = analyze_chart(symbol,"H1",rows,
-                                      as_of=rows[-1]["close_time"],tick_size=0.01)
+                                      as_of=rows[-1]["close_time"],tick_size=self.TICKS[symbol])
                 self.assertFalse(chart["execution_allowed"])
                 self.assertEqual(chart["bars_used"], 240)
                 self.assertEqual(chart["gaps"], 0)
@@ -66,8 +68,8 @@ class PublicHistoricalEvidenceTests(unittest.TestCase):
         for symbol in self.SYMBOLS:
             with self.subTest(symbol=symbol):
                 rows=public_bars(symbol)[-150:]
-                first=replay_closed_chart(symbol,"H1",rows[:92],tick_size=0.01)
-                later=replay_closed_chart(symbol,"H1",rows[:112],tick_size=0.01)
+                first=replay_closed_chart(symbol,"H1",rows[:92],tick_size=self.TICKS[symbol])
+                later=replay_closed_chart(symbol,"H1",rows[:112],tick_size=self.TICKS[symbol])
                 until=rows[91]["close_time"]
                 prior=[e for e in later["events"] if e["observed_at"]<=until]
                 self.assertEqual(first["events"],prior)
