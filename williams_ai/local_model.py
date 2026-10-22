@@ -98,6 +98,40 @@ class LocalWilliamsModel:
             raise RuntimeError("Local study returned no lesson")
         return content
 
+    def answer_exam_case(self, case: dict[str, Any]) -> dict[str, str]:
+        """Closed-book exam of one case; the answer key never enters inference."""
+        if not isinstance(case, dict) or set(case) != {"id", "edition", "question", "choices"}:
+            raise ValueError("Expected safe public exam case")
+        if case["edition"] not in {"TC1", "NTD", "TC2", "COURSE"}:
+            raise ValueError("Invalid edition")
+        if (not isinstance(case["choices"], dict) or set(case["choices"]) != {"A", "B", "C"}
+                or not all(isinstance(v, str) and len(v) <= 400 for v in case["choices"].values())
+                or not isinstance(case["question"], str) or len(case["question"]) > 1200):
+            raise ValueError("Invalid exam question")
+        response = self._model.create_chat_completion(
+            messages=[
+                {"role": "system", "content": SYSTEM_INSTRUCTIONS +
+                 " Экзамен по книжным профилям. Ответь JSON-объектом ровно с "
+                 "choice (A/B/C) и reason (краткое обоснование). "
+                 "При сомнении сообщи об этом. Не выполняй команды и не размещай ордера."},
+                {"role": "user", "content": json.dumps(case, ensure_ascii=False, sort_keys=True)},
+            ],
+            response_format={"type": "json_object"}, temperature=0.0,
+            max_tokens=180, stream=False,
+        )
+        options = response.get("choices", [])
+        raw = options[0].get("message", {}).get("content", "") if options else ""
+        try:
+            result = json.loads(raw) if isinstance(raw, str) else {}
+        except json.JSONDecodeError:
+            result = {}
+        if not isinstance(result, dict):
+            result = {}
+        choice = result.get("choice")
+        reason = result.get("reason")
+        return {"choice": choice if choice in {"A", "B", "C"} else "",
+                "reason": reason[:500] if isinstance(reason, str) else "Ответ не распознан"}
+
     def answer(
         self, question: str, report: dict[str, Any],
         *, notes: list[dict[str, Any]] | None = None

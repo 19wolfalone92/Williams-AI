@@ -170,36 +170,96 @@ def _angle_candidate(bars: list[Candle], lines: dict[str, list[float | None]],
 
 def _confirmed_fractals(bars: list[Candle], lines: dict[str, list[float | None]],
                         *, tick_size: float | None) -> list[dict[str, Any]]:
+    """Audit the WM3 fractal lifecycle using ONLY closed historical bars.
+
+    TC2 ch.11 (PDF 147-151) distinguishes formation from the price trigger:
+    Teeth must be checked when price crosses the trigger, not only when the
+    pivot or confirming bar formed. An OHLC touch is NOT an exchange fill.
+    The most recent confirmed same-side fractal supersedes an older signal.
+    """
+    formations: list[tuple[int, str, float, bool]] = []
+    for pivot in range(2, len(bars) - 2):
+        window = bars[pivot - 2:pivot + 3]
+        neighbors = [c for j, c in enumerate(window) if j != 2]
+        high = bars[pivot].high > max(c.high for c in neighbors)
+        low = bars[pivot].low < min(c.low for c in neighbors)
+        # Outside bars can be both high and low fractals; do not silently
+        # convert an ambiguous two-direction formation into a LONG signal.
+        if high:
+            formations.append((pivot, "LONG", bars[pivot].high, low))
+        if low:
+            formations.append((pivot, "SHORT", bars[pivot].low, high))
+
     out: list[dict[str, Any]] = []
-    for pivot in range(2, len(bars)-2):
-        window = bars[pivot-2:pivot+3]
-        if bars[pivot].high > max(c.high for j,c in enumerate(window) if j != 2):
-            side, level = "LONG", bars[pivot].high
-        elif bars[pivot].low < min(c.low for j,c in enumerate(window) if j != 2):
-            side, level = "SHORT", bars[pivot].low
-        else:
-            continue
-        confirmed_at = pivot + 2
-        # No triggering before two *right* closed candles.
-        broken_after = any(
-            (c.high > level if side=="LONG" else c.low < level)
-            for c in bars[confirmed_at + 1:]
+    for pivot, side, level, ambiguous in formations:
+        sign = 1 if side == "LONG" else -1
+        confirmed = pivot + 2
+        trigger = (round(level + sign * tick_size, 10) if tick_size else None)
+        threshold = trigger if trigger is not None else level
+        teeth_at_confirmation = lines["teeth"][confirmed]
+        at_confirmation = (
+            teeth_at_confirmation is not None and
+            sign * (level - teeth_at_confirmation) > 0
         )
-        teeth_at_signal = lines["teeth"][confirmed_at]
-        tooth_ok = teeth_at_signal is not None and (
-            level > teeth_at_signal if side=="LONG" else level < teeth_at_signal
-        )
+        state = "AMBIGUOUS_OUTSIDE_BAR" if ambiguous else "AWAITING_PRICE_TRIGGER"
+        price_touch_at = None
+        teeth_at_trigger = None
+        trigger_filter = None
+        newer_confirmed_at = None
+
+        if not ambiguous:
+            for index in range(confirmed + 1, len(bars)):
+                bar = bars[index]
+                touched = (bar.high >= threshold if trigger is not None else bar.high > level) if sign == 1 else (
+                    bar.low <= threshold if trigger is not None else bar.low < level
+                )
+                # Another confirmed fractal of the SAME direction replaces
+                # the older pending setup. A tie on the SAME OHLC candle has
+                # unknowable intrabar ordering: refuse to classify it as a fill.
+                newer = [
+                    new_pivot + 2 for new_pivot, new_side, _, _ in formations
+                    if new_side == side and new_pivot > pivot and new_pivot + 2 == index
+                ]
+                if touched and newer:
+                    state = "INTRABAR_ORDER_UNKNOWN_TOUCH_AND_SUPERSESSION"
+                    newer_confirmed_at = bar.at.isoformat()
+                    price_touch_at = bar.at.isoformat()
+                    break
+                if newer:
+                    state = "SUPERSEDED_BY_NEWER_CONFIRMED_FRACTAL"
+                    newer_confirmed_at = bar.at.isoformat()
+                    break
+                if touched:
+                    price_touch_at = bar.at.isoformat()
+                    teeth_at_trigger = lines["teeth"][index]
+                    trigger_filter = (
+                        teeth_at_trigger is not None and
+                        sign * (threshold - teeth_at_trigger) > 0
+                    )
+                    state = (
+                        "CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                        if trigger_filter else "CLOSED_BAR_TOUCH_REJECTED_BY_TEETH"
+                    )
+                    break
+
         out.append({
-            "type":"WM3_FRACTAL", "side":side,
-            "pivot_time":bars[pivot].at.isoformat(),
-            "confirmed_at":bars[confirmed_at].at.isoformat(),
-            "level":level, "teeth_filter_at_confirmation":tooth_ok,
-            "already_broken_on_closed_bars":broken_after,
-            "entry_trigger":round(
-                level + tick_size if side=="LONG" else level - tick_size, 10
-            ) if tick_size else None,
-            "state":"WAITING_REVALIDATION" if tooth_ok and not broken_after else "REJECTED_OR_STALE",
-            "source":"TC2 WM3, NTD fractals (edition rules differ)",
+            "type": "WM3_FRACTAL", "side": side,
+            "pivot_time": bars[pivot].at.isoformat(),
+            "confirmed_at": bars[confirmed].at.isoformat(),
+            "level": level, "entry_trigger": trigger,
+            "state": state,
+            "teeth_filter_at_confirmation": at_confirmation,
+            "teeth_filter_at_trigger": trigger_filter,
+            "teeth_visible_at_trigger": teeth_at_trigger,
+            "price_touch_observed_at": price_touch_at,
+            "newer_fractal_confirmed_at": newer_confirmed_at,
+            "already_broken_on_closed_bars": price_touch_at is not None,
+            "can_prove_exchange_fill": False,
+            "source": "TC2 ch.11 PDF 147-151; NTD ch.4 has a separate first-entry gate",
+            "warning": (
+                "OHLC evidence cannot prove order acceptance or intrabar ordering; "
+                "a pending setup is not a validated order."
+            ),
         })
     return out
 
