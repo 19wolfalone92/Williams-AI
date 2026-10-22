@@ -68,7 +68,7 @@ def save_private_experience(output:Path, result:dict[str,Any])->Path:
     if dest.exists() and dest.is_symlink():
         raise ValueError("Refuse symlink")
     dest.parent.mkdir(parents=True,exist_ok=True)
-    payload=json.dumps(result,ensure_ascii=False,indent=2)+"\\n"
+    payload=json.dumps(result,ensure_ascii=False,indent=2)+"\n"
     fd,tmp=tempfile.mkstemp(prefix=".williams-experience-",suffix=".tmp",dir=str(dest.parent))
     try:
         os.fchmod(fd,0o600)
