@@ -82,15 +82,19 @@ def main():
     if not a.question:
         return
     from .local_model import LocalWilliamsModel
-    notes=_chart_notes(observations)
+    # Reserve the scarce inference-context slots for primary book pages.
+    # The earlier order dropped all book citations on >=4 timeframes.
+    book_pages=[]
     if a.book_index:
         from .book_index import search_pages
-        notes.extend(search_pages(a.book_index,a.question,edition=a.edition,limit=2))
-    notes.extend(lookup_rules(a.question,edition=a.edition,max_cards=2))
+        book_pages=search_pages(a.book_index,a.question,edition=a.edition,limit=2)
+    book_cards=lookup_rules(a.question,edition=a.edition,max_cards=2)
+    chart_notes=_chart_notes(observations)
+    notes=(book_pages[:2]+book_cards[:1]+chart_notes[:1]) if (book_pages or book_cards) else chart_notes[:2]
     model=LocalWilliamsModel(a.local_model)
     report=build_report(_to_snapshot(observations))
     print("\n--- Локальное объяснение (не торговый приказ) ---")
-    print(model.answer(a.question,report,notes=notes[:4]))
+    print(model.answer(a.question,report,notes=notes))
     print("\nКонтрольные источники (только реально переданные выдержки):")
     for item in notes[:4]:
         print("- "+item["source"])
