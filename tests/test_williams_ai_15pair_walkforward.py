@@ -37,6 +37,14 @@ class WaveMemoryTests(unittest.TestCase):
         self.assertTrue(all(not x["authoritative_for_trade"] for x in out))
         self.assertEqual(recall_wave("Международные авиалинии 438493"),[])
 
+    def test_annotated_visual_examples_preserve_uncertainty(self):
+        from williams_ai.wave_reference import recall_annotated_charts
+        r=recall_annotated_charts("Вложенная синяя третья волна и красная пятерка")
+        self.assertTrue(r)
+        self.assertTrue(r[0]["source"].startswith("ANNOTATED_USER_CHART:"))
+        self.assertFalse(r[0]["authoritative_for_trade"])
+        self.assertIn("UNVERIFIED",r[0]["status"])
+
     def test_classic_impulse_and_leading_diagonal_are_not_same(self):
         overlap=[100,120,110,140,118,150]
         impulse=structural_exam({"pattern":"IMPULSE","pivots":overlap})
