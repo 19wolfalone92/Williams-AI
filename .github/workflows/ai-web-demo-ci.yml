@@ -1,0 +1,30 @@
+name: Williams AI research and DEMO safety
+
+on:
+  push:
+    branches: [feature/web-search-demo-futures]
+  pull_request:
+    paths:
+      - "williams_ai/**"
+      - "tests/test_williams_ai_*.py"
+      - "mobile/**"
+      - ".github/workflows/ai-web-demo-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: All AI tests (no demo keys, no outbound requests)
+        run: python -m unittest discover -s tests -p "test_williams_ai_*.py" -v
+      - name: Compile Python
+        run: python -m compileall -q williams_ai
+      - name: CLI offline smoke
+        run: python -m williams_ai.cli examples/ai_market_snapshot.json
