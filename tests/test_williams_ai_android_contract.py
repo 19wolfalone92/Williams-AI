@@ -14,7 +14,7 @@ class AndroidOfflineContract(unittest.TestCase):
         self.assertNotIn("com.williamsbot", script)
         self.assertNotIn("19wolfalone92/Williams.git", script)
 
-    def test_network_permission_not_requested(self):
+    def test_opt_in_internet_search_permission(self):
         manifest = (MOBILE / "overlay/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
         self.assertIn('android.permission.INTERNET', manifest)
         self.assertNotIn("ACCESS_FINE_LOCATION", manifest)
