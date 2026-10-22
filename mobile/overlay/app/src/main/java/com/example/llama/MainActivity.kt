@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private var inference: InferenceEngine? = null
     private var generation: Job? = null
     private var modelReady = false
+    private var studying = false
     private var busy = true
     private val messages = mutableListOf<Message>()
     private val adapter = MessageAdapter(messages)
@@ -71,7 +72,9 @@ class MainActivity : AppCompatActivity() {
         studyEdition.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
             listOf("TC1", "NTD", "TC2", "COURSE"))
         studyEdition.setSelection(2)
-        studyButton.setOnClickListener { studyBooks() }
+        studyButton.setOnClickListener {
+            if (studying) generation?.cancel() else studyBooks()
+        }
         bookButton.setOnClickListener { if (!busy) bookPicker.launch(arrayOf("*/*")) }
         webToggle.isChecked = false  // No internet query without explicit user consent.
         list.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
@@ -394,17 +397,21 @@ class MainActivity : AppCompatActivity() {
         val modelId = getPreferences(MODE_PRIVATE).getString("gguf_name", null) ?: return
         val edition = studyEdition.selectedItem.toString()
         busy = true
+        studying = true
         button.isEnabled = false
         input.isEnabled = false
         bookButton.isEnabled = false
-        studyButton.isEnabled = false
+        studyButton.isEnabled = true
+        studyButton.text = "Остановить изучение"
         webToggle.isEnabled = false
         generation = lifecycleScope.launch {
             var completed = 0
             try {
                 val books = File(filesDir, "Williams_AI_Knowledge_Private.sqlite3")
                 val memory = File(filesDir, "study-memory.db")
-                repeat(3) {
+                // Study sequentially without asking the user to restart every few chunks.
+                // Explicit stop or leaving the foreground cancels the current passage.
+                while (completed < 10000) {
                     val passage = withContext(Dispatchers.IO) {
                         StudyMemory.next(books, memory, edition, modelId)
                     } ?: run {
@@ -424,19 +431,23 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.IO) { StudyMemory.save(memory, passage, modelId, lesson.toString()) }
                     completed++
                 }
-                setStatus("Изучено " + completed + " фрагмента " + edition +
-                    ". Прогресс сохранён; выводы требуют проверки. Веса GGUF не изменены.")
+                setStatus("Сохранено " + completed + " фрагментов " + edition +
+                    ". Достигнут лимит сеанса. Выводы требуют проверки; веса GGUF не изменены.")
             } catch (e: CancellationException) {
+                setStatus("Изучение остановлено. Сохранено фрагментов: " + completed +
+                    ". Следующий запуск продолжит чтение.")
                 throw e
             } catch (e: Exception) {
                 setStatus("Изучение остановлено. Сохранено: " + completed + ". " +
                     (e.message ?: "Ошибка модели"))
             } finally {
                 busy = false
+                studying = false
                 button.isEnabled = true
                 input.isEnabled = modelReady
                 bookButton.isEnabled = true
                 studyButton.isEnabled = modelReady
+                studyButton.text = "Изучать выбранную книгу"
                 webToggle.isEnabled = true
             }
         }

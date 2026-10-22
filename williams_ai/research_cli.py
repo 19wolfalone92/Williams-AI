@@ -21,6 +21,7 @@ def main():
     study.add_argument("--model", type=Path, required=True)
     study.add_argument("--edition", choices=["TC1", "NTD", "TC2", "COURSE"], required=True)
     study.add_argument("--budget", type=int, default=4, help="Maximum source chunks per invocation, 1..100")
+    study.add_argument("--until-complete", action="store_true", help="Continue bounded batches automatically; each completed chunk is checkpointed")
     report = sub.add_parser("report")
     report.add_argument("--books", required=True)
     report.add_argument("--memory", required=True)
@@ -44,6 +45,16 @@ def main():
         model = LocalWilliamsModel(opts.model)
         result = study_batch(opts.books, opts.memory, opts.edition, model,
                              model_id=digest.hexdigest(), budget=opts.budget)
+        if opts.until_complete:
+            totals = {"studied_chunks": result["studied_chunks"], "failed_chunks": result["failed_chunks"]}
+            for _ in range(1000):
+                if result["studied_chunks"] + result["failed_chunks"] == 0:
+                    break
+                result = study_batch(opts.books, opts.memory, opts.edition, model,
+                                     model_id=digest.hexdigest(), budget=opts.budget)
+                for key in totals:
+                    totals[key] += result[key]
+            result = {**result, **totals, "report": study_report(opts.books, opts.memory)}
     elif opts.action == "report":
         result = study_report(opts.books, opts.memory)
     elif opts.action == "ask":

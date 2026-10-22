@@ -15,7 +15,7 @@
    android:layout_height="48dp" android:contentDescription="Издание для изучения" />
   <Button android:id="@+id/study_button" android:layout_width="0dp"
    android:layout_weight="1" android:layout_height="wrap_content"
-   android:enabled="false" android:text="Изучить следующие 3 фрагмента" />
+   android:enabled="false" android:text="Изучать выбранную книгу" />
  </LinearLayout>
  <CheckBox android:id="@+id/web_enabled" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:checked="false"
