@@ -135,12 +135,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val sha = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
-            val final = File(models, "$sha.gguf")
-            if (final.exists()) {
-                require(final.length() == partial.length()) { "Конфликт имени модели" }
-                return final
+            val destination = File(models, "$sha.gguf")
+            if (destination.exists()) {
+                require(destination.length() == partial.length()) { "Конфликт имени модели" }
+                return destination
             }
-            check(partial.renameTo(final)) { "Не удалось сохранить GGUF" }
+            check(partial.renameTo(destination)) { "Не удалось сохранить GGUF" }
             return final
         } finally {
             partial.delete()
