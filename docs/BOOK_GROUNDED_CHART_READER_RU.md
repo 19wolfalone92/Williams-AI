@@ -1,0 +1,61 @@
+# Williams AI — книжная память и чтение графика
+
+## Что реально сделано
+- Проверены SHA-256 четырёх пользовательских оригиналов. Хэши и названия
+  лежат в knowledge/SOURCE_RULE_CARDS.json.
+- На личной локальной машине извлечён текст TC1: 140/140 стр.;
+  NTD: 155/156; TC2: 224/224; Course: 0/122 (полностью скан).
+- Итого текстовых страниц 519 из 642. Это показатель доступности текста,
+  **НЕ точность знаний модели** и НЕ буквальное книжное соответствие.
+- Отдельная приватная SQLite FTS5 содержит 1727 фрагментов оригиналов.
+  Полные книги и извлечённый текст в публичный GitHub не загружены.
+- Для Course нужны OCR и визуальная проверка сканов. Изделие с непроверенным
+  OCR не следует называть 100% освоенным.
+- Добавлены короткие карточки 27 правил с ссылками на PDF страницы и
+  разными статусами REVIEWED_PAGES / PRIOR_AUDIT_NOT_YET_RECHECKED.
+- Профили TC1/NTD/TC2/Course не смешиваются как единая стратегия.
+- Код chart_reader читает закрытые OHLCV, Alligator, AO, AC, зоны,
+  подтверждённые t+2 фракталы и кандидаты WM1/WM2/WM3.
+- WM1 ангyляция — численная гипотеза, НЕ доказанная каноническая
+  графическая разметка. Сложная Elliott-иерархия не завершена.
+- Ни один результат chart_reader не может непосредственно отправить ордер.
+
+## Установка личной базы книг на компьютере
+Установить Python 3.11 и pypdf. Указанная БД должна находиться ВНЕ клона GitHub.
+Пример:
+    python -m pip install pypdf
+    python -m williams_ai.book_cli --db /private/williams-books.sqlite3 ingest TC1 "/private/1. Торговый Хаос - 1.pdf"
+    python -m williams_ai.book_cli --db /private/williams-books.sqlite3 ingest NTD "/private/Билл_Вильямс_Новые_измерения_в_биржевой_торговле_2_книга.pdf"
+    python -m williams_ai.book_cli --db /private/williams-books.sqlite3 ingest TC2 "/private/Торговый Хаос 2 (3книга).pdf"
+    python -m williams_ai.book_cli --db /private/williams-books.sqlite3 ingest COURSE "/private/Bill Williams - Trading Chaos Course.pdf"
+    python -m williams_ai.book_cli --db /private/williams-books.sqlite3 report
+    python -m williams_ai.book_cli --db /private/williams-books.sqlite3 search "ангуляция" --edition TC2
+
+При наличии сверенного OCR Course: в каталоге локального OCR страницы
+сохраняются как page_0042.txt и т. д. Запуск ingest COURSE с --ocr-dir
+заполнит соответствующие страницы. OCR по умолчанию UNVERIFIED.
+
+## Загрузка в Android
+Отдельная кнопка «Загрузить личную библиотеку» импортирует SQLite из файлов
+смартфона и проверяет паспорт всех четырёх PDF. Для локального ответа
+выбираются страницы с пометкой TC1/NTD/TC2/COURSE и физическими номерами PDF.
+Программа не скачивает и не публикует книги, не отправляет их в Интернет.
+Хэш в метаданных доказывает принадлежность исходного PDF,
+но не защищает от намеренной подделки самого SQLite. Используйте свою БД.
+
+## Чтение закрытых баров с локальным ИИ
+    python -m williams_ai.chart_cli examples/ai_chart_example.json
+    python -m williams_ai.chart_cli examples/ai_chart_example.json --local-model /private/model.gguf --book-index /private/williams-books.sqlite3 --edition TC2 --question "Проверь WM1 и волны"
+
+Пример содержит СИНТЕТИЧЕСКИЕ свечи, не биржевые котировки.
+Важные ограничения: нельзя использовать будущие свечи; нельзя утверждать,
+что AO у нуля завершает W4; нельзя смешивать NTD Saucer и TC2 WM2;
+нельзя выдавать оценочную регрессию за каноническую визуальную ангуляцию.
+
+## Условия признания 100% соответствия
+Полная постраничная книга+иллюстрации; проверенная система 5 измерений,
+трёх мудрецов, всех зон, Balance Line, exits и обратной пирамиды;
+вложенные импульсы/диагонали/zigzag/flat/triangles/combinations;
+эталонные графики; полный причинный исторический replay; отдельные
+модели TC1/NTD/TC2/Course; экзамен модели на неизвестных случаях;
+DEMO приёмка и аварийные сценарии. Эти условия ПОКА НЕ ЗАКРЫТЫ.
