@@ -112,6 +112,27 @@ class FrozenMarketTests(unittest.TestCase):
             self.assertTrue(0<=item["test_brier"]<=1)
             self.assertFalse(item["execution_allowed"])
 
+    def test_experience_is_private_atomic_and_time_scoped(self):
+        from williams_ai.experience_journal import save_private_experience, recall_past_experience
+        from pathlib import Path
+        import tempfile
+        import os
+        sample={
+            "version":"WILLIAMS_15PAIR_PAST_ONLY_LEARNING_V1",
+            "reports":[{"symbol":"ETHUSDT","trained_through":"2026-10-12T01:00:00+00:00",
+                        "train_count":100,"test_brier":0.01,"test_constant_prior_brier":0.9}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"trained.json"
+            save_private_experience(path,sample)
+            self.assertEqual(json.loads(path.read_text())["version"],sample["version"])
+            self.assertEqual(os.stat(path).st_mode & 0o777,0o600)
+            self.assertEqual(recall_past_experience(path,"ETHUSDT",as_of="2026-10-12T00:00:00Z"),[])
+            result=recall_past_experience(path,"ETHUSDT",as_of="2026-10-13T00:00:00Z")
+            self.assertEqual(len(result),1)
+            self.assertNotIn("0.01",str(result))
+            self.assertIsNone(result[0]["trade_action"])
+
     def test_future_must_not_enter_past_candidate(self):
         rows=synthetic()
         bars,_=validate_closed_bars(rows,"H1",rows[-1]["close_time"])
