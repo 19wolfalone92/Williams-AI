@@ -97,10 +97,27 @@ def main():
     if a.study_memory:
         from .study import recall
         learned=recall(a.study_memory,a.question,edition=a.edition,limit=1)
-    # Primary pages retain priority. Study memory can fill only a spare slot.
-    notes=(book_pages[:2]+book_cards[:1]+chart_notes[:1]) if (book_pages or book_cards) else chart_notes[:2]
+    # Primary pages always win. Wave handout is NOT another Williams book;
+    # when requested, it replaces an optional paraphrase card, not a primary
+    # page or the closed-candle chart evidence.
+    from .wave_reference import recall_wave
+    wave_query = any(tag in a.question.casefold() for tag in (
+        "волн", "импульс", "эллиот", "зигзаг", "треуголь",
+        "диагонал", "клин", "коррекц", "wave", "elliott",
+        "zigzag", "triangle", "flat", "w-x-y",
+    ))
+    wave_notes = recall_wave(a.question, limit=1) if wave_query else []
+    notes=book_pages[:2]
+    if not notes:
+        notes+=book_cards[:1]
+    if chart_notes:
+        notes+=chart_notes[:1]
+    notes+=wave_notes
+    if len(notes)<4 and book_pages:
+        notes+=book_cards[:1]
     if len(notes)<4:
         notes+=learned[:4-len(notes)]
+    notes=notes[:4]
     model=LocalWilliamsModel(a.local_model)
     report=build_report(_to_snapshot(observations))
     print("\n--- Локальное объяснение (не торговый приказ) ---")
