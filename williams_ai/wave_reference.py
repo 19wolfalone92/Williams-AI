@@ -67,6 +67,36 @@ def recall_wave(reference_query: str, *, limit: int=3) -> list[dict[str,Any]]:
     } for _,c in ranked[:limit]]
 
 
+@lru_cache(maxsize=1)
+def _chart_cases()->dict[str,Any]:
+    source=Path(__file__).resolve().parents[1]/"knowledge/USER_ANNOTATED_CHART_CASES.json"
+    pack=json.loads(source.read_text(encoding="utf-8"))
+    assert pack["schema"]=="WILLIAMS_USER_ANNOTATED_CHART_CASES_V1"
+    return pack
+
+
+def recall_annotated_charts(question:str, *,limit:int=1)->list[dict[str,Any]]:
+    """Old hand-marked examples are hypotheses, never a chart ground truth."""
+    if not isinstance(question,str) or len(question)>1600:
+        raise ValueError("Invalid chart question")
+    if not 1<=limit<=4:
+        raise ValueError("limit must be 1..4")
+    terms=_terms(question)
+    ranks=[]
+    for card in _chart_cases()["cases"]:
+        haystack=_terms(card["title"]+" "+card["description"]+" "+card["id"])
+        score=len(terms & haystack)
+        if score:
+            ranks.append((score,card))
+    ranks.sort(key=lambda z:(-z[0],z[1]["id"]))
+    return [{
+        "source":"ANNOTATED_USER_CHART:"+v["id"],
+        "excerpt":v["description"],
+        "status":"VISUAL_ANNOTATION_UNVERIFIED_NUMERICALLY",
+        "authoritative_for_trade":False,
+    } for _,v in ranks[:limit]]
+
+
 def structural_exam(claim: dict[str,Any]) -> dict[str,Any]:
     """Reject demonstrably invalid geometric claims, never confirm wave truth.
 
