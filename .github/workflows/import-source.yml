@@ -1,0 +1,111 @@
+name: One-time Williams source import
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: williams-ai-source-import
+  cancel-in-progress: false
+
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out independent target
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Import immutable Williams snapshot without source workflows or secrets
+        shell: bash
+        env:
+          SOURCE_SHA: 27e4053134494648a62c60bd1a15d3d20b6e038f
+        run: |
+          set -euo pipefail
+          if test -f SOURCE_SNAPSHOT.md; then
+            echo "Source already imported; refusing to overwrite Williams AI."
+            exit 0
+          fi
+
+          source_dir="$RUNNER_TEMP/williams-source"
+          git clone --no-checkout --filter=blob:none https://github.com/19wolfalone92/Williams.git "$source_dir"
+          git -C "$source_dir" checkout --detach "$SOURCE_SHA"
+          actual_sha="$(git -C "$source_dir" rev-parse HEAD)"
+          test "$actual_sha" = "$SOURCE_SHA"
+
+          # Preserve this repository's identity and independent CI.
+          # Never import environment secrets, signing keys, Git metadata, or
+          # the source repo's workflows (which might trigger live operations).
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.env.*.local' \
+            --exclude='*.pem' \
+            --exclude='*.p12' \
+            --exclude='*.pfx' \
+            --exclude='*.keystore' \
+            --exclude='*.jks' \
+            --exclude='google-services.json' \
+            --exclude='secrets.properties' \
+            --exclude='local.properties' \
+            --exclude='*.sqlite' \
+            --exclude='*.sqlite3' \
+            --exclude='*.db' \
+            --exclude='__pycache__/' \
+            --exclude='.gradle/' \
+            --exclude='build/' \
+            "$source_dir/" "./"
+
+          mkdir -p docs
+          if test -f README.md; then
+            cp README.md docs/ORIGINAL_WILLIAMS_README.md
+          fi
+          cat > README.md <<'EOF'
+          # Williams AI 🧠
+
+          Независимый проект анализа рынков и объяснения сигналов, основанный на
+          **снимке исходного кода** [Williams Bot](https://github.com/19wolfalone92/Williams).
+
+          **Здесь нет разрешения на реальную торговлю.**
+          Исходный бот не изменяется. API-ключи, подписывающие ключи и
+          CI/workflows оригинального репозитория намеренно не копируются.
+
+          Этот репозиторий содержит копию исходного кода для экспериментов,
+          а не обновление установленного торгового APK.
+          Сведения о происхождении копии: [SOURCE_SNAPSHOT.md](SOURCE_SNAPSHOT.md).
+
+          Начальный этап: отдельный аналитический контур с объяснимыми
+          решениями и проверками на исторических данных.
+          EOF
+          cat > SOURCE_SNAPSHOT.md <<EOF
+          # Source snapshot provenance
+
+          - Original repository: https://github.com/19wolfalone92/Williams
+          - Source branch: main
+          - Immutable source commit: $SOURCE_SHA
+          - Import date (UTC): $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          - Import method: GitHub Actions, source clone and rsync.
+          - Exclusions: .git, .github, local environment files, signing keys,
+            local SQLite data, local build outputs.
+          - No continuous sync with original repository is configured.
+          - Original repository was not changed by this process.
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "import: vendor Williams baseline at $SOURCE_SHA" || {
+            echo "Nothing to import"
+            exit 0
+          }
+          git push origin HEAD:main
