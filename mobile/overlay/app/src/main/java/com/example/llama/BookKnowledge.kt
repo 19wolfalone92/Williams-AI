@@ -21,6 +21,11 @@ object BookKnowledge {
         SQLiteDatabase.openDatabase(
             file.absolutePath, null, SQLiteDatabase.OPEN_READONLY
         ).use { db ->
+            db.rawQuery("SELECT sql FROM sqlite_master WHERE name='excerpts'", null).use { schema ->
+                require(schema.moveToFirst() && !schema.getString(0).contains("VIRTUAL TABLE", ignoreCase = true)) {
+                    "Старый FTS-индекс: загрузите новый переносимый SQLite-файл, совместимый с Android"
+                }
+            }
             db.rawQuery(
                 "SELECT book,sha256,total_pages,extracted_pages,missing_pages FROM volumes", null
             ).use { cur ->
@@ -60,26 +65,37 @@ object BookKnowledge {
     fun retrieve(file: File, question: String, limit: Int = 3): List<BookExcerpt> {
         if (!file.isFile) return emptyList()
         require(limit in 1..5)
-        val tokens = Regex("[\\p{L}\\p{N}]{3,}")
-            .findAll(question.lowercase()).map { it.value }.distinct().take(9).toList()
+        val original = Regex("[\\p{L}\\p{N}]{3,}")
+            .findAll(question.lowercase(java.util.Locale.ROOT)).map { it.value }.distinct().take(9).toList()
+        val groups = listOf(listOf("фракт", "fractal"), listOf("ангуля", "angulation"),
+            listOf("аллигатор", "alligator"), listOf("мудрец", "wise"),
+            listOf("стоп", "stop"), listOf("волн", "wave"), listOf("диверген", "divergenc"),
+            listOf("баланс", "balance"), listOf("пирамид", "pyramid"), listOf("риск", "risk"))
+        val aliases = groups.filter { group -> original.any { word -> group.any { word.startsWith(it) } } }.flatten()
+        val tokens = (aliases + original).distinct().take(20)
         if (tokens.isEmpty()) return emptyList()
-        val query = tokens.joinToString(" OR ") { "\"" + it + "\"" }
         SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             db.rawQuery(
-                "SELECT book,pdf_page,substr(content,1,650) " +
-                "FROM excerpts WHERE excerpts MATCH ? ORDER BY rank LIMIT " + limit,
-                arrayOf(query)
+                "SELECT book,pdf_page,content FROM excerpts ORDER BY book,CAST(pdf_page AS INTEGER)", null
             ).use { cursor ->
-                val found = ArrayList<BookExcerpt>()
+                val found = ArrayList<Pair<Int, BookExcerpt>>()
                 while (cursor.moveToNext()) {
                     val id = cursor.getString(0)
                     val page = cursor.getInt(1)
                     if (id !in expected || page <= 0) continue
-                    found.add(BookExcerpt(
-                        id, page, cursor.getString(2).replace(Regex("\\s+"), " ").take(650)
-                    ))
+                    val content = cursor.getString(2).replace(Regex("\\s+"), " ")
+                    val lower = content.lowercase(java.util.Locale.ROOT)
+                    val words = Regex("[\\p{L}\\p{N}]{2,}").findAll(lower).map { it.value }.toList()
+                    val score = tokens.sumOf { token -> minOf(4, words.count { it.startsWith(token) }) }
+                    if (score == 0) continue
+                    val offset = tokens.map { lower.indexOf(it) }.filter { it >= 0 }.minOrNull() ?: 0
+                    found.add(Pair(score, BookExcerpt(id, page, content.drop(maxOf(0, offset - 120)).take(650))))
+                    if (found.size > 20) {
+                        found.sortByDescending { it.first }
+                        while (found.size > limit) found.removeAt(found.lastIndex)
+                    }
                 }
-                return found
+                return found.sortedByDescending { it.first }.take(limit).map { it.second }
             }
         }
     }

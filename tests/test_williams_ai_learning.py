@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from williams_ai.book_index import index_pages
+from williams_ai.book_index import index_pages, search_pages, _database
 from williams_ai.book_rules import registry
 from williams_ai.local_model import LocalWilliamsModel
 from williams_ai.paper_learning import paper_samples, chronological_split, learn_from_history
@@ -88,6 +88,33 @@ class StudyTests(unittest.TestCase):
     def test_same_memory_and_source_refused(self):
         with self.assertRaises(ValueError):
             study_batch(self.books, self.books, "TC2", StudyModel(), model_id="v1")
+
+    def test_russian_query_reaches_english_course_without_merging_editions(self):
+        source = next(x for x in registry()["books"] if x["id"] == "COURSE")
+        pages = [""] * source["pages"]
+        pages[20] = "A fractal has two completed bars to its right. This is synthetic text for the query test."
+        index_pages(self.books, "COURSE", source["sha256"], pages, declared_pages=source["pages"])
+        hits = search_pages(self.books, "фракталы", edition="COURSE")
+        self.assertEqual(hits[0]["source"], "COURSE: PDF 21")
+        self.assertTrue(all(x["source"].startswith("COURSE:") for x in hits))
+
+    def test_legacy_fts_upgrade_retains_source_rows_for_android(self):
+        import sqlite3
+        db = sqlite3.connect(self.books)
+        rows = db.execute("SELECT * FROM excerpts").fetchall()
+        db.execute("DROP TABLE excerpts")
+        db.execute("CREATE VIRTUAL TABLE excerpts USING fts5(book UNINDEXED,pdf_page UNINDEXED,content,evidence_status UNINDEXED)")
+        db.executemany("INSERT INTO excerpts VALUES (?,?,?,?)", rows)
+        db.commit()
+        db.close()
+        migrated = _database(self.books)
+        try:
+            sql = migrated.execute("SELECT sql FROM sqlite_master WHERE name='excerpts'").fetchone()[0]
+            self.assertNotIn("VIRTUAL", sql.upper())
+            self.assertEqual(migrated.execute("SELECT * FROM excerpts").fetchall(), rows)
+            self.assertEqual(migrated.execute("PRAGMA user_version").fetchone()[0], 2)
+        finally:
+            migrated.close()
 
     def test_actual_local_model_contract_uses_json_no_tools(self):
         path = Path(self.tmp.name) / "test.gguf"

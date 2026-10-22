@@ -14,6 +14,7 @@ import sqlite3
 from typing import Any, Iterable
 
 from .book_rules import registry
+from .knowledge import query_terms
 
 ROOT = Path(__file__).resolve().parents[1]
 _WORD = re.compile(r"[^\W_]{2,}", re.UNICODE)
@@ -46,13 +47,25 @@ def _database(path: str | Path) -> sqlite3.Connection:
             extracted_pages INTEGER NOT NULL, missing_pages INTEGER NOT NULL,
             source_type TEXT NOT NULL)
     """)
-    db.execute("""
-        CREATE VIRTUAL TABLE IF NOT EXISTS excerpts USING fts5(
-            book UNINDEXED, pdf_page UNINDEXED, content,
-            evidence_status UNINDEXED, tokenize='unicode61'
-        )
-    """)
+    _portable_excerpts(db)
     return db
+
+
+def _portable_excerpts(db: sqlite3.Connection) -> None:
+    """A plain table works with Android SQLite builds that do not enable FTS5."""
+    old = db.execute("SELECT sql FROM sqlite_master WHERE name='excerpts'").fetchone()
+    columns = "(book TEXT NOT NULL,pdf_page INTEGER NOT NULL,content TEXT NOT NULL,evidence_status TEXT NOT NULL)"
+    with db:
+        if old and "VIRTUAL TABLE" in old[0].upper():
+            # Migrate on a desktop with the old extension available, retaining every row.
+            db.execute("CREATE TABLE _ai_excerpts_upgrade " + columns)
+            db.execute("INSERT INTO _ai_excerpts_upgrade SELECT book,pdf_page,content,evidence_status FROM excerpts")
+            db.execute("DROP TABLE excerpts")
+            db.execute("ALTER TABLE _ai_excerpts_upgrade RENAME TO excerpts")
+        else:
+            db.execute("CREATE TABLE IF NOT EXISTS excerpts " + columns)
+        db.execute("CREATE INDEX IF NOT EXISTS excerpts_book_page ON excerpts(book,pdf_page)")
+        db.execute("PRAGMA user_version=2")
 
 
 def _known_book(book: str) -> dict[str, Any]:
@@ -159,29 +172,32 @@ def search_pages(database: str | Path, question: str, *,
         _known_book(edition)
     if not isinstance(question, str) or len(question) > 1500 or not 1 <= limit <= 8:
         raise ValueError("Invalid search request")
-    tokens = list(dict.fromkeys(x.casefold() for x in _WORD.findall(question)))[:12]
+    tokens = query_terms(question)
     if not tokens:
         return []
-    # fts expression built exclusively from alphanumeric tokens; no caller-supplied syntax.
-    query = " OR ".join('"' + token + '"' for token in tokens)
     path = _private_database(database)
     if not path.is_file():
         raise FileNotFoundError("Private book index does not exist")
     db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
-        statement = """SELECT book,pdf_page,content,evidence_status
-            FROM excerpts WHERE excerpts MATCH ?"""
-        args: list[Any] = [query]
+        statement = "SELECT book,pdf_page,content,evidence_status FROM excerpts"
+        args: list[Any] = []
         if edition:
-            statement += " AND book=?"
+            statement += " WHERE book=?"
             args.append(edition)
-        statement += " ORDER BY rank LIMIT ?"
-        args.append(limit)
-        rows = db.execute(statement, args).fetchall()
-        return [{
-            "source": f"{book}: PDF {page}", "excerpt": content[:650],
-            "status": "PRIVATE_PAGE_TEXT_UNVERIFIED", "page": int(page),
-        } for book, page, content, status in rows]
+        ranked = []
+        for book, page, content, status in db.execute(statement, args):
+            words = [w.casefold() for w in _WORD.findall(content)]
+            score = sum(min(4, sum(word.startswith(token) for word in words)) for token in tokens)
+            if not score:
+                continue
+            offsets = [content.casefold().find(t) for t in tokens if t in content.casefold()]
+            start = max(0, min(offsets) - 120) if offsets else 0
+            ranked.append((score, book, int(page), content[start:start+650]))
+        ranked.sort(key=lambda x: (-x[0], x[1], x[2]))
+        return [{"source": f"{book}: PDF {page}", "excerpt": content,
+                 "status": "PRIVATE_PAGE_TEXT_UNVERIFIED", "page": page}
+                for _, book, page, content in ranked[:limit]]
     finally:
         db.close()
 
