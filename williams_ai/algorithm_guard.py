@@ -173,7 +173,7 @@ def audit_reasoning(
                  and c.get("side")==side]
         if not matches:
             fail("WM3_NO_CONFIRMED_FRACTAL_IN_OBSERVATION")
-        elif not any(x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+        elif entry!="PENDING_TRIGGER" and not any(x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
                      for x in matches):
             fail("WM3_NO_VERIFIED_TEETH_PASS_AT_PRICE_TOUCH")
         else:
