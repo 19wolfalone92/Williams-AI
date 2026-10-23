@@ -174,6 +174,10 @@ def audit_reasoning(
         if not matches:
             fail("WM1_REVERSAL_BAR_NOT_OBSERVED")
         else:
+            if any(x.get("bar_time") is not None
+                   and x.get("bar_time")!=observation.get("as_of")
+                   for x in matches):
+                fail("WM1_REVERSAL_BAR_FROM_PAST_NOT_CURRENT_CANDLE")
             note("WM1_ANGLULATION_HUMAN_IMAGE_REVIEW_REQUIRED")
             if not any(x.get("angle_heuristic") is True for x in matches):
                 note("WM1_NUMERICAL_ANGULATION_NOT_EVEN_POSITIVE")
