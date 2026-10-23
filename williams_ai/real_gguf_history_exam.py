@@ -72,6 +72,8 @@ def run_actual_history_exam(model, *,verified_weights:dict)->dict:
                 "GGUF_RESPONSE_IS_NOT_AN_OBJECT",
                 "GGUF_MISSING_MANDATORY_DECISION_FIELDS",
                 "MODEL_CONTEXT_BUDGET_EXCEEDED_AFTER_CAUSAL_COMPACTION",
+                "GGUF_MODEL_INFERENCE_VALUE_ERROR",
+                "GGUF_AUDITOR_INVALID_PROPOSAL",
             )
             cause=next((x for x in known_errors if x==message),None)
             if cause is None and message=="Expected ISO timestamp":
