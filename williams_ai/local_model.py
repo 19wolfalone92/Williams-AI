@@ -149,7 +149,8 @@ class LocalWilliamsModel:
 
     def propose_chart_reasoning(
         self, chart_analysis: dict[str, Any], *, edition: str = "TC2",
-        primary_pages: list[dict[str, Any]] | None = None
+        primary_pages: list[dict[str, Any]] | None = None,
+        prior_lessons: list[dict[str, str]] | None = None
     ) -> dict[str, Any]:
         """Local model's RESEARCH interpretation, never an executable order.
 
@@ -216,8 +217,25 @@ class LocalWilliamsModel:
                         or item.get("status")!="PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"):
                     raise ValueError("Unverified or mixed-edition source")
                 pages.append({"source":source,"excerpt":excerpt})
+        corrections=[]
+        if prior_lessons is not None:
+            if not isinstance(prior_lessons,list) or len(prior_lessons)>3:
+                raise ValueError("At most three private source corrections")
+            allowed_rules={c["id"] for c in registry()["rule_cards"]
+                           if c["source"]==edition}
+            for note in prior_lessons:
+                if not isinstance(note,dict) or set(note)!={"source","excerpt"}:
+                    raise ValueError("Unrecognized private lesson")
+                source,explanation=note["source"],note["excerpt"]
+                if (not isinstance(source,str) or not source.startswith(edition+":RULE:")
+                        or source.split(":RULE:",1)[1] not in allowed_rules
+                        or not isinstance(explanation,str)
+                        or not 10<=len(explanation)<=450):
+                    raise ValueError("Private lesson is not from the selected edition")
+                corrections.append({"source":source,"excerpt":explanation})
         user_context=json.dumps({
             "primary_book_pages":pages,
+            "previous_model_mistake_corrections":corrections,
             "source_cards":cards,"edition":edition,"chart":observation,
         },ensure_ascii=False)
         if len(user_context)>16000:
