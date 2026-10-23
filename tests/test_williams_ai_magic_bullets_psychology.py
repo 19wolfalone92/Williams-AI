@@ -170,6 +170,20 @@ class FiveMagicBulletsTests(unittest.TestCase):
                     self.assertEqual(item["bullets"]["SQUAT_MFI_VOLUME"]["status"],
                                      "UNKNOWN")
 
+    def test_15_real_binance_pairs_scanned_on_45_complete_timeframe_passports(self):
+        from williams_ai.five_bullets_cli import scan_fifteen
+        report=scan_fifteen()
+        self.assertEqual(report["symbols"],15)
+        self.assertEqual(report["timeframe_symbol_scans"],45)
+        self.assertTrue(report["without_observed_M5_M15_data"])
+        self.assertFalse(report["profitability_checked"])
+        self.assertEqual(report["summary"]["complete_bullet_sets"],0)
+        self.assertEqual({x["timeframe"] for x in report["by_pair_timeframe"]},
+                         {"H1","H4","D1"})
+        self.assertTrue(all(x["execution_allowed"] is False
+                            and x["trade_action"] is None
+                            for x in report["by_pair_timeframe"]))
+
     def test_llm_must_name_tc1_not_ntu_and_cannot_trade_on_five_bullets(self):
         from williams_ai.algorithm_guard import audit_reasoning
         rows=maker()
