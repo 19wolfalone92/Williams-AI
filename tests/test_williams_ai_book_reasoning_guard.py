@@ -91,6 +91,7 @@ class GateTests(unittest.TestCase):
         pending={**self.observed,"candidates":[{
             "type":"WM3_FRACTAL","side":"SHORT",
             "state":"AWAITING_PRICE_TRIGGER","entry_trigger":3000.0,
+            "confirmed_at":self.as_of,
         }]}
         draft=self.prop(setup="WM3",side="SHORT",
                         entry_state="PENDING_TRIGGER",rule_ids=["TC2.WM3"])
