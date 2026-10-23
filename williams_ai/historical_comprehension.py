@@ -166,6 +166,10 @@ def historical_comprehension(dataset:Path=FROZEN_DATA) -> dict[str,Any]:
         "baseline_always_down_accuracy_nonflat":round(
             all_realized["down"]/max(1,all_realized["up"]+all_realized["down"]),4),
         "scenario_direction_is_not_a_confirmed_price_trigger":True,
+        "unselected_cases_are_not_losing_trades":True,
+        "unconditional_majority_class_baseline_is_known_only_to_evaluator":True,
+        "model_predictive_edge_certified":False,
+        "actual_williams_book_entry_trigger_certified":False,
         "directional_accuracy_excluding_neutral":round(
             total["correct_non_neutral"]/
             max(1,total["correct_non_neutral"]+total["wrong_non_neutral"]),4
@@ -195,9 +199,23 @@ def main():
             "JULY_TO_SEPT_REVIEWED":historical_comprehension(prior),
             "SEPT_TO_OCT_REVIEWED":historical_comprehension(FROZEN_DATA),
         }
+        # No threshold selection on the evaluated future; the old mechanism
+        # lacks stable skill and correlation between 15 coins invalidates
+        # independence assumptions. Never upgrade research to trading.
+        def best_baseline(x):
+            return max(x["naive_24h_past_momentum_hitrate_on_same_selected_samples"],
+                       x["baseline_always_up_accuracy_nonflat"],
+                       x["baseline_always_down_accuracy_nonflat"])
+        passed=all(
+            x["directional_accuracy_excluding_neutral"] is not None
+            and x["directional_accuracy_excluding_neutral"]>best_baseline(x)
+            for x in reports.values())
         report={
             "mode":"TWO_DISJOINT_ALREADY_REVIEWED_HISTORICAL_COHORTS",
             "cohorts":reports,
+            "best_available_diagnostic_baselines_beaten_in_both_cohorts":passed,
+            "predictive_trading_qualification":"NOT_QUALIFIED"
+                 if not passed else "STILL_UNQUALIFIED_REQUIRES_NEW_BLIND_SET_AND_FILLS",
             "untouched_blind_holdout":False,
             "parameter_fitting_performed":False,
             "no_execute":True,
