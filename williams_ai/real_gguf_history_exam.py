@@ -36,10 +36,14 @@ CASES=(
 )
 
 
-def run_actual_history_exam(model, *,verified_weights:dict)->dict:
+def run_actual_history_exam(model, *,verified_weights:dict,
+                            guided_correction:bool=False)->dict:
     if verified_weights.get("verified_model_magic")!="GGUF":
         raise ValueError("Only genuine fingerprint-checked GGUF weights qualify")
     frozen=frozen_markets()
+    if guided_correction:
+        from .guided_retry import GuidedReadOnlyModel
+        model=GuidedReadOnlyModel(model)
     results=[]
     for symbol,bar_index,edition in CASES:
         x=frozen[symbol]
@@ -89,6 +93,14 @@ def run_actual_history_exam(model, *,verified_weights:dict)->dict:
                 "future_candles_sent_to_model":False,
                 "trade_action":None,
             }
+        if guided_correction:
+            # The wrapper's initial thought/second attempt are counted
+            # separately; a safe NO_SETUP following feedback cannot
+            # magically become proof of Williams trading competence.
+            state=getattr(model,"latest",None)
+            result["supervised_retry"]=state
+            if state is None:
+                result["retry_diagnostic_missing"]=True
         results.append(result)
         print("ACTUAL_GGUF_HISTORICAL_CASE",
               json.dumps(result,ensure_ascii=False,sort_keys=True),flush=True)
@@ -96,6 +108,21 @@ def run_actual_history_exam(model, *,verified_weights:dict)->dict:
     failures=Counter(y for x in results for y in x["hard_failures"])
     supported=sum(x["verdict"]=="PROVISIONAL_REASONING_ONLY" for x in results)
     model_no_setup=sum(x["setup"]=="NO_SETUP" for x in results)
+    first_pass_supported=sum(
+        bool(x.get("supervised_retry") and
+             x["supervised_retry"]["first_attempt_verdict"]=="SOURCE_CONSISTENT")
+        for x in results
+    )
+    corrected_substantive=sum(
+        bool(x.get("supervised_retry") and
+             x["supervised_retry"].get("retry_supported_substantive_claim"))
+        for x in results
+    )
+    corrected_abstentions=sum(
+        bool(x.get("supervised_retry") and
+             x["supervised_retry"].get("retry_is_safe_abstention"))
+        for x in results
+    )
     return {
         "mode":"ACTUAL_GGUF_CLOSED_CHART_8_CASE_BLIND_TIMESTAMP_READ_ONLY",
         "weight_sha256":verified_weights["model_sha256"],
@@ -105,6 +132,11 @@ def run_actual_history_exam(model, *,verified_weights:dict)->dict:
         "verdict_counts":dict(counts),"failure_reasons":dict(failures),
         "model_supported_reasoning_cases":supported,
         "model_no_setup_responses":model_no_setup,
+        "guided_correction_enabled":guided_correction,
+        "first_attempt_source_consistent_cases":first_pass_supported if guided_correction else None,
+        "corrected_substantive_reasoning_cases":corrected_substantive if guided_correction else None,
+        "corrected_safe_abstentions":corrected_abstentions if guided_correction else None,
+        "guided_same_case_revision_is_not_blind_book_comprehension":True,
         "strict_safety_qualification":"PASS_ALL" if supported==len(CASES)
                                       else "NOT_QUALIFIED",
         "not_concealed_future_prices_in_model_context":True,
@@ -123,12 +155,15 @@ def main():
     p.add_argument("--expected-sha256",required=True)
     p.add_argument("--ctx",type=int,default=8192)
     p.add_argument("--fail-on-unsafe",action="store_true")
+    p.add_argument("--guided-correction",action="store_true",
+                   help="Actual bounded book feedback on same eight historical cases, not independent holdout")
     args=p.parse_args()
     w=actual_gguf_sha256(args.model,args.expected_sha256)
     model=LocalWilliamsModel(args.model,n_ctx=args.ctx,gpu_layers=0,
                              use_decision_schema=True)
     start=monotonic()
-    report=run_actual_history_exam(model,verified_weights=w)
+    report=run_actual_history_exam(model,verified_weights=w,
+                                   guided_correction=args.guided_correction)
     report["elapsed_cpu_wall_seconds"]=round(monotonic()-start,1)
     print("ACTUAL_GGUF_HISTORICAL_SUMMARY",
           json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
