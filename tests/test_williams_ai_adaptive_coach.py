@@ -129,5 +129,53 @@ class AdaptiveBookTutorTests(unittest.TestCase):
                 self.assertFalse(prior_lesson(db,"gguf-example","NTD","TC1.W3"))
 
 
+    def test_private_remediation_truly_enters_future_local_reasoning(self):
+        from williams_ai.causal_paper_lab import frozen_markets
+        from williams_ai.reasoning_trial import evaluate_historical_thought
+        with TemporaryDirectory() as tmp:
+            path=Path(tmp)/"study_mistakes.sqlite3"
+            model_id="gguf-private-test-sha"
+            study=RehearsingFakeStudent()
+            # First wrong TC1 problem leads to a private reminder attached
+            # to the TC1.W3 rule. Actual weights remain unchanged.
+            coach_practice(study,path,model_id=model_id,
+                           editions=("TC1",),max_cases=1,
+                           repeat_after_feedback=False)
+            class ContextInspectingModel:
+                def __init__(self):self.notes=None
+                def propose_chart_reasoning(self,chart,*,edition,prior_lessons):
+                    self.notes=prior_lessons
+                    return {"symbol":chart["symbol"],"as_of":chart["as_of"],
+                            "edition":edition,"setup":"NO_SETUP","side":"NONE",
+                            "trade_action":None,"execution_allowed":False,
+                            "rule_ids":[]}
+            model=ContextInspectingModel()
+            market=frozen_markets()["ETHUSDT"]
+            result=evaluate_historical_thought(
+                "ETHUSDT",market["bars"],tick_size=market["tick_size"],
+                bar_index=310,edition="TC1",model=model,
+                coach_notebook=path,model_id=model_id)
+            self.assertIsNotNone(model.notes)
+            self.assertEqual(len(model.notes),1)
+            self.assertEqual(model.notes[0]["source"],"TC1:RULE:TC1.W3")
+            self.assertEqual(result["private_prior_mistake_lessons_used"],
+                             ["TC1:RULE:TC1.W3"])
+            self.assertFalse(result["private_coaching_text_exported"])
+            self.assertNotIn(model.notes[0]["excerpt"],str(result))
+            self.assertFalse(result["execution_allowed"])
+
+    def test_other_model_and_source_cannot_borrow_private_learning(self):
+        from williams_ai.adaptive_coach import recall_model_corrections
+        with TemporaryDirectory() as tmp:
+            path=Path(tmp)/"notes.sqlite3"
+            coach_practice(RehearsingFakeStudent(),path,model_id="gguf-first",
+                           editions=("TC1",),max_cases=1)
+            self.assertEqual(recall_model_corrections(path,"gguf-second","TC1"),[])
+            self.assertEqual(recall_model_corrections(path,"gguf-first","NTD"),[])
+            with self.assertRaises(ValueError):
+                recall_model_corrections(path,"gguf-first","TC1",
+                                         focus_rule_ids=("NTD.AO",))
+
+
 if __name__=="__main__":
     unittest.main()
