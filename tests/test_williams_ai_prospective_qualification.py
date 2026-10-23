@@ -136,6 +136,22 @@ class ProspectiveCausalResearch(unittest.TestCase):
         self.assertEqual(report["directional_coverage_fraction"],round(2/3,6))
         self.assertEqual(report["matched_baseline_accuracy"],1.0)
         self.assertFalse(report["beats_lagged_momentum_on_selected_cases"])
+        self.assertFalse(report["beats_all_declared_baselines_on_selected"])
+        self.assertEqual(report["best_matched_baseline_accuracy"],1.0)
+        self.assertEqual(report["model_id"],"fixed-model-v1")
+
+    def test_mixed_revisions_cannot_launder_accuracy_into_one_cohort(self):
+        full=rows(260)
+        a=settle_prospective_call(freeze(full[:230]),full)
+        b=settle_prospective_call(freeze(full[:231]),full)
+        altered=dict(b)
+        altered["model_id"]="other-trained-model-revision"
+        with self.assertRaisesRegex(ValueError,"Cannot mix model"):
+            summarize_sealed_results([a,altered])
+        altered=dict(b)
+        altered["code_id"]="new-source-version-id"
+        with self.assertRaisesRegex(ValueError,"Cannot mix model"):
+            summarize_sealed_results([a,altered])
 
     def test_duplicate_call_cannot_boost_qualification(self):
         full=rows(260);out=settle_prospective_call(freeze(full[:230]),full)
