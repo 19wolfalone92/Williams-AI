@@ -166,7 +166,12 @@ def main()->None:
     p.add_argument("--out",type=Path,required=True)
     a=p.parse_args()
     train=obtain_predeclared_training(workers=a.workers)
+    from .genuine_graph_audit import genuine_market_graph_audit
+    graph_audit=genuine_market_graph_audit(train["markets"])
     report=learn_and_evaluate(train)
+    report["real_causal_graph_audit"]={
+        k:v for k,v in graph_audit.items() if k!="per_token"
+    }
     if a.out.exists():
         raise FileExistsError("Cannot overwrite evaluation report")
     with a.out.open("x",encoding="utf-8") as f:
@@ -175,6 +180,8 @@ def main()->None:
           json.dumps({k:v for k,v in report.items() if k not in
                       ("per_2026_symbol","symbols_unavailable")},
                      ensure_ascii=False,sort_keys=True),flush=True)
+    print("GENUINE_MULTITOKEN_GRAPH_AUDIT",
+          json.dumps(report["real_causal_graph_audit"],sort_keys=True),flush=True)
     print("SYMBOL_SET",json.dumps({"available":train["available"],
                                  "requested":train["requested"],
                                  "unavailable":train["missing"]},
