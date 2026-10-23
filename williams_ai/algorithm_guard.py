@@ -118,6 +118,26 @@ def audit_reasoning(
             })
             if c["status"]!="REVIEWED_PAGES":
                 note("SOURCE_CARD_STILL_AWAITING_PAGE_RECHECK")
+    expected_rule_groups={
+        "WM1":{"TC2.WM1.BAR","TC2.WM1.ANG","TC2.WM1.TRIGGER","TC2.WM1.STOP"},
+        "WM2":{"TC2.WM2"},
+        "WM3":{"TC2.WM3"},
+        "AO_ZERO_CROSS":{"NTD.AO"},
+        "AO_SAUCER":{"NTD.AO"},
+        "AO_TWIN_PEAKS":{"NTD.AO"},
+        "AC":{"NTD.AC"},
+        "ZONE":{"NTD.ZONE","NTD.ZONE.ADDED"},
+        "BALANCE_LINE":{"NTD.BALANCE"},
+        "WAVE_HYPOTHESIS":{
+            "TC1.W3","TC1.W4","TC1.W5","TC1.RHYTHM",
+            "COURSE.W4.ZERO","COURSE.RHYTHM","COURSE.HUMP",
+        },
+    }
+    if setup in expected_rule_groups:
+        if not refs:
+            fail("MISSING_SOURCE_RULE_FOR_SUBSTANTIVE_CLAIM")
+        elif not any(ref in expected_rule_groups[setup] for ref in refs):
+            fail("CITED_RULE_DOES_NOT_SUPPORT_THIS_SETUP")
     if setup in _TRADE_SETUPS and source!="TC2":
         fail("TC2_WISE_MAN_IN_OTHER_EDITION")
     if setup in _NTD_SETUPS and source!="NTD":
