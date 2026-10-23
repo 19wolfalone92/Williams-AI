@@ -103,6 +103,39 @@ def prior_lesson(
     return [{"source":row[0],"excerpt":row[1]}]
 
 
+
+def recall_model_corrections(
+    notebook_db:Path,model_id:str,edition:str, *,
+    focus_rule_ids:tuple[str,...]=(),limit:int=2,
+)->list[dict[str,str]]:
+    """Retrieve REAL previous private mistakes for this exact model fingerprint.
+
+    No past examiner answers, no holdings, no data from other GGUF models,
+    and no lessons across editions may enter a new decision.
+    """
+    if not isinstance(model_id,str) or not model_id.startswith("gguf-"):
+        raise ValueError("Model fingerprint required for research memory")
+    if edition not in {"TC1","NTD","TC2","COURSE"}:
+        raise ValueError("Edition required for research memory")
+    if not isinstance(limit,int) or not 1<=limit<=3:
+        raise ValueError("Max 3 source-specific reminders")
+    verified={x["id"] for x in registry()["rule_cards"] if x["source"]==edition}
+    if not isinstance(focus_rule_ids,tuple) or not set(focus_rule_ids)<=verified:
+        raise ValueError("Only known same-edition rule IDs")
+    if not _private_database(notebook_db).is_file():
+        raise FileNotFoundError("Model has not yet completed a private coaching session")
+    with notebook(notebook_db) as db:
+        rows=db.execute(
+            "SELECT rule_id,source,explanation FROM private_remediation "
+            "WHERE model_id=? AND edition=? "
+            "ORDER BY failures DESC,updated_at DESC",
+            (model_id,edition),
+        ).fetchall()
+    selected=[r for r in rows if not focus_rule_ids or r[0] in focus_rule_ids]
+    return [{"source":source,"excerpt":explanation}
+            for rule,source,explanation in selected[:limit]]
+
+
 def _model_answer(model:Any, question:dict[str,Any],
                   reminders:list[dict[str,str]])->dict[str,Any]:
     # Without reminders, preserve the original answer_exam_case interface.
