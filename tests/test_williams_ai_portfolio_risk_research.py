@@ -89,7 +89,10 @@ class PortfolioPaperGateTests(unittest.TestCase):
         long=size_paper_hypothesis(signal("LONG"),portfolio())
         short=size_paper_hypothesis(signal("SHORT"),portfolio())
         self.assert_never_executes(short)
-        self.assertEqual(long["hypothetical_quantity"],short["hypothetical_quantity"])
+        # Mirrored stops have slightly different exit-fee base values.
+        self.assertLess(abs(long["hypothetical_quantity"]-
+                            short["hypothetical_quantity"]),0.002)
+        self.assertLessEqual(short["hypothetical_risk_including_friction"],5.0)
 
     def test_opposite_stop_or_tiny_stop_are_blocked(self):
         s=signal()
@@ -122,6 +125,17 @@ class PortfolioPaperGateTests(unittest.TestCase):
         p=portfolio()
         p["daily_realized_pnl"]=-20.0
         self.assert_blocked(signal(),p,"DAILY_LOSS_LOCKED")
+
+    def test_daily_loss_room_accounts_for_aggregate_open_stop_risk(self):
+        p=portfolio([existing(qty=0.3)])
+        p["daily_realized_pnl"]=-18.0
+        self.assert_blocked(signal(),p,
+                            "DAILY_WORST_CASE_RISK_BUDGET_EXHAUSTED")
+        p=portfolio()
+        p["daily_realized_pnl"]=-19.0
+        x=size_paper_hypothesis(signal(),p)
+        self.assert_never_executes(x)
+        self.assertLessEqual(x["hypothetical_risk_including_friction"],1.0+1e-7)
 
     def test_stale_market_snapshot_and_future_confirmation_fail_closed(self):
         p=portfolio()
