@@ -215,18 +215,30 @@ def size_paper_hypothesis(
     if invested >= equity * limits.max_total_gross_notional:
         reasons.append("TOTAL_GROSS_NOTIONAL_BUDGET_EXHAUSTED")
     if reasons:
+        result["study_status"] = "BLOCKED"
         result["reason_codes"] = list(dict.fromkeys(reasons))
         return result
 
     per_unit_worst = (distance + (entry + stop) *
                       (limits.fee_bps_each_side + limits.slippage_bps_each_side) / 10000)
     if per_unit_worst <= 0:
+        result["study_status"] = "BLOCKED"
         result["reason_codes"] = ["INVALID_WORST_CASE_UNIT_RISK"]
+        return result
+    # A daily loss ceiling is a risk *budget*, not merely a lockout
+    # AFTER the day's losses already crossed it. Reserve room for every
+    # simulated open stop and both sides of the proposed trade.
+    daily_remaining = (session_equity * limits.max_daily_realized_loss
+                       + min(0.0, daily) - open_risk)
+    if daily_remaining <= 0:
+        result["study_status"] = "BLOCKED"
+        result["reason_codes"] = ["DAILY_WORST_CASE_RISK_BUDGET_EXHAUSTED"]
         return result
     budget = min(
         equity * limits.max_single_idea_risk,
         equity * limits.max_portfolio_open_risk - open_risk,
         equity * limits.max_crypto_cluster_risk - cluster_risk,
+        daily_remaining,
     )
     notional_room = min(
         equity * limits.max_total_gross_notional - invested,
@@ -242,9 +254,11 @@ def size_paper_hypothesis(
         raise ValueError("Cannot quantize hypothetical quantity") from exc
     qty = float(size_dec)
     if not math.isfinite(qty) or qty <= 0 or qty * entry < limits.min_paper_notional:
+        result["study_status"] = "BLOCKED"
         result["reason_codes"] = ["PAPER_QUANTITY_BELOW_MINIMUM"]
         return result
     if qty * per_unit_worst > budget + 1e-7 or qty * entry > notional_room + 1e-7:
+        result["study_status"] = "BLOCKED"
         result["reason_codes"] = ["ROUNDING_EXCEEDED_PAPER_RISK_BUDGET"]
         return result
     result.update({
