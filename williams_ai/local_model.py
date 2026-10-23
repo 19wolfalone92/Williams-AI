@@ -185,6 +185,23 @@ class LocalWilliamsModel:
                   "confirmed_at","price_touch_observed_at",
                   "entry_trigger","teeth_filter_at_trigger","angle_heuristic")
             candidates.append({key:item[key] for key in keys if key in item})
+        # These status facts, unlike the imagined intrabar execution order,
+        # are observable from CLOSED historical bars. They are added BEFORE
+        # the model prompt is serialized so the small GGUF sees the difference
+        # between a waiting fractal and a stale historical breakout.
+        has_pending_wm3=any(
+            q.get("type")=="WM3_FRACTAL"
+            and q.get("state")=="AWAITING_PRICE_TRIGGER"
+            and isinstance(q.get("confirmed_at"),str)
+            and q["confirmed_at"]<=chart_analysis.get("as_of","")
+            for q in candidates
+        )
+        has_current_wm3_touch=any(
+            q.get("type")=="WM3_FRACTAL"
+            and q.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+            and q.get("price_touch_observed_at")==chart_analysis.get("as_of")
+            for q in candidates
+        )
         # The trader's job is to reason about changing mechanisms, NOT
         # memorize silhouettes from printed Elliott illustrations.
         principles=chart_analysis.get("principle_evidence",{})
@@ -262,6 +279,11 @@ class LocalWilliamsModel:
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
+            "current_wm3_confirmation_states":{
+                "confirmed_fractal_waiting_for_future_price_break":has_pending_wm3,
+                "price_touched_valid_fractal_on_this_closed_bar":has_current_wm3_touch,
+                "previously_touched_fractals_do_not_prove_current_entry":True,
+            },
             "market_position":{
                 "structure":position.get("structure"),
                 "recent_levels":position.get("recent_levels",{}),
@@ -496,11 +518,6 @@ class LocalWilliamsModel:
                     if (c.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
                             and c.get("price_touch_observed_at")==chart_analysis.get("as_of")):
                         available_entries.add("CLOSED_BAR_TOUCH_ONLY")
-            observation["permitted_wm3_entry_states_from_closed_bars"]={
-                "PENDING_TRIGGER":"PENDING_TRIGGER" in available_entries,
-                "CLOSED_BAR_TOUCH_ONLY":"CLOSED_BAR_TOUCH_ONLY" in available_entries,
-                "old_price_touches_not_new_signal":True,
-            }
             properties={
                 "symbol":enum(str(chart_analysis.get("symbol"))),
                 "as_of":enum(str(chart_analysis.get("as_of"))),
