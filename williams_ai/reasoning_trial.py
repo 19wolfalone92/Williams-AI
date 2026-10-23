@@ -75,6 +75,7 @@ def evaluate_historical_thought(
         "symbol":symbol,"edition":edition,
         "last_visible_bar_index":bar_index,
         "last_visible_at":as_of,
+        "top_down_context":evidence.get("higher_timeframe_context",{}),
         "model_saw_future_bars":False,
         "model_weights_trained_here":False,
         "book_mastery_percent":None,
