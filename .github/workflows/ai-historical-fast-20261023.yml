@@ -8,6 +8,7 @@ on:
       - feature/unified-williams-ai-proof-and-guard-20261023
       - feature/portfolio-risk-research-gate-20261023
       - feature/prospective-falsifiable-qualification-20261023
+      - feature/real-forward-gguf-evaluation-20261023
 permissions:
   contents: read
 jobs:
