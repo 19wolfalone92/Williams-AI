@@ -142,6 +142,8 @@ def main()->None:
     p.add_argument("--max-questions",type=int,default=10)
     p.add_argument("--history-cases",type=int,default=2)
     p.add_argument("--ctx",type=int,default=8192)
+    p.add_argument("--require-public-smoke-pass",action="store_true",
+                   help="Fail job if model is unqualified; report still printed first")
     args=p.parse_args()
     checked=actual_gguf_sha256(args.local_model,args.expected_sha256)
     from .local_model import LocalWilliamsModel
@@ -149,7 +151,9 @@ def main()->None:
     report=public_model_trial(
         model,weight_report=checked,
         max_questions=args.max_questions,history_cases=args.history_cases)
-    print("REAL_GGUF_EXAM",json.dumps(report,ensure_ascii=False,sort_keys=True))
+    print("REAL_GGUF_EXAM",json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
+    if args.require_public_smoke_pass and report["acceptance_verdict"]=="PUBLIC_MODEL_UNQUALIFIED":
+        raise SystemExit(2)
 
 
 if __name__=="__main__":
