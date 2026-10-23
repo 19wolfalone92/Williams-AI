@@ -43,6 +43,12 @@ class RealClosedWiseManEventTests(unittest.TestCase):
             self.assertEqual(e["resolved_index"]-e["decision_index"],12)
             self.assertIn(e["kind"],("WM1","WM2","WM3"))
             self.assertEqual(len(e["context_features"]),6)
+            self.assertIsInstance(e["observed_reversal_from_prior_window"],bool)
+            self.assertEqual(
+                e["observed_reversal_from_prior_window"],
+                e["past_window_side_return"]<0 and
+                e["future_endpoint_side_return"]>0,
+            )
             self.assertFalse(e["future_was_available_to_decision"])
             self.assertFalse(e["true_williams_entry_validated"])
             self.assertIsNone(e["trade_action"])
