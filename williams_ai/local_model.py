@@ -480,6 +480,27 @@ class LocalWilliamsModel:
                     or observation["wave_structure"]["corrective_alternatives"]):
                 admissible.add("WAVE_HYPOTHESIS")
             nonentry=admissible <= {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS","TC1_FIVE_MAGIC_BULLETS"}
+            # In the real Qwen historical exam, WM3 was incorrectly called a
+            # current CLOSED_BAR_TOUCH from an older price event. Never
+            # offer that entry-state vocabulary unless an independent
+            # candidate proves a touch on THIS observed closed bar.
+            current_touch=any(
+                c.get("type")=="WM3_FRACTAL"
+                and c.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                and c.get("price_touch_observed_at")==chart_analysis.get("as_of")
+                for c in candidates
+            )
+            eligible_states=["UNKNOWN","NO_SETUP","CLOSED_CANDIDATE"]
+            if not nonentry and any(
+                c.get("type") in {"WM1","WM3_FRACTAL"} and (
+                    c.get("type")=="WM1" and c.get("bar_time")==chart_analysis.get("as_of")
+                    or c.get("type")=="WM3_FRACTAL"
+                    and c.get("state")=="AWAITING_PRICE_TRIGGER"
+                ) for c in candidates
+            ):
+                eligible_states.append("PENDING_TRIGGER")
+            if not nonentry and current_touch:
+                eligible_states.append("CLOSED_BAR_TOUCH_ONLY")
             properties={
                 "symbol":enum(str(chart_analysis.get("symbol"))),
                 "as_of":enum(str(chart_analysis.get("as_of"))),
@@ -490,8 +511,7 @@ class LocalWilliamsModel:
                 "rule_ids":{"type":"array",
                             "items":enum(*[x["id"] for x in cards]),
                             "maxItems":8},
-                "entry_state":enum("UNKNOWN","NO_SETUP","CLOSED_CANDIDATE",
-                                   "PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY"),
+                "entry_state":enum(*eligible_states),
                 "exit_basis":enum("NONE","UNKNOWN"),
                 "wave_degree_verified":{"type":"boolean","enum":[False]},
                 "exchange_fill_confirmed":{"type":"boolean","enum":[False]},
