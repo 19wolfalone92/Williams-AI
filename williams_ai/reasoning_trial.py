@@ -68,6 +68,7 @@ def evaluate_historical_thought(
                     "ac":tf_view["evidence"]["ac"],
                     "wave_degree":tf_view["wave_structure"]["wave_degree"],
                     "wave_hypotheses_unverified":True,
+                    "recent_levels":tf_view["market_position"]["recent_levels"],
                     "nonlinear_structure":tf_view["principle_evidence"]
                         ["observable_facts"]["multi_resolution_price_structure"],
                     "supported_not_proven_market_scenarios":[
@@ -79,11 +80,21 @@ def evaluate_historical_thought(
         from .market_hierarchy import reconcile_market_hierarchy
         frames_for_relations={**higher,"H1":{
             "status":"OBSERVED_CLOSED_BARS",
+            "closed_through":evidence["last_closed_at"],
             "market_context":evidence.get("evidence",{}).get("market_context","UNKNOWN"),
+            "ao":evidence.get("evidence",{}).get("ao"),
+            "ac":evidence.get("evidence",{}).get("ac"),
+            "recent_levels":evidence["market_position"]["recent_levels"],
         }}
         higher["conditional_parent_child_relations"] = (
             reconcile_market_hierarchy(frames_for_relations)["parent_child_relations"]
         )
+        from .cross_scale_wave_theses import cross_scale_wave_theses
+        # These hypotheses remain competing and falsifiable. Never claim
+        # that AO near zero proves wave four or that H1 correction is a
+        # certified higher degree. All TF passports are fully CLOSED.
+        higher["cross_scale_wave_theses"] = cross_scale_wave_theses(
+            frames_for_relations,as_of=evidence["as_of"])
         evidence["higher_timeframe_context"]=higher
     sources=[]
     if book_index is not None:

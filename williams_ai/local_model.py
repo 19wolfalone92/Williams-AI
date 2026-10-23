@@ -250,6 +250,28 @@ class LocalWilliamsModel:
                             "supported_not_proven_market_scenarios",
                         ) if k in f
                     }
+        # Show the language model competing hierarchical theses, NOT a
+        # single certified fifth wave or an automatic entry filter.
+        thesis_brief=[]
+        if isinstance(high,dict):
+            thesis=high.get("cross_scale_wave_theses",{})
+            if isinstance(thesis,dict):
+                for relation in thesis.get("parents_and_children",[])[:2]:
+                    if isinstance(relation,dict):
+                        thesis_brief.append({
+                            "parent":relation.get("parent"),
+                            "child":relation.get("child"),
+                            "status":relation.get("status"),
+                            "alternatives":[{
+                                "hypothesis":v.get("hypothesis"),
+                                "support":v.get("support",[])[:2],
+                                "falsifier":v.get("potential_falsifier"),
+                                "not_proved":v.get("not_proved"),
+                            } for v in relation.get("alternatives",[])[:3]
+                                if isinstance(v,dict)],
+                            "verified_wave_degree":False,
+                            "not_trade_signal":True,
+                        })
         edition_details=chart_analysis.get("edition_evidence",{}).get(edition,{})
         if isinstance(edition_details,dict):
             edition_details={
@@ -273,6 +295,7 @@ class LocalWilliamsModel:
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
             "complete_higher_timeframe_context":higher_brief,
+            "competing_h1_h4_d1_wave_theses":thesis_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
@@ -429,6 +452,9 @@ class LocalWilliamsModel:
             "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
             "а не копируй графическую форму из иллюстрации. "
             "Наблюдение признака не доказывает будущую цену или торговый fill. "
+            "Различай коррекцию младшей волны и разворот старшей по "
+            "competing_h1_h4_d1_wave_theses; каждой гипотезе нужна "
+            "проверяемая структурная альтернатива, а не уверенность в W4/W5. "
             "Проверяй current_book_signal_proofs: старый WM3, "
             "непройденный Teeth, NTD без допуска, неполные 5 пуль "
             "не являются исполненным входом. "
@@ -597,6 +623,106 @@ class LocalWilliamsModel:
         if isinstance(proposal.get("reason"),str):
             proposal["reason"]=proposal["reason"][:600]
         return proposal
+
+    def propose_24h_research_forecast(
+        self, chart_analysis: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Ask REAL locally loaded GGUF for a sealed STUDY hypothesis only.
+
+        This is deliberately NOT an order candidate and is separate from the
+        TC2/NTD/Course wise-man book consistency test. Do not relabel the
+        historical directional metric as strategy profitability. No API keys,
+        trade fills, future candles or raw input records reach inference.
+        """
+        if (not isinstance(chart_analysis,dict) or
+                chart_analysis.get("execution_allowed") is not False or
+                chart_analysis.get("timeframe")!="H1" or
+                chart_analysis.get("gaps") or
+                chart_analysis.get("bars_used",0)<220 or
+                chart_analysis.get("last_closed_at")!=chart_analysis.get("as_of")):
+            raise ValueError("Expected complete causal closed H1 passport")
+        observed=chart_analysis.get("principle_evidence",{})
+        if not isinstance(observed,dict):
+            raise ValueError("Missing causal structural evidence")
+        facts=observed.get("observable_facts",{})
+        if not isinstance(facts,dict):
+            raise ValueError("Missing bounded structural facts")
+        scenario_list=observed.get("competing_market_scenarios",[])
+        if not isinstance(scenario_list,list):
+            raise ValueError("Malformed scenario facts")
+        indicator=chart_analysis.get("evidence",{})
+        if not isinstance(indicator,dict):
+            raise ValueError("Missing indicator evidence")
+        observed_levels=chart_analysis.get("market_position",{})
+        if not isinstance(observed_levels,dict):
+            observed_levels={}
+        high=chart_analysis.get("higher_timeframe_context",{})
+        source={}
+        if isinstance(high,dict):
+            for tf in ("H4","D1"):
+                frame=high.get(tf,{})
+                if isinstance(frame,dict):
+                    source[tf]={k:frame.get(k) for k in (
+                        "status","closed_through","market_context","ao","ac")}
+        prompt={
+            "study_kind":"24H_PROSPECTIVE_DIRECTIONAL_HYPOTHESIS_NOT_BOOK_ENTRY",
+            "symbol":chart_analysis["symbol"],
+            "as_of":chart_analysis["as_of"],
+            "price_and_indicator_facts":{k:indicator.get(k) for k in (
+                "ao","ac","zone","market_context","ao_color","ac_color")},
+            "recent_confirmed_price_structure":observed_levels.get("structure"),
+            "observed_confirmed_levels":observed_levels.get("recent_levels",{}),
+            "multi_scale_observable_facts":{
+                "multi_resolution_price_structure":facts.get(
+                    "multi_resolution_price_structure",{}),
+                "momentum":facts.get("momentum",{}),
+            },
+            "competing_scenarios":[{
+                "hypothesis":q.get("hypothesis"),
+                "status":q.get("status"),
+                "contradictions":q.get("contradicting_observations",[])[:2],
+            } for q in scenario_list[:4] if isinstance(q,dict)],
+            "higher_timeframes_closed_only":source,
+            "no_future_candles":True,"no_trading_execution":True,
+        }
+        raw_prompt=json.dumps(prompt,ensure_ascii=False,separators=(",",":"),
+                              allow_nan=False)
+        if len(raw_prompt)>8000:
+            raise ValueError("RESEARCH_CONTEXT_TOO_LARGE")
+        response=self._model.create_chat_completion(
+            messages=[
+                {"role":"system","content":SYSTEM_INSTRUCTIONS + (
+                    " Только исследование 24-часового будущего направления "
+                    "по уже закрытым свечам. Это НЕ книжный сигнал сделки. "
+                    "Ответь JSON ровно из symbol, as_of, direction, "
+                    "trade_action, execution_allowed. direction только "
+                    "UP/DOWN/ABSTAIN. При сомнении ABSTAIN. "
+                    "trade_action=null, execution_allowed=false. "
+                    "Не придумывай недостающие признаки и не заявляй "
+                    "прибыльность или торговый fill.")},
+                {"role":"user","content":raw_prompt},
+            ],
+            response_format={"type":"json_object"},
+            temperature=0.0,max_tokens=180,stream=False,
+        )
+        choices=response.get("choices",[])
+        raw=(choices[0].get("message",{}).get("content","")
+             if choices else "")
+        if not isinstance(raw,str):
+            raise ValueError("MODEL_FORECAST_NOT_JSON")
+        try:
+            output=json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("MODEL_FORECAST_MALFORMED_JSON") from exc
+        required={"symbol","as_of","direction","trade_action","execution_allowed"}
+        if (not isinstance(output,dict) or set(output)!=required or
+                output.get("symbol")!=chart_analysis["symbol"] or
+                output.get("as_of")!=chart_analysis["as_of"] or
+                output.get("direction") not in {"UP","DOWN","ABSTAIN"} or
+                output.get("trade_action","INVALID") is not None or
+                output.get("execution_allowed") is not False):
+            raise ValueError("MODEL_FORECAST_FAILS_STRICT_READ_ONLY_SCHEMA")
+        return output
 
     def answer(
         self, question: str, report: dict[str, Any],
