@@ -265,15 +265,52 @@ class LocalWilliamsModel:
         if self._decision_schema:
             def enum(*values: str) -> dict[str, Any]:
                 return {"type":"string","enum":list(values)}
+            # A small model MUST NOT invent a Wise Man that the independent
+            # closed-candle detector has not seen. Schema limits possible
+            # setup names to available observations; independent auditor
+            # STILL checks trigger/Teeth/time/side/source. This is a safety
+            # interlock, not model comprehension or automatic authorization.
+            admissible={"NO_SETUP","UNKNOWN"}
+            for candidate in candidates:
+                if edition=="TC2":
+                    observed={
+                        "WM1":"WM1","WM2_SUPER_AO":"WM2",
+                        "WM3_FRACTAL":"WM3",
+                    }.get(candidate.get("type"))
+                    if observed:
+                        admissible.add(observed)
+            if edition=="NTD":
+                signals=observation.get("edition_evidence",{}).get("signals",[])
+                ntd_map={
+                    "AO_ZERO_CROSS":"AO_ZERO_CROSS",
+                    "AO_SAUCER_THREE_BAR":"AO_SAUCER",
+                    "AO_TWIN_PEAKS_POSSIBLE":"AO_TWIN_PEAKS",
+                    "AC_ACCELERATION_CANDIDATE":"AC",
+                    "ZONE":"ZONE",
+                    "BALANCE_LINE":"BALANCE_LINE",
+                }
+                if isinstance(signals,list):
+                    for item in signals[-12:]:
+                        if isinstance(item,dict):
+                            observed=ntd_map.get(item.get("name"))
+                            if observed:admissible.add(observed)
+            if edition=="TC1":
+                shapes=observation.get("edition_evidence",{}).get("recent_formations",[])
+                if isinstance(shapes,list) and any(
+                        isinstance(x,dict) and x.get("type")=="TC1_INITIATING_FRACTAL"
+                        for x in shapes):
+                    admissible.add("TC1_FRACTAL")
+            if edition in {"TC1","COURSE"} and (
+                    observation["wave_structure"]["impulse_alternatives"]
+                    or observation["wave_structure"]["corrective_alternatives"]):
+                admissible.add("WAVE_HYPOTHESIS")
+            nonentry=admissible <= {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS"}
             properties={
                 "symbol":enum(str(chart_analysis.get("symbol"))),
                 "as_of":enum(str(chart_analysis.get("as_of"))),
                 "edition":enum(edition),
-                "setup":enum(
-                    "WM1","WM2","WM3","TC1_FRACTAL","AO_ZERO_CROSS",
-                    "AO_SAUCER","AO_TWIN_PEAKS","AC","ZONE",
-                    "BALANCE_LINE","WAVE_HYPOTHESIS","NO_SETUP","UNKNOWN"),
-                "side":enum("LONG","SHORT","NONE"),
+                "setup":enum(*sorted(admissible)),
+                "side":enum("NONE") if nonentry else enum("LONG","SHORT","NONE"),
                 "rule_ids":{"type":"array",
                             "items":enum(*[x["id"] for x in cards]),
                             "maxItems":8},
