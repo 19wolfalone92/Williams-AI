@@ -87,6 +87,19 @@ class GateTests(unittest.TestCase):
         x=audit_reasoning(self.observed,self.prop(exit_basis="OPPOSITE_SIGNAL_ONLY"))
         self.assertIn("UNEXECUTED_OPPOSITE_WISE_MAN_NOT_A_TRADE_EXIT",x["hard_failures"])
 
+    def test_confirmed_pending_wm3_does_not_require_any_past_price_touch(self):
+        pending={**self.observed,"candidates":[{
+            "type":"WM3_FRACTAL","side":"SHORT",
+            "state":"AWAITING_PRICE_TRIGGER","entry_trigger":3000.0,
+        }]}
+        draft=self.prop(setup="WM3",side="SHORT",
+                        entry_state="PENDING_TRIGGER",rule_ids=["TC2.WM3"])
+        result=audit_reasoning(pending,draft)
+        self.assertEqual(result["hard_failures"],[])
+        self.assertIn("WM3_AWAITING_BREAKOUT_NOT_AN_EXCHANGE_FILL",
+                      result["uncertainties"])
+        self.assertIsNone(result["trade_action"])
+
     def test_wm3_touch_at_old_bar_not_new_fake_entry(self):
         old=self.rows[350]["close_time"]
         fake={**self.observed,"candidates":[{
