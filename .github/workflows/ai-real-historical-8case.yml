@@ -5,6 +5,7 @@ on:
     branches:
       - experiment/causal-historical-comprehension-20261023
       - fix/gguf-context-and-calibrated-historical-20261023
+      - feature/causal-market-thesis-and-proof-20261023
       - experiment/williams-ai-evidence-guided-retry-20261023
 
 permissions:
