@@ -53,11 +53,13 @@ jobs:
           PY
       - name: REAL GGUF inference on 10 curated questions and 2 closed-chart cases
         run: |
+          set -o pipefail
           python -m williams_ai.real_gguf_acceptance \
             --local-model "/tmp/williams_ai_public_weights/${MODEL_FILE}" \
             --expected-sha256 "${MODEL_SHA256}" \
             --max-questions 10 \
             --history-cases 2 \
+            --require-public-smoke-pass \
             --ctx 8192 | tee /tmp/williams_real_gguf_exam.log
       - name: Save ONLY public-model evaluation JSON, never model or private books
         if: always()
