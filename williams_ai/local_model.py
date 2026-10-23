@@ -133,7 +133,8 @@ class LocalWilliamsModel:
                 "reason": reason[:500] if isinstance(reason, str) else "Ответ не распознан"}
 
     def propose_chart_reasoning(
-        self, chart_analysis: dict[str, Any], *, edition: str = "TC2"
+        self, chart_analysis: dict[str, Any], *, edition: str = "TC2",
+        primary_pages: list[dict[str, Any]] | None = None
     ) -> dict[str, Any]:
         """Local model's RESEARCH interpretation, never an executable order.
 
