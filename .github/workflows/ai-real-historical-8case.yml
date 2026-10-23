@@ -7,6 +7,7 @@ on:
       - fix/gguf-context-and-calibrated-historical-20261023
       - experiment/williams-ai-evidence-guided-retry-20261023
       - feature/unified-williams-ai-proof-and-guard-20261023
+      - feature/portfolio-risk-research-gate-20261023
 
 permissions:
   contents: read
