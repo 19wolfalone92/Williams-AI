@@ -76,6 +76,14 @@ def evaluate_historical_thought(
                         if q["status"]=="EVIDENCE_COMPATIBLE_NOT_PREDICTION"
                     ],
                 }
+        from .market_hierarchy import reconcile_market_hierarchy
+        frames_for_relations={**higher,"H1":{
+            "status":"OBSERVED_CLOSED_BARS",
+            "market_context":evidence.get("evidence",{}).get("market_context","UNKNOWN"),
+        }}
+        higher["conditional_parent_child_relations"] = (
+            reconcile_market_hierarchy(frames_for_relations)["parent_child_relations"]
+        )
         evidence["higher_timeframe_context"]=higher
     sources=[]
     if book_index is not None:
