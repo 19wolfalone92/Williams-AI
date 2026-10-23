@@ -161,7 +161,9 @@ def audit_reasoning(
         else:
             note("ZERO_POINT_EVIDENCE_NOT_AUTOMATIC_EXECUTED_REVERSAL")
             if not any(x.get("all_five_observed") for x in sample if isinstance(x,dict)):
-                note("LESS_THAN_FIVE_OR_UNKNOWN_BULLETS_NOT_COMPLETE")
+                # Announcing FIVE complete bullets when Squat tick volume is
+                # missing is a FALSE claim, not merely a soft uncertainty.
+                fail("FIVE_MAGIC_BULLETS_NOT_ALL_OBSERVED")
     if setup in _TC1_SETUPS and source!="TC1":
         fail("TC1_INITIATING_FRACTAL_CANNOT_USE_OTHER_EDITION")
     if setup in _TC1_SETUPS and side=="NONE":

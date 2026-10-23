@@ -220,12 +220,45 @@ class LocalWilliamsModel:
             "trading_requires_separate_confirmed_TC2_NTD_Course_rules":True,
             "source_page_references":"TC1 PDF 53-54,60-65,82-84",
         }
+        # Trim optional chart details before the bounded GGUF prompt.
+        # Preserve rule IDs, as_of, confirmed Wise Men facts and Magic Bullet
+        # statuses; do not repair or truncate a malformed model answer.
+        high=chart_analysis.get("higher_timeframe_context",{})
+        higher_brief={}
+        if isinstance(high,dict):
+            for tf in ("H4","D1"):
+                f=high.get(tf,{})
+                if isinstance(f,dict):
+                    higher_brief[tf]={
+                        k:f[k] for k in (
+                            "status","bars","closed_through","market_context",
+                            "wave_degree","ao","ac",
+                            "supported_not_proven_market_scenarios",
+                        ) if k in f
+                    }
+        edition_details=chart_analysis.get("edition_evidence",{}).get(edition,{})
+        if isinstance(edition_details,dict):
+            edition_details={
+                k: (v[-5:] if k in {"recent_formations","signals"} and isinstance(v,list) else v)
+                for k,v in edition_details.items()
+                if k not in {"raw_bars","full_history"}
+            }
+        def _shape_brief(series:Any)->list[dict[str,Any]]:
+            if not isinstance(series,list):return []
+            return [{
+                k:item[k] for k in (
+                    "type","shape","pattern","direction","status",
+                    "scale_bar_span","w3_not_shortest","w4_nonoverlap",
+                    "w5_extends_w3","w4_ao_near_zero_observed","issues",
+                    "start_time","end_time","latest_confirmed",
+                ) if k in item
+            } for item in series[-2:] if isinstance(item,dict)]
         observation={
             "symbol":chart_analysis.get("symbol"),
             "as_of":chart_analysis.get("as_of"),
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
-            "complete_higher_timeframe_context":chart_analysis.get("higher_timeframe_context",{}),
+            "complete_higher_timeframe_context":higher_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
@@ -236,11 +269,11 @@ class LocalWilliamsModel:
             },
             "wave_structure":{
                 "wave_degree":wave.get("wave_degree","UNKNOWN"),
-                "recent_confirmed_swings":wave.get("recent_confirmed_swings",[])[-8:],
-                "impulse_alternatives":wave.get("impulse_alternatives",[])[-2:],
-                "corrective_alternatives":wave.get("corrective_alternatives",[])[-2:],
+                "recent_confirmed_swings":wave.get("recent_confirmed_swings",[])[-5:],
+                "impulse_alternatives":_shape_brief(wave.get("impulse_alternatives",[])),
+                "corrective_alternatives":_shape_brief(wave.get("corrective_alternatives",[])),
             },
-            "edition_evidence":chart_analysis.get("edition_evidence",{}).get(edition,{}),
+            "edition_evidence":edition_details,
         }
         pages=[]
         if primary_pages is not None:
@@ -360,7 +393,8 @@ class LocalWilliamsModel:
                                 if item.get("side") in {"LONG","SHORT"}:
                                     candidate_sides.add(item["side"])
             if edition=="TC1":
-                if bullet_cases:
+                if any(x.get("all_five_observed") is True
+                       for x in bullet_cases if isinstance(x,dict)):
                     admissible.add("TC1_FIVE_MAGIC_BULLETS")
                 shapes=observation.get("edition_evidence",{}).get("recent_formations",[])
                 if isinstance(shapes,list) and any(

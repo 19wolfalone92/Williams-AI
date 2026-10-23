@@ -115,3 +115,7 @@ jobs:
       - name: Five Magic Bullets across 15 symbols and H1 H4 D1, no synthetic tick volume
         run: |
           python -m williams_ai.five_bullets_cli --summary
+
+      - name: Blind chronological comprehension vs naive H1 momentum, 15 pairs
+        run: |
+          python -m williams_ai.historical_comprehension --summary

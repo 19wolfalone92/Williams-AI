@@ -217,6 +217,49 @@ class FiveMagicBulletsTests(unittest.TestCase):
                                        "execution_allowed":True})
         self.assertIn("EXECUTION_REQUEST_FORBIDDEN",forbidden["hard_failures"])
 
+    def test_unconfirmed_binance_squat_cannot_be_asserted_as_all_five(self):
+        from williams_ai.algorithm_guard import audit_reasoning
+        from williams_ai.local_model import LocalWilliamsModel
+        from williams_ai.causal_paper_lab import frozen_markets
+        import tempfile
+        from pathlib import Path
+        rows=maker(tick=False)
+        observation={
+            "symbol":"BTCUSDT","as_of":rows[-1]["close_time"],
+            "execution_allowed":False,"candidates":[],
+            "tc1_five_magic_bullets":five(rows),
+        }
+        claim={
+            "symbol":"BTCUSDT","as_of":rows[-1]["close_time"],
+            "edition":"TC1","setup":"TC1_FIVE_MAGIC_BULLETS",
+            "side":"NONE","rule_ids":["TC1.MAGIC.SQUAT"],
+            "entry_state":"CLOSED_CANDIDATE","exit_basis":"NONE",
+            "trade_action":None,"execution_allowed":False,
+        }
+        verdict=audit_reasoning(observation,claim)
+        self.assertIn("FIVE_MAGIC_BULLETS_NOT_ALL_OBSERVED",
+                      verdict["hard_failures"])
+        market=frozen_markets()["BTCUSDT"]
+        complete=market["bars"][:900]
+        chart=analyze_chart("BTCUSDT","H1",complete,
+                            as_of=complete[-1]["close_time"],
+                            tick_size=market["tick_size"])
+        class Dummy:
+            def __init__(self,**_):self.calls=[]
+            def create_chat_completion(self,**args):
+                self.calls.append(args)
+                return {"choices":[{"message":{"content":"{}"}}]}
+        with tempfile.TemporaryDirectory() as temp:
+            p=Path(temp)/"mock.gguf"
+            p.write_bytes(b"mock-but-only-unit-test")
+            model=LocalWilliamsModel(p,loader=Dummy,
+                                     use_decision_schema=True)
+            model.propose_chart_reasoning(chart,edition="TC1")
+            schema=model._model.calls[0]["response_format"]["schema"]
+            self.assertNotIn("TC1_FIVE_MAGIC_BULLETS",
+                             schema["properties"]["setup"]["enum"])
+            self.assertIn("NO_SETUP",schema["properties"]["setup"]["enum"])
+
     def test_tenets_added_to_source_registry_are_not_mislabeled_five_dimensions(self):
         pack=registry()["rule_cards"]
         matching=[x for x in pack if x["id"].startswith("TC1.MAGIC.")]
