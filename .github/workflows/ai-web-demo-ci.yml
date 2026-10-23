@@ -58,3 +58,19 @@ jobs:
           for x in result["reports"]:
               print(x["symbol"],x["train_count"],x["test_brier"],x["test_constant_prior_brier"],x["test_delta_lower_is_better"])
           PY
+
+
+      - name: Locked out-of-period 15-pair paper cohort (without tuning)
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from williams_ai.causal_paper_lab import run_15
+          frozen=Path("examples/ai_binance_15pair_h1_prior_holdout_20260902.json")
+          result=run_15(frozen)
+          print("LOCKED_PRIOR_COHORT_15",result["aggregate"])
+          print("CLOSED_WIN_MTM_RETURNS_BY_PAIR_FOR_WM3")
+          for x in result["results"]:
+              if x["mode"]=="WM3":
+                  print(x["symbol"],x["closed"],x["wins"],
+                        x["mark_to_market_total_return_pct"],x["realized_return_pct"])
+          PY
