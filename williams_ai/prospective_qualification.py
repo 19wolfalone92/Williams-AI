@@ -79,6 +79,11 @@ def freeze_prospective_call(
     candles, gaps = validate_closed_bars(closed_history, "H1", as_of)
     if gaps:
         raise ValueError("Incomplete closed-bar history")
+    # Generic OHLC validator catches missing hours but tolerates a shorter
+    # interval (e.g. 30m). A 24-H1-bar experiment requires EXACT H1 cadence.
+    if any(b.at-a.at != timedelta(hours=1)
+           for a,b in zip(candles,candles[1:])):
+        raise ValueError("EXACT_H1_CADENCE_REQUIRED")
     if len(candles) < 25:
         raise ValueError("Insufficient momentum baseline history")
     evidence = analyze_chart(symbol, "H1", closed_history,
