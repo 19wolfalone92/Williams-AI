@@ -694,16 +694,29 @@ class LocalWilliamsModel:
                 {"role":"system","content":SYSTEM_INSTRUCTIONS + (
                     " Только исследование 24-часового будущего направления "
                     "по уже закрытым свечам. Это НЕ книжный сигнал сделки. "
-                    "Ответь JSON ровно из symbol, as_of, direction, "
-                    "trade_action, execution_allowed. direction только "
-                    "UP/DOWN/ABSTAIN. При сомнении ABSTAIN. "
-                    "trade_action=null, execution_allowed=false. "
+                    "Ответь ТОЛЬКО JSON с ОДНИМ полем direction: "
+                    "UP, DOWN или ABSTAIN. При сомнении ABSTAIN. "
+                    "Не добавляй symbol/as_of/ордер/объяснение: "
+                    "время и режим безопасности прикрепляет только "
+                    "независимая проверяющая программа. "
                     "Не придумывай недостающие признаки и не заявляй "
                     "прибыльность или торговый fill.")},
                 {"role":"user","content":raw_prompt},
             ],
-            response_format={"type":"json_object"},
-            temperature=0.0,max_tokens=180,stream=False,
+            # Restrict the actual AI to the ONE uncertainty-sensitive
+            # variable: direction. Symbol, cutoff and execution policy are
+            # immutable source facts, NOT strings the LLM is allowed to edit.
+            response_format={
+                "type":"json_object",
+                "schema":{
+                    "type":"object",
+                    "properties":{"direction":{"type":"string",
+                         "enum":["UP","DOWN","ABSTAIN"]}},
+                    "required":["direction"],
+                    "additionalProperties":False,
+                },
+            },
+            temperature=0.0,max_tokens=80,stream=False,
         )
         choices=response.get("choices",[])
         raw=(choices[0].get("message",{}).get("content","")
@@ -714,15 +727,18 @@ class LocalWilliamsModel:
             output=json.loads(raw)
         except json.JSONDecodeError as exc:
             raise ValueError("MODEL_FORECAST_MALFORMED_JSON") from exc
-        required={"symbol","as_of","direction","trade_action","execution_allowed"}
-        if (not isinstance(output,dict) or set(output)!=required or
-                output.get("symbol")!=chart_analysis["symbol"] or
-                output.get("as_of")!=chart_analysis["as_of"] or
-                output.get("direction") not in {"UP","DOWN","ABSTAIN"} or
-                output.get("trade_action","INVALID") is not None or
-                output.get("execution_allowed") is not False):
+        # Do not repair a bad model answer. Reject every extra field,
+        # especially purported fills/stop ACK/trading permissions.
+        if (not isinstance(output,dict) or set(output)!={"direction"} or
+                output.get("direction") not in {"UP","DOWN","ABSTAIN"}):
             raise ValueError("MODEL_FORECAST_FAILS_STRICT_READ_ONLY_SCHEMA")
-        return output
+        return {
+            "symbol":chart_analysis["symbol"],
+            "as_of":chart_analysis["as_of"],
+            "direction":output["direction"],
+            "trade_action":None,
+            "execution_allowed":False,
+        }
 
     def answer(
         self, question: str, report: dict[str, Any],
