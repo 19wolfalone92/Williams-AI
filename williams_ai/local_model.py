@@ -184,11 +184,7 @@ class LocalWilliamsModel:
                 "impulse_alternatives":wave.get("impulse_alternatives",[])[-2:],
                 "corrective_alternatives":wave.get("corrective_alternatives",[])[-2:],
             },
-            "edition_evidence":(
-                chart_analysis.get("edition_evidence",{}).get("NTD",{})
-                if edition=="NTD" else
-                chart_analysis.get("edition_evidence",{}).get("TC2",{})
-            ),
+            "edition_evidence":chart_analysis.get("edition_evidence",{}).get(edition,{}),
         }
         user_context=json.dumps({
             "source_cards":cards,"edition":edition,"chart":observation,
@@ -200,7 +196,7 @@ class LocalWilliamsModel:
             "Каждое утверждение относится к переданному изданию. "
             "Не утверждай исполнение заявки или SL по OHLC. "
             "Не превращай непроверенные волны в подтверждённые. "
-            "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, "
+            "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, TC1_FRACTAL, "
             "AO_ZERO_CROSS, AO_SAUCER, AO_TWIN_PEAKS, AC, ZONE, "
             "BALANCE_LINE, WAVE_HYPOTHESIS, NO_SETUP, UNKNOWN), "
             "side (LONG/SHORT/NONE), rule_ids (идентификаторы карточек), "
