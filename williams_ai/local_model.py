@@ -360,7 +360,8 @@ class LocalWilliamsModel:
                                 if item.get("side") in {"LONG","SHORT"}:
                                     candidate_sides.add(item["side"])
             if edition=="TC1":
-                if bullet_cases:
+                if any(x.get("all_five_observed") is True
+                       for x in bullet_cases if isinstance(x,dict)):
                     admissible.add("TC1_FIVE_MAGIC_BULLETS")
                 shapes=observation.get("edition_evidence",{}).get("recent_formations",[])
                 if isinstance(shapes,list) and any(
