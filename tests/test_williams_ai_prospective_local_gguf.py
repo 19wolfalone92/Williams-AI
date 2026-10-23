@@ -18,11 +18,11 @@ class LlamaMock:
     def create_chat_completion(self,**kwargs):
         self.calls.append(kwargs)
         payload=json.loads(kwargs["messages"][1]["content"])
-        output={
-            "symbol":payload["symbol"],"as_of":payload["as_of"],
-            "direction":"ABSTAIN", "trade_action":None,
-            "execution_allowed":False,
-        }
+        assert payload["no_future_candles"] is True
+        # The actual model chooses ONLY a direction. A deterministic,
+        # audited wrapper binds symbol, cutoff and no-execute; any attempt
+        # to emit trade_action or modify as_of is invalid.
+        output={"direction":"ABSTAIN"}
         if self.broken is not None:
             output.update(self.broken)
         return {"choices":[{"message":{"content":json.dumps(output)}}]}
@@ -64,6 +64,8 @@ class ProspectiveModelBridgeTests(unittest.TestCase):
         self.assertEqual(payload["study_kind"],
                          "24H_PROSPECTIVE_DIRECTIONAL_HYPOTHESIS_NOT_BOOK_ENTRY")
         self.assertEqual(call["temperature"],0)
+        self.assertEqual(call["response_format"]["schema"]["required"],["direction"])
+        self.assertEqual(call["response_format"]["schema"]["additionalProperties"],False)
         self.assertEqual(len(model._model.calls),1)
         self.assertFalse(payload["no_trading_execution"] is False)
 
