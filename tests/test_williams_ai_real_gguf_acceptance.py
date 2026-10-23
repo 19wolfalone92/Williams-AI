@@ -77,6 +77,11 @@ class RealModelContractTests(unittest.TestCase):
             self.assertIn("WM3",new_schema["properties"]["setup"]["enum"])
             self.assertIn("CLOSED_BAR_TOUCH_ONLY",new_schema["properties"]["entry_state"]["enum"])
             self.assertNotIn("PENDING_TRIGGER",new_schema["properties"]["entry_state"]["enum"])
+            seen=__import__("json").loads(
+                model._model.calls[3]["messages"][1]["content"]
+            )["chart"]["current_wm3_confirmation_states"]
+            self.assertTrue(seen["price_touched_valid_fractal_on_this_closed_bar"])
+            self.assertFalse(seen["confirmed_fractal_waiting_for_future_price_break"])
             self.assertIn("LONG",new_schema["properties"]["side"]["enum"])
             self.assertNotIn("SHORT",new_schema["properties"]["side"]["enum"])
 
