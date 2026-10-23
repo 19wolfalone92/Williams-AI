@@ -31,6 +31,7 @@ class MarketPositionTests(unittest.TestCase):
         lo=[10.0]*30
         hi[7]=28
         hi[16]=35
+        lo[3]=4
         lo[12]=5
         lo[23]=6
         ao=[1.0]*30
@@ -40,6 +41,60 @@ class MarketPositionTests(unittest.TestCase):
         self.assertTrue(any(x["kind"]=="BEARISH_AO_DIVERGENCE_CANDIDATE"
                             for x in view["divergences"]))
         self.assertIsNone(view["trade_action"])
+
+    def test_ao_peak_can_precede_high_pivot(self):
+        hi=[20.0]*36
+        lo=[10.0]*36
+        for i,v in ((3,4),(12,5),(22,6),(31,7)):
+            lo[i]=v
+        hi[7]=30
+        hi[17]=35
+        hi[27]=33  # late HIGH ensures latest pair 17 and 27; focus use prefix
+        ao=[0.5]*36
+        # The high-pivot candles have misleading AO values.
+        ao[7]=1
+        ao[17]=9
+        # Leg A rises to a stronger AO hump BEFORE its high candle.
+        ao[5]=12
+        # Leg B has smaller max although AO at the HIGH itself grew.
+        ao[15]=9
+        first=market_position(bars(hi[:20],lo[:20]),ao[:20])
+        self.assertTrue(any(x["kind"]=="BEARISH_AO_DIVERGENCE_CANDIDATE"
+                            for x in first["divergences"]))
+        div=first["divergences"][0]
+        self.assertEqual(div["ao_leg_extrema"],[12,9])
+        self.assertTrue(div["pivot_ao_only_is_not_used"])
+        self.assertEqual(div["ao_leg_extremum_times"][0],bars(hi[:20],lo[:20])[5].at.isoformat())
+        self.assertIsNone(first["trade_action"])
+
+    def test_missing_prior_opposite_swing_blocks_fake_divergence(self):
+        hi=[20.0]*26
+        lo=[10.0]*26
+        hi[5]=30
+        hi[15]=35
+        lo[10]=3
+        ao=[0.0]*26
+        ao[5]=12
+        ao[15]=1
+        x=market_position(bars(hi,lo),ao)
+        self.assertEqual(x["divergences"],[])
+
+    def test_divergence_confirmation_requires_pivot_plus_two(self):
+        hi=[20.0]*30
+        lo=[10.0]*30
+        lo[3]=4
+        lo[12]=5
+        hi[7]=30
+        hi[27]=35  # need indices 28 and 29 to confirm
+        ao=[1.0]*30
+        ao[5]=11.0
+        ao[24]=4.0
+        early=market_position(bars(hi[:29],lo[:29]),ao[:29])
+        late=market_position(bars(hi,lo),ao)
+        self.assertEqual(early["divergences"],[])
+        self.assertTrue(late["divergences"])
+        self.assertEqual(late["divergences"][0]["newer_swing_confirmed_at"],
+                         bars(hi,lo)[29].at.isoformat())
 
     def test_unknown_without_swings(self):
         x=market_position(bars([20.0]*10,[10.0]*10),[0.1]*10)
