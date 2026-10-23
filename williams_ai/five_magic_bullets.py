@@ -178,7 +178,7 @@ def five_magic_bullets(
                 "TERMINAL_FRACTAL",
                 "OBSERVED" if fractal_confirmed else "UNKNOWN_UNCONFIRMED",
                 note="Price pivot has exactly two completed confirmation bars to the right, not an order trigger.",
-                observed_at=w5["confirmed_at"],
+                observed_at=bars[w5["confirmed_at_index"]].at.isoformat(),
             ),
             "SQUAT_MFI_VOLUME":_bool_evidence(
                 "SQUAT_MFI_VOLUME",
