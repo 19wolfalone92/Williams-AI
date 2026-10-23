@@ -69,6 +69,13 @@ class ProspectiveCausalResearch(unittest.TestCase):
             with self.subTest(n=n),self.assertRaises(ValueError):
                 settle_prospective_call(seal,full[:n])
 
+    def test_mislabeled_half_hour_history_cannot_be_used_for_h1(self):
+        full=rows(260)
+        broken=copy.deepcopy(full)
+        broken[150]["close_time"]=(START+timedelta(hours=149,minutes=30)).isoformat()
+        with self.assertRaisesRegex(ValueError,"EXACT_H1_CADENCE_REQUIRED"):
+            freeze(broken[:230])
+
     def test_future_bar_reordering_gap_or_unfinished_fails(self):
         full=rows(260);seal=freeze(full[:230])
         for idx in (230,253):
