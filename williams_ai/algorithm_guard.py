@@ -204,22 +204,34 @@ def audit_reasoning(
     elif setup=="WM3":
         matches=[c for c in evidence if c.get("type")=="WM3_FRACTAL"
                  and c.get("side")==side]
+        valid_pending=any(
+            x.get("state")=="AWAITING_PRICE_TRIGGER"
+            and x.get("confirmed_at")<=observation.get("as_of","")
+            for x in matches if x.get("confirmed_at") is not None
+        )
+        valid_current_touch=any(
+            x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+            and x.get("price_touch_observed_at")==observation.get("as_of")
+            for x in matches
+        )
+        # Book signal and exchange execution are different. In particular
+        # yesterday's touch is NOT a breakout on the current candle, even
+        # if the fractal is still visible on screen. An unspecified
+        # entry_state cannot be silently upgraded to 'filled'.
         if not matches:
             fail("WM3_NO_CONFIRMED_FRACTAL_IN_OBSERVATION")
-        elif entry!="PENDING_TRIGGER" and not any(x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
-                     for x in matches):
-            fail("WM3_NO_VERIFIED_TEETH_PASS_AT_PRICE_TOUCH")
+        if entry=="PENDING_TRIGGER":
+            if valid_pending:
+                note("WM3_AWAITING_BREAKOUT_NOT_AN_EXCHANGE_FILL")
+            else:
+                fail("WM3_NO_CURRENT_PENDING_VALID_FRACTAL")
+        elif entry=="CLOSED_BAR_TOUCH_ONLY":
+            if valid_current_touch:
+                note("WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL")
+            else:
+                fail("WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR")
         else:
-            note("WM3_AWAITING_BREAKOUT_NOT_AN_EXCHANGE_FILL" if entry=="PENDING_TRIGGER"
-                 else "WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL")
-        if entry=="PENDING_TRIGGER" and not any(
-                x.get("state")=="AWAITING_PRICE_TRIGGER" for x in matches):
-            fail("WM3_NO_CURRENT_PENDING_VALID_FRACTAL")
-        if entry=="CLOSED_BAR_TOUCH_ONLY" and not any(
-                x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
-                and x.get("price_touch_observed_at")==observation.get("as_of")
-                for x in matches):
-            fail("WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR")
+            fail("WM3_ENTRY_STATE_MUST_BE_PENDING_OR_FRESH_CLOSED_TOUCH")
     elif setup=="TC1_FRACTAL":
         shapes=observation.get("edition_evidence",{}).get("TC1",{}).get("recent_formations",[])
         matched=[x for x in shapes if x.get("side")==side
