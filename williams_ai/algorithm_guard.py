@@ -205,16 +205,16 @@ def audit_reasoning(
     elif setup=="WM3":
         matches=[c for c in evidence if c.get("type")=="WM3_FRACTAL"
                  and c.get("side")==side]
-        valid_pending=any(
-            x.get("state")=="AWAITING_PRICE_TRIGGER"
-            and x.get("confirmed_at")<=observation.get("as_of","")
-            for x in matches if x.get("confirmed_at") is not None
-        )
-        valid_current_touch=any(
-            x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
-            and x.get("price_touch_observed_at")==observation.get("as_of")
-            for x in matches
-        )
+        from .decision_contract import legal_wm3_discussion_states
+        # Do NOT compare ISO timestamps as strings: time-zone offsets can
+        # invert the ordering. Require a truly confirmed (t+2) fractal
+        # and a currently valid lifecycle state for each direction.
+        allowed=legal_wm3_discussion_states({
+            "as_of":observation["as_of"],"candidates":matches,
+            "execution_allowed":False,"gaps":0,
+        })
+        valid_pending=any(x["entry_state"]=="PENDING_TRIGGER" for x in allowed)
+        valid_current_touch=any(x["entry_state"]=="CLOSED_BAR_TOUCH_ONLY" for x in allowed)
         # Book signal and exchange execution are different. In particular
         # yesterday's touch is NOT a breakout on the current candle, even
         # if the fractal is still visible on screen. An unspecified
@@ -263,6 +263,19 @@ def audit_reasoning(
             note("NTD_ZONE_OR_BALANCE_LINE_NOT_A_STANDALONE_FIRST_ENTRY")
     else:
         note("STRUCTURAL_INTERPRETATION_ONLY_NOT_ENTRY")
+    # Second independent gate for full causal historical chart passports.
+    # The cached signal manifest is deliberately NOT a trust source: the
+    # critic regenerates status from as-of observations each time.
+    if isinstance(observation.get("signal_proofs"),dict) and setup in {
+        "WM1","WM2","WM3","TC1_FIVE_MAGIC_BULLETS",
+        "AO_ZERO_CROSS","AO_SAUCER","AO_TWIN_PEAKS","AC",
+    }:
+        from .signal_proofs import (
+            current_signal_proofs,proof_supports_current_claim,
+        )
+        book=current_signal_proofs(observation)
+        if not proof_supports_current_claim(book,setup,side,entry):
+            fail("NO_CAUSAL_CURRENT_SOURCE_EVIDENCE_FOR_CLAIM")
     return {
         "mode":"READ_ONLY_REASONING_AUDIT",
         "symbol":observation.get("symbol"),
