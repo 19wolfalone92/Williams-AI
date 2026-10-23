@@ -183,6 +183,8 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
     feb=[]
     signals=Counter()
     by_pair=Counter()
+    family_months=defaultdict(Counter)
+    feb_events_for_family=[]
     for symbol,rows in sorted(markets.items()):
         for e in replay_closed_history(rows,symbol=symbol):
             signals[e["kind"]]+=1
@@ -196,8 +198,15 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
             mature=_date(e["resolved_at"])
             if moment<jan_end and mature<jan_end:
                 jan.append(p)
+                family_months[("TRAIN_JAN",e["kind"],e["side"])]["count"]+=1
+                family_months[("TRAIN_JAN",e["kind"],e["side"])]["favorable"]+=bool(
+                    e["label_direction_favorable"])
             elif jan_end<=moment<mar_start and mature<mar_start:
                 feb.append(p)
+                family_months[("TEST_FEB",e["kind"],e["side"])]["count"]+=1
+                family_months[("TEST_FEB",e["kind"],e["side"])]["favorable"]+=bool(
+                    e["label_direction_favorable"])
+                feb_events_for_family.append(e)
     if len(markets)<20 or len(jan)<80 or len(feb)<80:
         raise ValueError("Not enough genuine independent-calendar evidence events")
     if any(_date(x.resolved_at)>=jan_end for x in jan):
@@ -206,6 +215,31 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
     model["training_positive_rate"]=sum(x.net_return>0 for x in jan)/len(jan)
     test=_metrics(model,feb)
     skill=test["constant_prior_brier"]-test["brier_score"]
+    by_family={}
+    family_brier=0.
+    for e in feb_events_for_family:
+        key=("TRAIN_JAN",e["kind"],e["side"])
+        history=family_months[key]
+        # Laplace smoothing fixed before the February test.
+        conditional=(history["favorable"]+1)/(history["count"]+2)
+        y=float(e["label_direction_favorable"])
+        family_brier+=(conditional-y)**2
+    family_brier/=len(feb_events_for_family)
+    for name in FAMILIES:
+        for side in ("LONG","SHORT"):
+            train_family=family_months[("TRAIN_JAN",name,side)]
+            eval_family=family_months[("TEST_FEB",name,side)]
+            by_family[name+"_"+side]={
+                "january_matured_training_events":train_family["count"],
+                "january_favorable_fraction":round(
+                    train_family["favorable"]/train_family["count"],5)
+                    if train_family["count"] else None,
+                "february_frozen_test_events":eval_family["count"],
+                "february_favorable_fraction":round(
+                    eval_family["favorable"]/eval_family["count"],5)
+                    if eval_family["count"] else None,
+                "no_independent_wave_truth":True,
+            }
     # Never promote even if score is positive: February has been
     # previously reviewed by developers, signals only approximations,
     # no image proof, campaign or actual exchange stop receipts.
@@ -229,6 +263,11 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
         "february_brier":round(test["brier_score"],6),
         "january_constant_baseline_brier":round(test["constant_prior_brier"],6),
         "february_skill_vs_january_prior":round(skill,6),
+        "january_family_prior_february_brier":round(family_brier,6),
+        "january_family_prior_february_advantage_vs_constant":round(
+            test["constant_prior_brier"]-family_brier,6),
+        "observed_by_signal_family_not_neural_comprehension":by_family,
+        "overlapping_horizons_make_samples_statistically_dependent":True,
         "fixed_probability_0_6_selected":test["selected_at_fixed_0_6"],
         "profitability_certified":False,
         "neural_GGUF_weights_changed":False,
