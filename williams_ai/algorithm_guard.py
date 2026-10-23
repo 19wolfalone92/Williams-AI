@@ -177,7 +177,8 @@ def audit_reasoning(
                      for x in matches):
             fail("WM3_NO_VERIFIED_TEETH_PASS_AT_PRICE_TOUCH")
         else:
-            note("WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL")
+            note("WM3_AWAITING_BREAKOUT_NOT_AN_EXCHANGE_FILL" if entry=="PENDING_TRIGGER"
+                 else "WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL")
         if entry=="PENDING_TRIGGER" and not any(
                 x.get("state")=="AWAITING_PRICE_TRIGGER" for x in matches):
             fail("WM3_NO_CURRENT_PENDING_VALID_FRACTAL")
