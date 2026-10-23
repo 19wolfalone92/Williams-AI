@@ -99,6 +99,13 @@ def evaluate_historical_thought(
         )))
         prior=recall_model_corrections(coach_notebook,model_id,edition,
                                        focus_rule_ids=focus,limit=2)
+        # If the active signals have no matching corrected rules, still
+        # recall a single general lesson in the SAME edition. Otherwise a
+        # model that studied TC1 wave degree but sees only TC1 fractals
+        # would never receive its prior book knowledge.
+        if not prior and focus:
+            prior=recall_model_corrections(coach_notebook,model_id,edition,
+                                           limit=1)
     if model is not None:
         args={"edition":edition}
         if book_index is not None:
