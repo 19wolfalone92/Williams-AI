@@ -190,7 +190,12 @@ class LocalWilliamsModel:
         # the model prompt is serialized so the small GGUF sees the difference
         # between a waiting fractal and a stale historical breakout.
         from .decision_contract import contract_for_model
-        decision_contract=contract_for_model(chart_analysis,edition)
+        # Hint only about the SAME bounded candidate set the GGUF actually
+        # sees; older omitted fractals may not silently become selectable.
+        decision_contract=contract_for_model({
+            "as_of":chart_analysis["as_of"],"candidates":candidates,
+            "execution_allowed":False,"gaps":chart_analysis.get("gaps",0),
+        },edition)
         allowed_wm3=decision_contract["wm3_valid_setup_side_entry_state_combinations"]
         has_pending_wm3=any(x["entry_state"]=="PENDING_TRIGGER" for x in allowed_wm3)
         has_current_wm3_touch=any(x["entry_state"]=="CLOSED_BAR_TOUCH_ONLY" for x in allowed_wm3)
