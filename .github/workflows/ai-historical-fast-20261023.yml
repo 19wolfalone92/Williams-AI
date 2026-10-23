@@ -4,6 +4,7 @@ on:
     branches:
       - experiment/causal-historical-comprehension-20261023
       - fix/gguf-context-and-calibrated-historical-20261023
+      - experiment/williams-ai-evidence-guided-retry-20261023
 permissions:
   contents: read
 jobs:
