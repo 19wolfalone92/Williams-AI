@@ -1,7 +1,8 @@
 """Pre-registered, cross-asset, PURGED January->February 2025 validation.
 
 The research scorer learns from REAL January only and is judged on the
-already available February 2025 calendar. Nothing from February, 2026,
+already available February 2025 calendar. Earlier source versions trained on
+both months, so February is NOT an untouched developer-blind holdout. Nothing from February, 2026,
 test PnL, BTC news, or future exchange fills can modify coefficients.
 A losing scorer is REJECTED instead of being advertised as "learned AI".
 Even a PASS here would remain research-only, NOT a trading authorization.
@@ -119,7 +120,9 @@ def qualify_verified_training(
         "training_samples":len(training),
         "validation_samples":len(validation),
         "training_month":"2025-01",
-        "independent_validation_month":"2025-02",
+        "temporally_separate_validation_month":"2025-02",
+        "untouched_developer_blind_validation":False,
+        "february_previously_included_in_prior_research_training":True,
         "purged_cross_month_labels":True,
         "research_model_family":"LOGISTIC_NOT_GGUF",
         "training_only_positive_prior":round(model["training_positive_rate"],6),
@@ -142,7 +145,8 @@ def qualify_verified_training(
         "portfolio_funding_real_SL_validated":False,
         "per_symbol":by_symbol_skill,
         "warnings":[
-            "January and February are separate by calendar but share correlated markets.",
+            "January and February are separate by calendar, but February was previously examined.",
+            "February is a model-fitting holdout in this run, NOT an untouched blind holdout.",
             "Brier calibration is not Williams campaign profitability.",
             "Validation thresholds fixed before testing and cannot be retuned on February.",
             "Any deployment requires an independent untouched horizon and Binance Demo stop receipts.",
