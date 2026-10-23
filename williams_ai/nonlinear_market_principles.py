@@ -178,6 +178,23 @@ def nonlinear_market_principles(
             "latest_confirmed_low": lows[-1]["price"] if lows else None,
             "confirmed_swings": pivots[-8:],
         }
+    # A CLOSED structural price break is a useful new fact only if the
+    # referenced pivot had been confirmed BEFORE this very candle. The
+    # same bar could confirm a pivot and cross its level in unknown order.
+    last= len(bars)-1
+    local = _swings(bars,2)
+    known_high=next((p for p in reversed(local)
+                     if p["type"]=="H" and p["confirmed_at_index"]<last),None)
+    known_low=next((p for p in reversed(local)
+                    if p["type"]=="L" and p["confirmed_at_index"]<last),None)
+    current_close=float(bars[-1].close)
+    location=(
+        "CLOSED_ABOVE_PRIOR_CONFIRMED_SWING_HIGH_NOT_ORDER"
+        if known_high and current_close>known_high["price"] else
+        "CLOSED_BELOW_PRIOR_CONFIRMED_SWING_LOW_NOT_ORDER"
+        if known_low and current_close<known_low["price"] else
+        "WITHIN_PRIOR_CONFIRMED_SWING_LEVELS_OR_UNRESOLVED"
+    )
     mom = _momentum(ao,ac)
     vol = _volatility_regime(bars)
     structure = {label: v["structure"] for label,v in scale_results.items()}
@@ -188,8 +205,8 @@ def nonlinear_market_principles(
     bullish_div = any(x.get("kind")=="BULLISH_AO_DIVERGENCE_CANDIDATE" for x in source_div if isinstance(x,dict))
     bearish_div = any(x.get("kind")=="BEARISH_AO_DIVERGENCE_CANDIDATE" for x in source_div if isinstance(x,dict))
     refs = {
-        "last_confirmed_high": scale_results["LOCAL"]["latest_confirmed_high"],
-        "last_confirmed_low": scale_results["LOCAL"]["latest_confirmed_low"],
+        "last_confirmed_high": known_high["price"] if known_high else None,
+        "last_confirmed_low": known_low["price"] if known_low else None,
     }
     up = []
     down = []
@@ -207,6 +224,10 @@ def nonlinear_market_principles(
     elif alligator_context=="DOWN_CONTEXT":
         down.append("VISIBLE_ALLIGATOR_DOWN")
         up_against.append("VISIBLE_ALLIGATOR_DOWN")
+    if location=="CLOSED_ABOVE_PRIOR_CONFIRMED_SWING_HIGH_NOT_ORDER":
+        up.append("CLOSED_PRICE_BREAKS_PRIOR_CONFIRMED_SWING_HIGH")
+    elif location=="CLOSED_BELOW_PRIOR_CONFIRMED_SWING_LOW_NOT_ORDER":
+        down.append("CLOSED_PRICE_BREAKS_PRIOR_CONFIRMED_SWING_LOW")
     if mom["ao_sign"]=="POSITIVE":
         up.append("AO_ABOVE_ZERO")
         down_against.append("AO_ABOVE_ZERO")
@@ -273,7 +294,8 @@ def nonlinear_market_principles(
             "visible_alligator_context": alligator_context,
             "bullish_divergence_observed": bullish_div,
             "bearish_divergence_observed": bearish_div,
-            "current_close": float(bars[-1].close),
+            "current_close": current_close,
+            "closed_price_location_relative_to_previously_confirmed_levels": location,
         },
         "competing_market_scenarios": scenarios,
         "interpretation": "Nonlinear multi-scale hypotheses: not a guaranteed price forecast.",
