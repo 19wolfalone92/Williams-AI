@@ -63,14 +63,30 @@ def public_model_trial(
     start=monotonic()
     public_questions=CASES[:max_questions]
     exam=grade_exam(model.answer_exam_case,public_questions)
+    print("REAL_GGUF_MC_SCORE",exam["correct_cases"],"of",exam["total_cases"],
+          "not a blinded competency test",flush=True)
     names=("BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT")
     audits=[]
     for symbol in names[:history_cases]:
         market=frozen_markets()[symbol]
         # The model sees only 900 first H1 CLOSED candles, not future prices.
-        case=evaluate_historical_thought(
-            symbol,market["bars"],tick_size=market["tick_size"],
-            bar_index=899,edition="TC2",model=model)
+        try:
+            case=evaluate_historical_thought(
+                symbol,market["bars"],tick_size=market["tick_size"],
+                bar_index=899,edition="TC2",model=model)
+        except (ValueError,TypeError,RuntimeError,KeyError,IndexError) as exc:
+            # Bad GGUF JSON is a failed actual inference, not a successful
+            # trading decision. The audit must not crash before producing
+            # a report or silently default to a fake NO_SETUP.
+            audits.append({
+                "symbol":symbol,"edition":"TC2",
+                "last_visible_at":market["bars"][899]["close_time"],
+                "verdict":"MALFORMED_MODEL_DECISION",
+                "selected_setup":None,"hard_failures":["MALFORMED_DECISION:"+type(exc).__name__],
+                "uncertainties":[],"trade_action":None,
+            })
+            print("REAL_GGUF_CHART_DECISION_INVALID",symbol,type(exc).__name__,flush=True)
+            continue
         audit=case["audit"]
         audits.append({
             "symbol":symbol,"edition":"TC2",
@@ -82,6 +98,7 @@ def public_model_trial(
             "uncertainties":audit["uncertainties"],
             "trade_action":None,
         })
+        print("REAL_GGUF_CHART_DECISION",symbol,audit["verdict"],flush=True)
     return {
         "mode":"ACTUAL_PUBLIC_GGUF_LLAMACPP_CPU_INFERENCE",
         "weights_verified":weight_report,
@@ -97,6 +114,12 @@ def public_model_trial(
         },
         "historical_read_only_chart_decisions":audits,
         "elapsed_wall_seconds":round(monotonic()-start,2),
+        "acceptance_verdict":(
+            "PUBLIC_MODEL_UNQUALIFIED" if (
+                exam["correct_cases"] < max_questions
+                or any(x["verdict"]!="PROVISIONAL_REASONING_ONLY" for x in audits)
+            ) else "PUBLIC_DIAGNOSTIC_ONLY_NO_TRADING_AUTHORITY"
+        ),
         "user_private_book_text_used":False,
         "training_weights_modified":False,
         "actual_book_mastery_percent":None,
