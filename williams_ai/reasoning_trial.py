@@ -31,6 +31,7 @@ def evaluate_historical_thought(
     book_index:Path|None=None,
     coach_notebook:Path|None=None,
     model_id:str|None=None,
+    previous_closed_chart:dict[str,Any]|None=None,
 )->dict[str,Any]:
     """bar_index is a 0-based last closed bar, not next bar to trade.
 
@@ -96,6 +97,13 @@ def evaluate_historical_thought(
         higher["cross_scale_wave_theses"] = cross_scale_wave_theses(
             frames_for_relations,as_of=evidence["as_of"])
         evidence["higher_timeframe_context"]=higher
+    if previous_closed_chart is not None:
+        from .temporal_wave_revision import temporal_revision
+        evidence["temporal_comparison"]=temporal_revision(
+            previous_closed_chart,evidence,
+            earlier_higher_context=previous_closed_chart.get("higher_timeframe_context"),
+            later_higher_context=evidence.get("higher_timeframe_context"),
+        )
     sources=[]
     if book_index is not None:
         if model is None:
@@ -153,6 +161,7 @@ def evaluate_historical_thought(
         "private_book_passages_exported":False,
         "private_coaching_text_exported":False,
         "top_down_context":evidence.get("higher_timeframe_context",{}),
+        "temporal_revision":evidence.get("temporal_comparison"),
         "model_saw_future_bars":False,
         "model_weights_trained_here":False,
         "book_mastery_percent":None,

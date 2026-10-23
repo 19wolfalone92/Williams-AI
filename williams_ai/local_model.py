@@ -297,6 +297,16 @@ class LocalWilliamsModel:
             "complete_higher_timeframe_context":higher_brief,
             "competing_h1_h4_d1_wave_theses":thesis_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
+            "time_sequential_revision":({
+                "earlier_as_of":chart_analysis["temporal_comparison"].get("earlier_as_of"),
+                "later_as_of":chart_analysis["temporal_comparison"].get("later_as_of"),
+                "changed_confirmed_facts":chart_analysis["temporal_comparison"].get("changed_confirmed_facts",[]),
+                "previous_scenarios_no_longer_supported":chart_analysis["temporal_comparison"].get("previous_scenarios_no_longer_supported",[]),
+                "new_scenarios":chart_analysis["temporal_comparison"].get("new_scenarios",[]),
+                "prior_scenarios_lose_support":chart_analysis["temporal_comparison"].get("prior_scenarios_lose_support",[]),
+                "higher_tf_market_context_revision":chart_analysis["temporal_comparison"].get("higher_tf_market_context_revision",{}),
+                "exact_wave_degree_verified":False,
+            } if isinstance(chart_analysis.get("temporal_comparison"),dict) else None),
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
             "current_book_signal_proofs":[{
@@ -449,6 +459,9 @@ class LocalWilliamsModel:
             "не отменяй SL, при новых фактах пересматривай свою разметку. "
             "Сопоставляй подтверждённые свинги разных масштабов, Alligator, "
             "AO, AC, дивергенции, условия продолжения и коррекции. "
+            "Если time_sequential_revision показывает новые закрытые факты, "
+            "не защищай старую интерпретацию; отмечай, что ослабло или было опровергнуто. "
+            "Завершение младшей волны НЕ подтверждает завершение старшей. "
             "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
             "а не копируй графическую форму из иллюстрации. "
             "Наблюдение признака не доказывает будущую цену или торговый fill. "

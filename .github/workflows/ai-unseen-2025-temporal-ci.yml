@@ -1,0 +1,39 @@
+name: Williams AI FIRST-LOOK 2025 verified Binance wave evidence
+
+on:
+  push:
+    branches:
+      - experiment/independent-2025-multiscale-gguf-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  verify-new-2025-exchange-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: All 2025 and existing read-only causality tests
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Download checksum-verified previously UNUSED Binance USD-M 2025 candles
+        run: |
+          python -m williams_ai.unseen_2025_cohort --out /tmp/williams_ai_2025_new_cohort.json
+      - name: Independently analyze evolution of 15 markets H1-H4-D1
+        run: |
+          python -m williams_ai.temporal_2025_diagnostics \
+            --manifest /tmp/williams_ai_2025_new_cohort.json --summary \
+            | tee /tmp/2025_temporal_evidence_summary.log
+      - name: Preserve source manifest and exact 2025 H1 bars used
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-look-2025-15pair-verified-binance-H1-archive
+          path: |
+            /tmp/williams_ai_2025_new_cohort.json
+            /tmp/2025_temporal_evidence_summary.log
+          retention-days: 7
+          if-no-files-found: ignore
