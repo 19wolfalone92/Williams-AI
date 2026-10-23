@@ -151,6 +151,36 @@ class NonlinearPrinciplesTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             nonlinear_market_principles(candles,ao[:-1],ac)
 
+    def test_actual_closed_swing_break_is_evidence_not_prediction_or_fill(self):
+        from williams_ai.chart_reader import validate_closed_bars
+        rows=[]
+        start=datetime(2026,1,1,0,59,59,999000,tzinfo=timezone.utc)
+        for i in range(65):
+            high=13.0 if i==20 else 12.0
+            cl=10.0
+            if i==64:
+                cl=14.0
+                high=14.4
+            rows.append({
+                "close_time":(start+timedelta(hours=i)).isoformat(),
+                "open":10.0, "high":high,"low":9.0,
+                "close":cl,"volume":1,"closed":True,
+            })
+        candles,_=validate_closed_bars(rows,"H1",rows[-1]["close_time"])
+        x=nonlinear_market_principles(candles,[1.0]*65,[0.0]*65)
+        fact=x["observable_facts"]
+        self.assertEqual(
+            fact["closed_price_location_relative_to_previously_confirmed_levels"],
+            "CLOSED_ABOVE_PRIOR_CONFIRMED_SWING_HIGH_NOT_ORDER",
+        )
+        scenario=next(q for q in x["competing_market_scenarios"]
+                      if q["hypothesis"]=="CONTINUATION_UP")
+        self.assertIn("CLOSED_PRICE_BREAKS_PRIOR_CONFIRMED_SWING_HIGH",
+                      scenario["supporting_observations"])
+        self.assertFalse(x["execution_allowed"])
+        self.assertIsNone(x["trade_action"])
+        self.assertIsNone(scenario["probability"])
+
     def test_opposing_divergences_remain_alternatives_not_orders(self):
         rows=nonlinear_fixture(160)
         from williams_ai.chart_reader import validate_closed_bars
