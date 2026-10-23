@@ -108,6 +108,9 @@ class FiveMagicBulletsTests(unittest.TestCase):
     def test_not_every_squat_means_end_of_trend(self):
         rows=maker()
         rows[110]["tick_volume"]=700
+        rows[111]["tick_volume"]=700
+        # Otherwise the NEXT candle's rebound from 700 to 1000 ticks
+        # creates an independent valid Squat near the price extreme.
         r=five(rows)
         candidate=r["last_n_wave_candidates"][-1]
         self.assertEqual(candidate["bullets"]["SQUAT_MFI_VOLUME"]["status"],
