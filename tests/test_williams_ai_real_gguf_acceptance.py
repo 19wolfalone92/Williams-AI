@@ -47,7 +47,7 @@ class RealModelContractTests(unittest.TestCase):
             # executed; independent Teeth/time auditor remains in force.
             synthetic={**chart,"candidates":chart["candidates"]+[{
                 "type":"WM3_FRACTAL","side":"LONG",
-                "state":"AWAITING_PRICE_TRIGGER"}]}
+                "state":"AWAITING_PRICE_TRIGGER","confirmed_at":chart["as_of"]}]}
             model.propose_chart_reasoning(synthetic,edition="TC2")
             next_schema=model._model.calls[1]["response_format"]["schema"]
             self.assertIn("WM3",next_schema["properties"]["setup"]["enum"])
