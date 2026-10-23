@@ -110,7 +110,8 @@ class WM3DiscussionContract(unittest.TestCase):
             m.propose_chart_reasoning(observation,edition="TC2")
             ctx=json.loads(m._model.calls[0]["messages"][1]["content"])
             self.assertEqual(ctx["chart"]["observed_book_setup_state_contract"],
-                             contract_for_model(observation,"TC2"))
+                             contract_for_model({**observation,
+                                 "candidates":observation["candidates"][-8:]},"TC2"))
             self.assertTrue(ctx["chart"]["observed_book_setup_state_contract"]
                             ["no_trade_is_always_permitted"])
             self.assertFalse(ctx["chart"]["observed_book_setup_state_contract"]
