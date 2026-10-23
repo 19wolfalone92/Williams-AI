@@ -219,8 +219,12 @@ def summarize_sealed_results(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
     scored = 0
     hit = 0
     base = 0
+    always_up = 0
+    always_down = 0
     nonneutral = 0
     days = set()
+    model_id = None
+    code_id = None
     for x in outcomes:
         if (not isinstance(x, dict) or
                 x.get("mode") != "SEALED_24H_DIRECTIONAL_EXPERIMENT_NOT_TRADING" or
@@ -229,6 +233,12 @@ def summarize_sealed_results(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
                 x.get("observed_24h_direction") not in {"UP","DOWN","NEUTRAL"} or
                 x.get("predicted_direction") not in _ALLOWED):
             raise ValueError("Malformed outcome")
+        if model_id is None:
+            model_id=x.get("model_id")
+            code_id=x.get("code_id")
+            _validated_identity(model_id,code_id)
+        elif x.get("model_id")!=model_id or x.get("code_id")!=code_id:
+            raise ValueError("Cannot mix model or source versions in one cohort")
         key=(x["symbol"], x["as_of"])
         if key in seen:
             raise ValueError("Duplicate historical observation in evaluation")
@@ -242,9 +252,12 @@ def summarize_sealed_results(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
                 scored+=1
                 hit+=bool(x["correct"])
                 base+=bool(x["baseline_correct_on_selected"])
+                always_up+=x["observed_24h_direction"]=="UP"
+                always_down+=x["observed_24h_direction"]=="DOWN"
     return {
         "mode": "PROSPECTIVE_EVIDENCE_ONLY_NOT_PROFITABILITY",
         "total_cases": len(outcomes),
+        "model_id": model_id,"code_id":code_id,
         "unique_symbols": len({x["symbol"] for x in outcomes}),
         "unique_decision_calendar_dates_not_independent": len(days),
         "directional_calls": called, "abstentions": len(outcomes)-called,
@@ -253,7 +266,13 @@ def summarize_sealed_results(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
         "directional_coverage_fraction": round(called/len(outcomes), 6),
         "called_accuracy": round(hit/scored, 6) if scored else None,
         "matched_baseline_accuracy": round(base/scored, 6) if scored else None,
+        "always_up_baseline_on_selected":round(always_up/scored,6) if scored else None,
+        "always_down_baseline_on_selected":round(always_down/scored,6) if scored else None,
+        "best_matched_baseline_accuracy":(
+            round(max(base,always_up,always_down)/scored,6) if scored else None),
         "beats_lagged_momentum_on_selected_cases": hit>base if scored else None,
+        "beats_all_declared_baselines_on_selected":(
+            hit>max(base,always_up,always_down) if scored else None),
         "further_independent_prospective_holdout_needed": True,
         "cross_market_dependence_not_adjusted": True,
         "real_trade_profitability_verified": False,
