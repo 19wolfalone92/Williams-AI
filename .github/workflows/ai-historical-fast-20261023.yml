@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - experiment/causal-historical-comprehension-20261023
+      - fix/gguf-context-and-calibrated-historical-20261023
 permissions:
   contents: read
 jobs:
@@ -18,5 +19,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
       - name: Causal multi-scale future-withheld diagnostic
         run: |
-          python -m williams_ai.historical_comprehension --summary
+          python -m williams_ai.historical_comprehension --summary --both-reviewed-cohorts
           python -m williams_ai.five_bullets_cli --summary

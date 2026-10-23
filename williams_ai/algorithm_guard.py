@@ -93,6 +93,17 @@ def audit_reasoning(
         fail("NO_EXCHANGE_FILL_LEDGER")
     if side!="NONE" and setup in _NONENTRY_SETUPS:
         fail("DIRECTION_CLAIM_WITHOUT_ENTRY_SETUP")
+    reason=proposal.get("reason")
+    # A real 1.7B model selected TC1_FRACTAL or WM3 while its free-text
+    # explanation said literally NO_SETUP. A schema-valid JSON can still be
+    # semantically self-contradictory; do not mark it as good book reasoning.
+    if setup not in {"NO_SETUP","UNKNOWN"} and isinstance(reason,str) and (
+        reason.strip().upper() in {"NO_SETUP","NO SIGNAL","NO CONFIRMED SETUP"}
+        or reason.strip().casefold() in {"нет сигнала","нет сетапа","нет подтвержденного сигнала","нет подтверждённого сигнала"}
+    ):
+        fail("MODEL_EXPLANATION_DENIES_CLAIMED_SETUP")
+    if setup=="NO_SETUP" and entry in {"PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"}:
+        fail("NO_SETUP_CANNOT_CLAIM_TRIGGER_OR_FILL")
     if proposal.get("exchange_fill_confirmed") is True:
         fail("CANNOT_CONFIRM_EXCHANGE_FILL_FROM_OHLC")
     if proposal.get("exchange_sl_confirmed") is True:
@@ -174,6 +185,10 @@ def audit_reasoning(
         if not matches:
             fail("WM1_REVERSAL_BAR_NOT_OBSERVED")
         else:
+            if any(x.get("bar_time") is not None
+                   and x.get("bar_time")!=observation.get("as_of")
+                   for x in matches):
+                fail("WM1_REVERSAL_BAR_FROM_PAST_NOT_CURRENT_CANDLE")
             note("WM1_ANGLULATION_HUMAN_IMAGE_REVIEW_REQUIRED")
             if not any(x.get("angle_heuristic") is True for x in matches):
                 note("WM1_NUMERICAL_ANGULATION_NOT_EVEN_POSITIVE")

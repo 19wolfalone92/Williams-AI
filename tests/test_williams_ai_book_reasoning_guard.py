@@ -87,6 +87,26 @@ class GateTests(unittest.TestCase):
         x=audit_reasoning(self.observed,self.prop(exit_basis="OPPOSITE_SIGNAL_ONLY"))
         self.assertIn("UNEXECUTED_OPPOSITE_WISE_MAN_NOT_A_TRADE_EXIT",x["hard_failures"])
 
+    def test_model_cannot_call_setup_confirmed_while_explanation_says_no_setup(self):
+        proof={**self.observed,"candidates":[{
+            "type":"WM3_FRACTAL","side":"SHORT",
+            "state":"AWAITING_PRICE_TRIGGER",
+        }]}
+        inconsistent=self.prop(setup="WM3",side="SHORT",
+                               entry_state="PENDING_TRIGGER",
+                               rule_ids=["TC2.WM3"],reason="NO_SETUP")
+        graded=audit_reasoning(proof,inconsistent)
+        self.assertIn("MODEL_EXPLANATION_DENIES_CLAIMED_SETUP",graded["hard_failures"])
+        good=audit_reasoning(proof,{**inconsistent,
+                         "reason":"Подтверждённый фрактал ожидает отдельный ценовой пробой."})
+        self.assertNotIn("MODEL_EXPLANATION_DENIES_CLAIMED_SETUP",good["hard_failures"])
+
+    def test_no_setup_cannot_claim_unconfirmed_exchange_price_touch(self):
+        for entry in ("PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"):
+            with self.subTest(entry=entry):
+                grade=audit_reasoning(self.observed,self.prop(entry_state=entry))
+                self.assertIn("NO_SETUP_CANNOT_CLAIM_TRIGGER_OR_FILL",grade["hard_failures"])
+
     def test_confirmed_pending_wm3_does_not_require_any_past_price_touch(self):
         pending={**self.observed,"candidates":[{
             "type":"WM3_FRACTAL","side":"SHORT",
@@ -149,6 +169,23 @@ class GateTests(unittest.TestCase):
         self.assertIn("TC2_WISE_MAN_IN_OTHER_EDITION",x["hard_failures"])
         self.assertIn("CROSS_EDITION_RULE_MIXING",x["hard_failures"])
         self.assertIn("HALLUCINATED_SOURCE_RULE",x["hard_failures"])
+
+    def test_stale_wm1_even_if_in_candidate_list_cannot_be_current_entry(self):
+        fake={**self.observed,"candidates":[{
+            "type":"WM1","side":"LONG","angle_heuristic":True,
+            "bar_time":"2026-09-01T08:59:59+00:00",
+            "state":"REVERSAL_BAR_VISIBLE_ANGULATION_REVIEW_REQUIRED",
+        }]}
+        claim=self.prop(setup="WM1",side="LONG",
+                        entry_state="PENDING_TRIGGER",
+                        rule_ids=["TC2.WM1.BAR"])
+        x=audit_reasoning(fake,claim)
+        self.assertIn("WM1_REVERSAL_BAR_FROM_PAST_NOT_CURRENT_CANDLE",
+                      x["hard_failures"])
+        fake["candidates"][0]["bar_time"]=self.as_of
+        fresh=audit_reasoning(fake,claim)
+        self.assertNotIn("WM1_REVERSAL_BAR_FROM_PAST_NOT_CURRENT_CANDLE",
+                         fresh["hard_failures"])
 
     def test_wm1_visual_uncertainty_stays_visible(self):
         obs={**self.observed,"candidates":[

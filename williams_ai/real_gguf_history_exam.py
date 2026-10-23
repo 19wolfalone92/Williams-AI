@@ -62,13 +62,31 @@ def run_actual_history_exam(model, *,verified_weights:dict)->dict:
                 "trade_action":None,
             }
         except (ValueError,TypeError,RuntimeError,KeyError,IndexError) as exc:
-            # A bad GGUF JSON response is an ERROR, never rewritten to safe
-            # NO_SETUP and never counted as a correct chart interpretation.
+            # Distinguish a malformed Qwen answer from a *pre-inference*
+            # prompt-size failure, without logging confidential book text,
+            # whole exception strings, arbitrary local paths or raw prompts.
+            message=str(exc)
+            known_errors=(
+                "GGUF_EMPTY_DECISION_RESPONSE",
+                "GGUF_MALFORMED_JSON_RESPONSE",
+                "GGUF_RESPONSE_IS_NOT_AN_OBJECT",
+                "GGUF_MISSING_MANDATORY_DECISION_FIELDS",
+                "MODEL_CONTEXT_BUDGET_EXCEEDED_AFTER_CAUSAL_COMPACTION",
+                "GGUF_MODEL_INFERENCE_VALUE_ERROR",
+                "GGUF_AUDITOR_INVALID_PROPOSAL",
+            )
+            cause=next((x for x in known_errors if x==message),None)
+            if cause is None and message=="Expected ISO timestamp":
+                cause="GGUF_MISSING_OR_INVALID_DECISION_TIME"
+            if cause is None and "context" in message.lower():
+                cause="GGUF_RUNTIME_CONTEXT_EXCEPTION"
+            if cause is None:
+                cause="OTHER_"+type(exc).__name__
             result={
                 "symbol":symbol,"bar_index":bar_index,"edition":edition,
                 "as_of":x["bars"][bar_index]["close_time"],
                 "verdict":"MALFORMED_OR_FAILED_REASONING",
-                "setup":None,"hard_failures":[type(exc).__name__],
+                "setup":None,"hard_failures":[cause],
                 "uncertainties":[],"brief_explanation":"",
                 "future_candles_sent_to_model":False,
                 "trade_action":None,

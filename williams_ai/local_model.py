@@ -305,17 +305,94 @@ class LocalWilliamsModel:
                         or not 10<=len(explanation)<=450):
                     raise ValueError("Private lesson is not from the selected edition")
                 corrections.append({"source":source,"excerpt":explanation})
-        user_context=json.dumps({
+        # An actual 1.7B CPU model failed on five of eight historical
+        # prompts. Some original chart contexts were >16k chars and used
+        # the remaining generation budget. Compact OPTIONAL observations
+        # deterministically, preserving ALL rule IDs, source edition, chart
+        # cutoff, validated setup states and private source restrictions.
+        # This is NOT a summary made by the model and cannot add future data.
+        payload={
             "primary_book_pages":pages,
             "previous_model_mistake_corrections":corrections,
             "source_cards":cards,"edition":edition,"chart":observation,
-        },ensure_ascii=False)
+        }
+        def encode()->str:
+            return json.dumps(payload,ensure_ascii=False,separators=(",",":"))
+        user_context=encode()
+        if len(user_context)>8500:
+            # Keep original book citations, but give the LLM compact rules.
+            # A reduced prompt is safer than silently slicing valid JSON.
+            payload["source_cards"]=[{
+                "id":x["id"],"summary":x["summary"][:145],
+                "pdf_pages":x["pdf_pages"],"review_status":x["review_status"],
+            } for x in cards]
+            chart=payload["chart"]
+            chart["wave_structure"]["recent_confirmed_swings"]=(
+                chart["wave_structure"]["recent_confirmed_swings"][-3:])
+            for name in ("impulse_alternatives","corrective_alternatives"):
+                chart["wave_structure"][name]=chart["wave_structure"][name][-1:]
+            chart["market_position"]["divergences"]=(
+                chart["market_position"]["divergences"][-1:])
+            chart["observed_candidates"]=chart["observed_candidates"][-4:]
+            chart["tc1_five_magic_bullets"]["independent_signs"]=(
+                chart["tc1_five_magic_bullets"]["independent_signs"][-1:])
+            # Large NTD source evidence is trimmed per entry, never rewound
+            # or upgraded to a signal/entry. Full evidence remains outside
+            # the model inside the independent algorithm_guard.
+            ed=chart.get("edition_evidence")
+            if isinstance(ed,dict):
+                chart["edition_evidence"]={
+                    k: ([{
+                        key:v[key] for key in ("name","side","state","type",
+                           "level","entry_trigger","confirmed_at",
+                           "same_level_bars_skipped") if key in v
+                    } for v in value[-3:] if isinstance(v,dict)]
+                        if isinstance(value,list) else value)
+                    for k,value in ed.items()
+                    if k not in {"raw_bars","full_history","diagnostics"}
+                }
+            user_context=encode()
+        if len(user_context)>8500:
+            # More cautious fallback: retain the full book index of rules,
+            # phase of each timeframe, observable candidates, source ID,
+            # and NO verified fills. Discard narrative, not crucial facts.
+            chart=payload["chart"]
+            chart["wave_structure"]={
+                "wave_degree":"UNKNOWN",
+                "impulse_alternatives":chart["wave_structure"].get("impulse_alternatives",[])[-1:],
+                "corrective_alternatives":chart["wave_structure"].get("corrective_alternatives",[])[-1:],
+            }
+            chart["principle_first_nonlinear_evidence"]={
+                "confirmed_structure_by_scale":mechanism_brief["confirmed_structure_by_scale"],
+                "ao_ac_state":mechanism_brief["ao_ac_state"],
+                "competing_unproven_scenarios":mechanism_brief["competing_unproven_scenarios"][:3],
+            }
+            chart["complete_higher_timeframe_context"]={
+                tf:{k:v for k,v in data.items()
+                    if k in ("status","closed_through","market_context","wave_degree")}
+                for tf,data in higher_brief.items()
+            }
+            chart["market_position"]={
+                "structure":position.get("structure"),
+                "divergences":position.get("divergences",[])[-1:],
+            }
+            chart["edition_evidence"]={
+                k:value for k,value in chart.get("edition_evidence",{}).items()
+                if k in ("entry_admitted","recent_formations","signals","profile")
+            }
+            user_context=encode()
         if len(user_context)>16000:
-            raise ValueError("Model context exceeds safe input bound")
+            raise ValueError("MODEL_CONTEXT_BUDGET_EXCEEDED_AFTER_CAUSAL_COMPACTION")
         system=SYSTEM_INSTRUCTIONS+(
             " Ты сдаёшь проверку знания книг и применения алгоритмов, НЕ торгуешь. "
             "Каждое утверждение относится к переданному изданию. "
             "Не утверждай исполнение заявки или SL по OHLC. "
+            "Состояние WM3 AWAITING_PRICE_TRIGGER означает только ожидание "
+            "(entry_state=PENDING_TRIGGER). "
+            "CLOSED_BAR_TOUCH_ONLY допустим, лишь если пробой выше/ниже Teeth "
+            "был на ЭТОЙ закрытой свече, а не раньше. "
+            "WM2 Super AO — кандидат момента, а не исполненная заявка. "
+            "Если ты пишешь NO_SETUP, не называй одновременно конкретный WM. "
             "Не превращай непроверенные волны в подтверждённые. "
             "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
             "Пять Волшебных Пуль TC1 — дивергенция W3/W5, целевая зона, "
@@ -409,6 +486,27 @@ class LocalWilliamsModel:
                     or observation["wave_structure"]["corrective_alternatives"]):
                 admissible.add("WAVE_HYPOTHESIS")
             nonentry=admissible <= {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS","TC1_FIVE_MAGIC_BULLETS"}
+            # In the real Qwen historical exam, WM3 was incorrectly called a
+            # current CLOSED_BAR_TOUCH from an older price event. Never
+            # offer that entry-state vocabulary unless an independent
+            # candidate proves a touch on THIS observed closed bar.
+            current_touch=any(
+                c.get("type")=="WM3_FRACTAL"
+                and c.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                and c.get("price_touch_observed_at")==chart_analysis.get("as_of")
+                for c in candidates
+            )
+            eligible_states=["UNKNOWN","NO_SETUP","CLOSED_CANDIDATE"]
+            if not nonentry and any(
+                c.get("type") in {"WM1","WM3_FRACTAL"} and (
+                    c.get("type")=="WM1" and c.get("bar_time")==chart_analysis.get("as_of")
+                    or c.get("type")=="WM3_FRACTAL"
+                    and c.get("state")=="AWAITING_PRICE_TRIGGER"
+                ) for c in candidates
+            ):
+                eligible_states.append("PENDING_TRIGGER")
+            if not nonentry and current_touch:
+                eligible_states.append("CLOSED_BAR_TOUCH_ONLY")
             properties={
                 "symbol":enum(str(chart_analysis.get("symbol"))),
                 "as_of":enum(str(chart_analysis.get("as_of"))),
@@ -419,15 +517,14 @@ class LocalWilliamsModel:
                 "rule_ids":{"type":"array",
                             "items":enum(*[x["id"] for x in cards]),
                             "maxItems":8},
-                "entry_state":enum("UNKNOWN","NO_SETUP","CLOSED_CANDIDATE",
-                                   "PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY"),
+                "entry_state":enum(*eligible_states),
                 "exit_basis":enum("NONE","UNKNOWN"),
                 "wave_degree_verified":{"type":"boolean","enum":[False]},
                 "exchange_fill_confirmed":{"type":"boolean","enum":[False]},
                 "exchange_sl_confirmed":{"type":"boolean","enum":[False]},
                 "trade_action":{"type":"null"},
                 "execution_allowed":{"type":"boolean","enum":[False]},
-                "reason":{"type":"string"},
+                "reason":{"type":"string","maxLength":360},
             }
             response_format["schema"]={
                 "type":"object","properties":properties,
@@ -444,13 +541,20 @@ class LocalWilliamsModel:
         )
         choices=response.get("choices",[]) if isinstance(response,dict) else []
         raw=choices[0].get("message",{}).get("content","") if choices else ""
+        # Never turn an invalid or truncated model response into a plausible
+        # NO_SETUP. Distinguish the Qwen runtime failure from chart evidence.
+        if not isinstance(raw,str) or not raw.strip():
+            raise ValueError("GGUF_EMPTY_DECISION_RESPONSE")
         try:
-            proposal=json.loads(raw) if isinstance(raw,str) else {}
-        except json.JSONDecodeError:
-            proposal={}
+            proposal=json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("GGUF_MALFORMED_JSON_RESPONSE") from exc
         if not isinstance(proposal,dict):
-            proposal={}
-        # Never repair unsupported claims silently to create a false pass.
+            raise ValueError("GGUF_RESPONSE_IS_NOT_AN_OBJECT")
+        mandatory={"symbol","as_of","edition","setup","side"}
+        if not mandatory.issubset(proposal):
+            raise ValueError("GGUF_MISSING_MANDATORY_DECISION_FIELDS")
+        # Validation still belongs to the independent algorithm_guard.
         if isinstance(proposal.get("reason"),str):
             proposal["reason"]=proposal["reason"][:600]
         return proposal

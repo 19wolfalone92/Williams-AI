@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter,defaultdict
+from collections import Counter
 from statistics import median
 from typing import Any
+from pathlib import Path
 
-from .causal_paper_lab import frozen_markets
+from .causal_paper_lab import frozen_markets,FROZEN_DATA
 from .chart_reader import analyze_chart
 from .causal_timeframes import aggregate_closed_h1
 
@@ -39,11 +40,14 @@ def _label(result:dict[str,Any])->str:
     return "UP" if up and not down else "DOWN" if down and not up else "AMBIGUOUS_OR_NO_EDGE"
 
 
-def historical_comprehension() -> dict[str,Any]:
-    pairs=frozen_markets()
+def historical_comprehension(dataset:Path=FROZEN_DATA) -> dict[str,Any]:
+    pairs=frozen_markets(dataset)
     events=[]
     per_pair={}
     higher_scan=[]
+    # A compatible *scenario* is not a forecast; compare with future ONLY
+    # in an EVALUATOR scope, never inside analyze_chart / local GGUF.
+    all_realized=Counter()
     for sym in sorted(pairs):
         market=pairs[sym];rows=market["bars"]
         pstats=Counter()
@@ -81,6 +85,7 @@ def historical_comprehension() -> dict[str,Any]:
             withheld_future_close=float(rows[idx+HORIZON_H1_BARS]["close"])
             actual=_signed_outcome(withheld_future_close-past_close,threshold)
             pstats["cuts"]+=1
+            all_realized["up" if actual==1 else "down" if actual==-1 else "flat"]+=1
             if belief!="AMBIGUOUS_OR_NO_EDGE":
                 pstats["unique_direction_calls"]+=1
                 hit=int((belief=="UP" and actual==1) or
@@ -152,8 +157,19 @@ def historical_comprehension() -> dict[str,Any]:
             "Direction accuracy is NOT risk-adjusted profitability or an order fill.",
             "Scenario heuristic was already developed with access to markets in general; historical cohort is not independent.",
             "No optimizations or hyperparameters were fitted in this run.",
+            "Comparing compatible scenarios to later 24h direction is exploratory; not an authorized directional forecast.",
         ],
         "metrics":dict(total),
+        "all_cutoffs_future_direction_counts":dict(all_realized),
+        "baseline_always_up_accuracy_nonflat":round(
+            all_realized["up"]/max(1,all_realized["up"]+all_realized["down"]),4),
+        "baseline_always_down_accuracy_nonflat":round(
+            all_realized["down"]/max(1,all_realized["up"]+all_realized["down"]),4),
+        "scenario_direction_is_not_a_confirmed_price_trigger":True,
+        "unselected_cases_are_not_losing_trades":True,
+        "unconditional_majority_class_baseline_is_known_only_to_evaluator":True,
+        "model_predictive_edge_certified":False,
+        "actual_williams_book_entry_trigger_certified":False,
         "directional_accuracy_excluding_neutral":round(
             total["correct_non_neutral"]/
             max(1,total["correct_non_neutral"]+total["wrong_non_neutral"]),4
@@ -172,11 +188,47 @@ def historical_comprehension() -> dict[str,Any]:
 def main():
     ap=argparse.ArgumentParser(description="Sequential read-only historical market comprehension")
     ap.add_argument("--summary",action="store_true")
+    ap.add_argument("--dataset",type=Path,default=FROZEN_DATA,
+                    help="Explicit previously used Binance historical cohort")
+    ap.add_argument("--both-reviewed-cohorts",action="store_true",
+                    help="Repeat SAME unfitted method on two disjoint but previously reviewed cohorts")
     args=ap.parse_args()
-    report=historical_comprehension()
+    if args.both_reviewed_cohorts:
+        prior=FROZEN_DATA.parent/"ai_binance_15pair_h1_prior_holdout_20260902.json"
+        reports={
+            "JULY_TO_SEPT_REVIEWED":historical_comprehension(prior),
+            "SEPT_TO_OCT_REVIEWED":historical_comprehension(FROZEN_DATA),
+        }
+        # No threshold selection on the evaluated future; the old mechanism
+        # lacks stable skill and correlation between 15 coins invalidates
+        # independence assumptions. Never upgrade research to trading.
+        def best_baseline(x):
+            return max(x["naive_24h_past_momentum_hitrate_on_same_selected_samples"],
+                       x["baseline_always_up_accuracy_nonflat"],
+                       x["baseline_always_down_accuracy_nonflat"])
+        passed=all(
+            x["directional_accuracy_excluding_neutral"] is not None
+            and x["directional_accuracy_excluding_neutral"]>best_baseline(x)
+            for x in reports.values())
+        report={
+            "mode":"TWO_DISJOINT_ALREADY_REVIEWED_HISTORICAL_COHORTS",
+            "cohorts":reports,
+            "best_available_diagnostic_baselines_beaten_in_both_cohorts":passed,
+            "predictive_trading_qualification":"NOT_QUALIFIED"
+                 if not passed else "STILL_UNQUALIFIED_REQUIRES_NEW_BLIND_SET_AND_FILLS",
+            "untouched_blind_holdout":False,
+            "parameter_fitting_performed":False,
+            "no_execute":True,
+        }
+    else:
+        report=historical_comprehension(args.dataset)
     if args.summary:
-        report={k:v for k,v in report.items()
-                if k not in ("per_symbol","selected_examples")}
+        def compact(d):
+            return {k:v for k,v in d.items()
+                    if k not in ("per_symbol","selected_examples")}
+        if "cohorts" in report:
+            report["cohorts"]={k:compact(v) for k,v in report["cohorts"].items()}
+        else:report=compact(report)
     print("HISTORICAL_COMPREHENSION_RESULT",
           json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
 

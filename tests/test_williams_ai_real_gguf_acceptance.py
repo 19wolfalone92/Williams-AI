@@ -25,7 +25,11 @@ class RealModelContractTests(unittest.TestCase):
             def __init__(self,**kwargs):self.kwargs=kwargs;self.calls=[]
             def create_chat_completion(self,**kwargs):
                 self.calls.append(kwargs)
-                return {"choices":[{"message":{"content":"{}"}}]}
+                payload=__import__("json").loads(kwargs["messages"][1]["content"])
+                response={"symbol":payload["chart"]["symbol"],"as_of":payload["chart"]["as_of"],
+                          "edition":payload["edition"],"setup":"NO_SETUP","side":"NONE",
+                          "rule_ids":[],"trade_action":None,"execution_allowed":False}
+                return {"choices":[{"message":{"content":__import__("json").dumps(response)}}]}
         with tempfile.TemporaryDirectory() as temp:
             path=Path(temp)/"fake.gguf"
             path.write_bytes(b"fake-content-only")
@@ -41,13 +45,18 @@ class RealModelContractTests(unittest.TestCase):
             self.assertEqual(schema["properties"]["execution_allowed"]["enum"],[False])
             # A machine-confirmed fractal candidate may be DISCUSSED, not
             # executed; independent Teeth/time auditor remains in force.
-            synthetic={**chart,"candidates":chart["candidates"]+[{
+            synthetic={**chart,"candidates":[x for x in chart["candidates"]
+                                      if x.get("type")!="WM3_FRACTAL"]+[{
                 "type":"WM3_FRACTAL","side":"LONG",
                 "state":"AWAITING_PRICE_TRIGGER"}]}
             model.propose_chart_reasoning(synthetic,edition="TC2")
             next_schema=model._model.calls[1]["response_format"]["schema"]
             self.assertIn("WM3",next_schema["properties"]["setup"]["enum"])
             self.assertNotIn("WM1",next_schema["properties"]["setup"]["enum"])
+            self.assertIn("PENDING_TRIGGER",
+                          next_schema["properties"]["entry_state"]["enum"])
+            self.assertNotIn("CLOSED_BAR_TOUCH_ONLY",
+                             next_schema["properties"]["entry_state"]["enum"])
             # The same fractal touched on a PREVIOUS candle must not be
             # offered as a fresh executable WM3 decision now.
             without_fractals=[x for x in chart["candidates"]
@@ -70,6 +79,10 @@ class RealModelContractTests(unittest.TestCase):
             self.assertIn("WM3",new_schema["properties"]["setup"]["enum"])
             self.assertIn("LONG",new_schema["properties"]["side"]["enum"])
             self.assertNotIn("SHORT",new_schema["properties"]["side"]["enum"])
+            self.assertIn("CLOSED_BAR_TOUCH_ONLY",
+                          new_schema["properties"]["entry_state"]["enum"])
+            self.assertNotIn("PENDING_TRIGGER",
+                             new_schema["properties"]["entry_state"]["enum"])
 
     def test_fake_gguf_magic_is_not_sufficient(self):
         with tempfile.TemporaryDirectory() as tmp:
