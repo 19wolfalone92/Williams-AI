@@ -170,6 +170,39 @@ class FiveMagicBulletsTests(unittest.TestCase):
                     self.assertEqual(item["bullets"]["SQUAT_MFI_VOLUME"]["status"],
                                      "UNKNOWN")
 
+    def test_llm_must_name_tc1_not_ntu_and_cannot_trade_on_five_bullets(self):
+        from williams_ai.algorithm_guard import audit_reasoning
+        rows=maker()
+        test=five(rows)
+        obs={
+            "symbol":"BTCUSDT",
+            "as_of":rows[-1]["close_time"],
+            "execution_allowed":False,
+            "candidates":[],
+            "tc1_five_magic_bullets":test,
+        }
+        ask={
+            "symbol":"BTCUSDT",
+            "as_of":rows[-1]["close_time"],
+            "edition":"TC1",
+            "setup":"TC1_FIVE_MAGIC_BULLETS","side":"NONE",
+            "rule_ids":["TC1.MAGIC.DIVERGENCE","TC1.MAGIC.SQUAT"],
+            "trade_action":None,"execution_allowed":False,
+            "entry_state":"CLOSED_CANDIDATE","exit_basis":"NONE",
+        }
+        ok=audit_reasoning(obs,ask)
+        self.assertEqual(ok["verdict"],"PROVISIONAL_REASONING_ONLY")
+        self.assertEqual(ok["hard_failures"],[])
+        self.assertIn("ZERO_POINT_EVIDENCE_NOT_AUTOMATIC_EXECUTED_REVERSAL",
+                      ok["uncertainties"])
+        self.assertIsNone(ok["trade_action"])
+        wrong=audit_reasoning(obs,{**ask,"edition":"NTD","rule_ids":["NTD.AO"]})
+        self.assertIn("MAGIC_BULLETS_ARE_TC1_NOT_NTD_FIVE_DIMENSIONS",
+                      wrong["hard_failures"])
+        forbidden=audit_reasoning(obs,{**ask,"trade_action":"BUY",
+                                       "execution_allowed":True})
+        self.assertIn("EXECUTION_REQUEST_FORBIDDEN",forbidden["hard_failures"])
+
     def test_tenets_added_to_source_registry_are_not_mislabeled_five_dimensions(self):
         pack=registry()["rule_cards"]
         matching=[x for x in pack if x["id"].startswith("TC1.MAGIC.")]
