@@ -70,6 +70,8 @@ def main():
     p.add_argument("--local-model",type=Path)
     p.add_argument("--book-index",type=Path,help="Private index OUTSIDE git, optional")
     p.add_argument("--study-memory",type=Path,help="Private unverified study notes, optional")
+    p.add_argument("--coach-notebook",type=Path,
+                   help="Private GGUF-specific learning corrections, same edition only")
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE"])
     p.add_argument("--causal-top-down",action="store_true",
                    help="Reconstruct only COMPLETE UTC H4/D1 candles from closed H1")
@@ -80,6 +82,8 @@ def main():
         p.error("--book-index requires --question")
     if a.study_memory and not a.question:
         p.error("--study-memory requires --question")
+    if a.coach_notebook and (not a.question or not a.edition):
+        p.error("--coach-notebook requires --question and --edition")
 
     chart=json.loads(a.chart.read_text(encoding="utf-8"))
     observations=analyze_timeframes(chart)
@@ -127,6 +131,12 @@ def main():
     if a.study_memory:
         from .study import recall
         learned=recall(a.study_memory,a.question,edition=a.edition,limit=1)
+    coaching=[]
+    if a.coach_notebook:
+        from .adaptive_coach import recall_model_corrections
+        from .study_cli import _model_identity
+        coaching=recall_model_corrections(
+            a.coach_notebook,_model_identity(a.local_model),a.edition,limit=1)
     # Primary pages always win. Wave handout is NOT another Williams book;
     # when requested, it replaces an optional paraphrase card, not a primary
     # page or the closed-candle chart evidence.
@@ -150,7 +160,12 @@ def main():
         notes+=book_cards[:1]
     if chart_notes:
         notes+=chart_notes[:1]
-    notes+=context_note
+    # A previous error in THIS very GGUF deserves one slot, after
+    # primary source evidence and observed candles, ahead of generic
+    # textbook diagrams. It cannot replace facts or authorize orders.
+    notes+=coaching[:1]
+    if len(notes)<4:
+        notes+=context_note[:4-len(notes)]
     if len(notes)<4 and book_pages:
         notes+=book_cards[:1]
     if len(notes)<4:
