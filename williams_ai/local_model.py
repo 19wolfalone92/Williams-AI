@@ -247,7 +247,9 @@ class LocalWilliamsModel:
             if not isinstance(series,list):return []
             return [{
                 k:item[k] for k in (
-                    "type","shape","direction","status",
+                    "type","shape","pattern","direction","status",
+                    "scale_bar_span","w3_not_shortest","w4_nonoverlap",
+                    "w5_extends_w3","w4_ao_near_zero_observed","issues",
                     "start_time","end_time","latest_confirmed",
                 ) if k in item
             } for item in series[-2:] if isinstance(item,dict)]
