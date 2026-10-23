@@ -48,6 +48,28 @@ class RealModelContractTests(unittest.TestCase):
             next_schema=model._model.calls[1]["response_format"]["schema"]
             self.assertIn("WM3",next_schema["properties"]["setup"]["enum"])
             self.assertNotIn("WM1",next_schema["properties"]["setup"]["enum"])
+            # The same fractal touched on a PREVIOUS candle must not be
+            # offered as a fresh executable WM3 decision now.
+            without_fractals=[x for x in chart["candidates"]
+                              if x.get("type")!="WM3_FRACTAL"]
+            stale={**chart,"candidates":without_fractals+[{
+                "type":"WM3_FRACTAL","side":"LONG",
+                "state":"CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL",
+                "price_touch_observed_at":"2026-01-01T00:00:00+00:00",
+            }]}
+            model.propose_chart_reasoning(stale,edition="TC2")
+            old_schema=model._model.calls[2]["response_format"]["schema"]
+            self.assertNotIn("WM3",old_schema["properties"]["setup"]["enum"])
+            active={**chart,"candidates":without_fractals+[{
+                "type":"WM3_FRACTAL","side":"LONG",
+                "state":"CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL",
+                "price_touch_observed_at":chart["as_of"],
+            }]}
+            model.propose_chart_reasoning(active,edition="TC2")
+            new_schema=model._model.calls[3]["response_format"]["schema"]
+            self.assertIn("WM3",new_schema["properties"]["setup"]["enum"])
+            self.assertIn("LONG",new_schema["properties"]["side"]["enum"])
+            self.assertNotIn("SHORT",new_schema["properties"]["side"]["enum"])
 
     def test_fake_gguf_magic_is_not_sufficient(self):
         with tempfile.TemporaryDirectory() as tmp:
