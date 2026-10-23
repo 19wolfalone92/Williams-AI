@@ -28,6 +28,7 @@ def evaluate_historical_thought(
     tick_size:float,bar_index:int,edition:str="TC2",
     model:Any=None,proposal:dict[str,Any]|None=None,
     include_topdown:bool=True,
+    book_index:Path|None=None,
 )->dict[str,Any]:
     """bar_index is a 0-based last closed bar, not next bar to trade.
 
@@ -67,7 +68,20 @@ def evaluate_historical_thought(
                     "wave_hypotheses_unverified":True,
                 }
         evidence["higher_timeframe_context"]=higher
-    submitted=model.propose_chart_reasoning(evidence,edition=edition) if model is not None else proposal
+    sources=[]
+    if book_index is not None:
+        if model is None:
+            raise ValueError("Private source pages require a locally running model")
+        from .grounded_inference import verified_private_book_pages
+        current=evidence.get("candidates",[])
+        latest=current[-1]["type"] if current else None
+        sources=verified_private_book_pages(book_index,edition,selected_setup=latest)
+    if model is not None:
+        submitted=(model.propose_chart_reasoning(evidence,edition=edition,
+                    primary_pages=sources) if book_index is not None
+                   else model.propose_chart_reasoning(evidence,edition=edition))
+    else:
+        submitted=proposal
     result=audit_reasoning(evidence,submitted)
     reason=submitted.get("reason","") if isinstance(submitted,dict) else ""
     return {
@@ -75,6 +89,8 @@ def evaluate_historical_thought(
         "symbol":symbol,"edition":edition,
         "last_visible_bar_index":bar_index,
         "last_visible_at":as_of,
+        "private_book_pages_used":[page["source"] for page in sources],
+        "private_book_passages_exported":False,
         "top_down_context":evidence.get("higher_timeframe_context",{}),
         "model_saw_future_bars":False,
         "model_weights_trained_here":False,
@@ -92,6 +108,7 @@ def main()->None:
     p.add_argument("--bar-index",required=True,type=int)
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE"],default="TC2")
     p.add_argument("--no-topdown",action="store_true",help="Disable complete H4/D1 context")
+    p.add_argument("--book-index",type=Path,help="Private indexed four-book SQLite outside repository")
     group=p.add_mutually_exclusive_group(required=True)
     group.add_argument("--local-model",type=Path)
     group.add_argument("--proposal-file",type=Path)
@@ -110,7 +127,7 @@ def main()->None:
     output=evaluate_historical_thought(
         a.symbol,x["bars"],tick_size=x["tick_size"],bar_index=a.bar_index,
         edition=a.edition,model=model,proposal=proposal,
-        include_topdown=not a.no_topdown)
+        include_topdown=not a.no_topdown,book_index=a.book_index)
     print(json.dumps(output,ensure_ascii=False,indent=2))
 
 

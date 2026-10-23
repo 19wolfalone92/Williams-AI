@@ -23,6 +23,7 @@ def examine_many(
     markets:dict[str,dict[str,Any]], model:Any, *,
     editions:tuple[str,...]=EDITION_ORDER,
     checkpoints:tuple[int,...]=(299,599,899,1199),
+    book_index:Path|None=None,
 )->dict[str,Any]:
     if not markets:
         raise ValueError("Need historical market data")
@@ -47,7 +48,8 @@ def examine_many(
                 try:
                     result=evaluate_historical_thought(
                         symbol,market["bars"],tick_size=market["tick_size"],
-                        bar_index=last_bar,edition=edition,model=model)
+                        bar_index=last_bar,edition=edition,model=model,
+                        book_index=book_index)
                 except (ValueError,TypeError,RuntimeError,KeyError,IndexError) as exc:
                     # Do not stop the exam when the GGUF emits invalid JSON.
                     malformed_cases+=1
@@ -110,6 +112,7 @@ def examine_many(
 def main()->None:
     p=argparse.ArgumentParser(description="Four-book, 15-market closed-chart local GGUF consistency exam")
     p.add_argument("--local-model",type=Path,required=True)
+    p.add_argument("--book-index",type=Path,help="Private source-page database outside git")
     p.add_argument("--dataset",type=Path,default=FROZEN_DATA)
     p.add_argument("--gpu-layers",type=int,default=0)
     p.add_argument("--edition",choices=[*EDITION_ORDER,"ALL"],default="ALL")
@@ -124,7 +127,8 @@ def main()->None:
     select=dict(sorted(all_markets.items())[:args.pairs])
     positions={1:(899,),2:(599,999),4:(299,599,899,1199)}[args.checkpoints]
     editions=EDITION_ORDER if args.edition=="ALL" else (args.edition,)
-    output=examine_many(select,model,editions=editions,checkpoints=positions)
+    output=examine_many(select,model,editions=editions,checkpoints=positions,
+                        book_index=args.book_index)
     print(json.dumps(output,ensure_ascii=False,indent=2))
 
 
