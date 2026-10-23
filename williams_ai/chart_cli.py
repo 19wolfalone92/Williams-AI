@@ -71,6 +71,8 @@ def main():
     p.add_argument("--book-index",type=Path,help="Private index OUTSIDE git, optional")
     p.add_argument("--study-memory",type=Path,help="Private unverified study notes, optional")
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE"])
+    p.add_argument("--causal-top-down",action="store_true",
+                   help="Reconstruct only COMPLETE UTC H4/D1 candles from closed H1")
     a=p.parse_args()
     if a.question and not a.local_model:
         p.error("--question requires --local-model")
@@ -82,6 +84,16 @@ def main():
     chart=json.loads(a.chart.read_text(encoding="utf-8"))
     observations=analyze_timeframes(chart)
     print(json.dumps(observations,ensure_ascii=False,indent=2))
+    topdown=None
+    if a.causal_top_down:
+        from .causal_timeframes import top_down_market_evidence
+        h1=chart.get("timeframes",{}).get("H1",{})
+        if not isinstance(h1,dict) or not isinstance(h1.get("bars"),list):
+            p.error("--causal-top-down requires chart.timeframes.H1.bars")
+        topdown=top_down_market_evidence(
+            chart["symbol"],h1["bars"],tick_size=chart.get("tick_size"))
+        print("\\n--- Разделённый подтверждённый H1/H4/D1-контекст ---")
+        print(json.dumps(topdown,ensure_ascii=False,indent=2))
     if not a.question:
         return
     from .local_model import LocalWilliamsModel
@@ -93,6 +105,24 @@ def main():
         book_pages=search_pages(a.book_index,a.question,edition=a.edition,limit=2)
     book_cards=lookup_rules(a.question,edition=a.edition,max_cards=2)
     chart_notes=_chart_notes(observations)
+    if topdown is not None:
+        evidence=topdown["timeframes"]
+        parts=[]
+        for tf in ("D1","H4","H1"):
+            detail=evidence[tf]
+            parts.append(
+                f'{tf}: {detail["status"]}, {detail["market_context"]}, '
+                f'ao={detail.get("ao","NO_DATA")}, '
+                f'ac={detail.get("ac","NO_DATA")}, '
+                f'wave_degree={detail["wave_degree"]}; '
+                f'last={detail["closed_through"]}'
+            )
+        chart_notes=[{
+            "source":"CLOSED_H1_AGGREGATED_H4_D1:"+topdown["as_of"],
+            "excerpt":" | ".join(parts)+
+                      ". Нет подтверждённой вложенной разметки Elliott; "
+                      "конфликт старших ТФ — наблюдение, а не запрет начального TC2 WM."
+        }]+chart_notes
     learned=[]
     if a.study_memory:
         from .study import recall
