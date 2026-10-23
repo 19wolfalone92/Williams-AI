@@ -61,6 +61,7 @@ class RealModelContractTests(unittest.TestCase):
             stale={**chart,"candidates":without_fractals+[{
                 "type":"WM3_FRACTAL","side":"LONG",
                 "state":"CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL",
+                "confirmed_at":bars[-4]["close_time"],
                 "price_touch_observed_at":"2026-01-01T00:00:00+00:00",
             }]}
             model.propose_chart_reasoning(stale,edition="TC2")
@@ -70,6 +71,7 @@ class RealModelContractTests(unittest.TestCase):
             active={**chart,"candidates":without_fractals+[{
                 "type":"WM3_FRACTAL","side":"LONG",
                 "state":"CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL",
+                "confirmed_at":bars[-4]["close_time"],
                 "price_touch_observed_at":chart["as_of"],
             }]}
             model.propose_chart_reasoning(active,edition="TC2")
