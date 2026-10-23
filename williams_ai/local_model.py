@@ -152,17 +152,48 @@ class LocalWilliamsModel:
              "review_status":c["status"]}
             for c in registry()["rule_cards"] if c["source"]==edition
         ]
-        # Only an allowlist of causal evidence; no orders/keys/future candles.
+        # Compact, losslessly structured source cards FIRST. Long original
+        # chart arrays were truncated at 19k chars AFTER source sorting,
+        # silently removing book citations and generating INVALID JSON.
+        # This context is a cautious sketch, not all data on the chart.
+        wave=chart_analysis.get("wave_structure",{})
+        position=chart_analysis.get("market_position",{})
+        candidates=[]
+        for item in chart_analysis.get("candidates",[])[-8:]:
+            if not isinstance(item,dict):
+                continue
+            keys=("type","side","state","bar_time","pivot_time",
+                  "confirmed_at","price_touch_observed_at",
+                  "entry_trigger","teeth_filter_at_trigger","angle_heuristic")
+            candidates.append({key:item[key] for key in keys if key in item})
         observation={
             "symbol":chart_analysis.get("symbol"),
             "as_of":chart_analysis.get("as_of"),
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
-            "observed_candidates":chart_analysis.get("candidates",[])[:16],
-            "market_position":chart_analysis.get("market_position",{}),
-            "wave_structure":chart_analysis.get("wave_structure",{}),
-            "edition_evidence":chart_analysis.get("edition_evidence",{}),
+            "observed_candidates":candidates,
+            "market_position":{
+                "structure":position.get("structure"),
+                "recent_levels":position.get("recent_levels",{}),
+                "divergences":position.get("divergences",[])[-2:],
+            },
+            "wave_structure":{
+                "wave_degree":wave.get("wave_degree","UNKNOWN"),
+                "recent_confirmed_swings":wave.get("recent_confirmed_swings",[])[-8:],
+                "impulse_alternatives":wave.get("impulse_alternatives",[])[-2:],
+                "corrective_alternatives":wave.get("corrective_alternatives",[])[-2:],
+            },
+            "edition_evidence":(
+                chart_analysis.get("edition_evidence",{}).get("NTD",{})
+                if edition=="NTD" else
+                chart_analysis.get("edition_evidence",{}).get("TC2",{})
+            ),
         }
+        user_context=json.dumps({
+            "source_cards":cards,"edition":edition,"chart":observation,
+        },ensure_ascii=False)
+        if len(user_context)>16000:
+            raise ValueError("Model context exceeds safe input bound")
         system=SYSTEM_INSTRUCTIONS+(
             " Ты сдаёшь проверку знания книг и применения алгоритмов, НЕ торгуешь. "
             "Каждое утверждение относится к переданному изданию. "
@@ -182,9 +213,7 @@ class LocalWilliamsModel:
         response=self._model.create_chat_completion(
             messages=[
                 {"role":"system","content":system},
-                {"role":"user","content":json.dumps({
-                    "edition":edition,"chart":observation,"source_cards":cards,
-                },ensure_ascii=False,sort_keys=True)[:19000]},
+                {"role":"user","content":user_context},
             ],
             response_format={"type":"json_object"},
             temperature=0.0,max_tokens=650,stream=False,
