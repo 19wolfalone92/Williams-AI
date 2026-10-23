@@ -76,14 +76,22 @@ def audit_reasoning(
     def note(code:str)->None:
         if code not in cautions:cautions.append(code)
 
-    if decision_time>as_of:
-        fail("FUTURE_DECISION_TIME")
+    if decision_time!=as_of:
+        fail("DECISION_CHART_CUTOFF_MISMATCH")
     if proposal.get("symbol")!=observation.get("symbol"):
         fail("SYMBOL_MISMATCH")
     if observation.get("gaps",0):
         fail("GAPPED_MARKET_HISTORY")
     if proposal.get("trade_action") is not None or proposal.get("execution_allowed") is True:
         fail("EXECUTION_REQUEST_FORBIDDEN")
+    entry=proposal.get("entry_state","UNKNOWN")
+    if entry not in {"UNKNOWN","NO_SETUP","CLOSED_CANDIDATE",
+                     "PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"}:
+        fail("UNKNOWN_ENTRY_EVIDENCE_CLAIM")
+    elif entry=="EXCHANGE_FILLED":
+        fail("NO_EXCHANGE_FILL_LEDGER")
+    if side!="NONE" and setup in _NONENTRY_SETUPS:
+        fail("DIRECTION_CLAIM_WITHOUT_ENTRY_SETUP")
     if proposal.get("exchange_fill_confirmed") is True:
         fail("CANNOT_CONFIRM_EXCHANGE_FILL_FROM_OHLC")
     if proposal.get("exchange_sl_confirmed") is True:
