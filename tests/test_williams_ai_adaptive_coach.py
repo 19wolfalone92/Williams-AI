@@ -112,8 +112,8 @@ class AdaptiveBookTutorTests(unittest.TestCase):
             for kw in ({"model_id":"fake"},{"editions":("NTD","NTD")},
                        {"max_cases":0}):
                 with self.assertRaises(ValueError):
-                    coach_practice(RehearsingFakeStudent(),dest,
-                                   model_id="gguf-safe",**kw)
+                    options={"model_id":"gguf-safe",**kw}
+                    coach_practice(RehearsingFakeStudent(),dest,**options)
             self.assertFalse(dest.exists())
 
     def test_notebook_is_private_and_results_are_non_executable(self):
