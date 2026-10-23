@@ -61,11 +61,23 @@ jobs:
             --history-cases 2 \
             --require-public-smoke-pass \
             --ctx 8192 | tee /tmp/williams_real_gguf_exam.log
+      - name: ACTUAL GGUF coaching on 4 book profiles with private corrections
+        if: always()
+        run: |
+          set -o pipefail
+          test -f "/tmp/williams_ai_public_weights/${MODEL_FILE}"
+          python -m williams_ai.real_gguf_coach_trial \
+            --local-model "/tmp/williams_ai_public_weights/${MODEL_FILE}" \
+            --expected-sha256 "${MODEL_SHA256}" \
+            --private-notebook /tmp/gguf_only_private_student.sqlite3 \
+            --drills-per-edition 2 | tee /tmp/williams_real_gguf_coaching.log
       - name: Save ONLY public-model evaluation JSON, never model or private books
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: qwen3-0p6b-public-real-gguf-report
-          path: /tmp/williams_real_gguf_exam.log
+          path: |
+            /tmp/williams_real_gguf_exam.log
+            /tmp/williams_real_gguf_coaching.log
           if-no-files-found: ignore
           retention-days: 5
