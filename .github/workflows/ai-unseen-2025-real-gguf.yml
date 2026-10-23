@@ -1,0 +1,72 @@
+name: Williams AI REAL GGUF 2025 first-look temporal book understanding
+
+on:
+  push:
+    branches:
+      - experiment/independent-2025-multiscale-gguf-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  real-qwen-on-new-2025-public-market:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 58
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HOME: /tmp/williams_hf_2025
+      GGUF_FILE: Qwen3-1.7B-Q4_K_M.gguf
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check ALL causal contracts before any actual neural evaluation
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Download predeclared genuine 2025 BTC ETH SOL XRP and 15-asset H1 archive
+        run: |
+          python -m williams_ai.unseen_2025_cohort \
+            --out /tmp/williams_ai_2025_new_cohort.json
+      - name: Install actual CPU Qwen local GGUF inference (no trading execution)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Verify exact published Apache-2.0 public Qwen3 1.7B weights
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          model=Path(hf_hub_download(
+              repo_id="unsloth/Qwen3-1.7B-GGUF",
+              revision="b2d17796e6fd93c353a0415a3abd8b7f801701de",
+              filename=os.environ["GGUF_FILE"],
+              local_dir="/tmp/williams_ai_verified_2025_model",
+          ))
+          print("REAL_WEIGHT_BYTES_VERIFIED",
+                actual_gguf_sha256(model,os.environ["GGUF_SHA256"]),flush=True)
+          PY
+      - name: FIRST-LOOK verified real GGUF on 8 temporal four-book cases and 5 withheld 24h directions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m williams_ai.unseen_2025_wave_exam \
+            --cohort /tmp/williams_ai_2025_new_cohort.json \
+            --local-model "/tmp/williams_ai_verified_2025_model/${GGUF_FILE}" \
+            --expected-sha256 "${GGUF_SHA256}" \
+            --code-id "${GITHUB_SHA}" \
+            | tee /tmp/williams_real_2025_model_firstlook.log
+      - name: Preserve BOTH accepted and rejected model answers, plus source SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-look-2025-real-qwen3-1p7b-wave-source-results
+          path: |
+            /tmp/williams_real_2025_model_firstlook.log
+            /tmp/williams_ai_2025_new_cohort.json
+          retention-days: 7
+          if-no-files-found: ignore
