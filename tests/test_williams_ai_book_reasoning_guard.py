@@ -62,6 +62,27 @@ class GateTests(unittest.TestCase):
         self.assertIn("EXECUTION_REQUEST_FORBIDDEN",x["hard_failures"])
         self.assertIsNone(x["trade_action"])
 
+    def test_substantive_wise_man_must_cite_the_right_book_algorithm(self):
+        first=audit_reasoning(self.observed,self.prop(setup="WM3",side="LONG",rule_ids=[]))
+        self.assertIn("MISSING_SOURCE_RULE_FOR_SUBSTANTIVE_CLAIM",first["hard_failures"])
+        second=audit_reasoning(self.observed,self.prop(
+            setup="WM3",side="LONG",rule_ids=["TC2.WM1.ANG"]))
+        self.assertIn("CITED_RULE_DOES_NOT_SUPPORT_THIS_SETUP",second["hard_failures"])
+
+    def test_four_book_registry_distinguishes_read_source_from_executable_method(self):
+        from williams_ai.book_rules import registry,coverage
+        package=registry()
+        self.assertEqual(len(package["books"]),4)
+        self.assertEqual(len(package["rule_cards"]),27)
+        checked=sum(x["status"]=="REVIEWED_PAGES" for x in package["rule_cards"])
+        self.assertEqual(checked,19)
+        by_id={x["id"]:x for x in package["rule_cards"]}
+        for source in ("TC2.WM2","TC2.WM3","TC2.CAMPAIGN","NTD.EXITS"):
+            self.assertEqual(by_id[source]["status"],"REVIEWED_PAGES")
+        self.assertIn("наименее",by_id["NTD.EXITS"]["summary"])
+        self.assertIn("обратная пирамида",by_id["TC2.CAMPAIGN"]["summary"])
+        self.assertIsNone(coverage()["TC2"]["book_coverage_percent"])
+
     def test_opposite_signal_not_automatic_close(self):
         x=audit_reasoning(self.observed,self.prop(exit_basis="OPPOSITE_SIGNAL_ONLY"))
         self.assertIn("UNEXECUTED_OPPOSITE_WISE_MAN_NOT_A_TRADE_EXIT",x["hard_failures"])
