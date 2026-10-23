@@ -59,6 +59,7 @@ def _public_get(url: str) -> Any:
 def capture_latest_closed_h1(
     symbol: str, *, venue: str, fetch_json: Callable[[str], Any] = _public_get,
     clock_ms: int | None = None, limit: int = 500,
+    start_time_ms: int | None = None,
 ) -> dict[str, Any]:
     """A self-contained H1 observation at the *latest completed hour*."""
     if symbol not in SYMBOLS or venue not in VENUES:
@@ -92,9 +93,13 @@ def capture_latest_closed_h1(
     if len(price_filters)!=1:
         raise ValueError("Missing verified exchange PRICE_FILTER")
     tick=_number(price_filters[0].get("tickSize"),"tick size")
-    response=fetch_json(host+api+"/klines?"+urlencode({
-        "symbol":symbol,"interval":"1h","limit":limit,
-    }))
+    params={"symbol":symbol,"interval":"1h","limit":limit}
+    if start_time_ms is not None:
+        if (not isinstance(start_time_ms,int) or isinstance(start_time_ms,bool)
+                or start_time_ms<0 or start_time_ms%HOUR_MS!=0):
+            raise ValueError("Invalid pinned H1 startTime")
+        params["startTime"]=start_time_ms
+    response=fetch_json(host+api+"/klines?"+urlencode(params))
     if not isinstance(response,list) or len(response)<260 or len(response)>limit:
         raise ValueError("Insufficient recent H1 public market data")
     bars=[]
@@ -124,6 +129,10 @@ def capture_latest_closed_h1(
         at=datetime.fromtimestamp(close_ms/1000,timezone.utc).isoformat()
         bars.append({"close_time":at,"open":op,"high":hi,"low":lo,
                      "close":cl,"volume":vol,"closed":True})
+    if start_time_ms is not None and bars and (
+            int(datetime.fromisoformat(bars[0]["close_time"]).timestamp()*1000)
+            !=start_time_ms+HOUR_MS-1):
+        raise ValueError("Pinned historical first H1 bar is missing")
     if len(bars)<220:
         raise ValueError("Not enough fully CLOSED H1 bars")
     stamp=datetime.fromisoformat(bars[-1]["close_time"]).astimezone(timezone.utc)
