@@ -35,6 +35,9 @@ def examine_many(
     counts=Counter()
     failed_cases=0
     malformed_cases=0
+    abstained_cases=0
+    substantive_cases=0
+    substantive_pass=0
     for symbol in sorted(markets):
         market=markets[symbol]
         for last_bar in checkpoints:
@@ -55,6 +58,12 @@ def examine_many(
                     continue
                 audit=result["audit"]
                 errors=audit["hard_failures"]
+                substantive=audit["setup"] not in {"NO_SETUP","UNKNOWN"}
+                if not substantive:
+                    abstained_cases+=1
+                else:
+                    substantive_cases+=1
+                    if not errors:substantive_pass+=1
                 if errors:
                     failed_cases+=1
                     for code in errors:
@@ -62,6 +71,7 @@ def examine_many(
                 findings.append({
                     "symbol":symbol,"bar_index":last_bar,"edition":edition,
                     "verdict":audit["verdict"],"codes":errors,
+                    "selected_setup":audit["setup"],
                     "uncertainty_count":len(audit["uncertainties"]),
                     "trade_action":None,
                 })
@@ -74,6 +84,13 @@ def examine_many(
         "source_consistent_cases":passing,
         "unsupported_claim_cases":failed_cases,
         "malformed_model_cases":malformed_cases,
+        "abstained_or_unknown_cases":abstained_cases,
+        "substantive_claim_cases":substantive_cases,
+        "substantive_source_consistent_cases":substantive_pass,
+        "substantive_source_consistency_percent":(
+            round(100*substantive_pass/substantive_cases,2)
+            if substantive_cases else None
+        ),
         "source_consistency_percent":round(100*passing/total,2) if total else None,
         "full_book_understanding_percent":None,
         "book_rule_coverage_percent":None,
@@ -82,6 +99,7 @@ def examine_many(
         "case_trace":findings,
         "limitations":[
             "This examines rule consistency, NOT equivalent to complete book comprehension.",
+            "A model that always answers NO_SETUP could score 100% on safety consistency; check abstention counts.",
             "Answers to chart questions are not independently labeled profitable trading actions.",
             "Image reading is evaluated by the separate private multimodal vision adapter.",
             "No Binance orders, fills, stops, funding or position accounting are verified.",
