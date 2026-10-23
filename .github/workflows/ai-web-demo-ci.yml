@@ -58,3 +58,34 @@ jobs:
           for x in result["reports"]:
               print(x["symbol"],x["train_count"],x["test_brier"],x["test_constant_prior_brier"],x["test_delta_lower_is_better"])
           PY
+
+
+      - name: Locked out-of-period 15-pair paper cohort (without tuning)
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from williams_ai.causal_paper_lab import run_15
+          frozen=Path("examples/ai_binance_15pair_h1_prior_holdout_20260902.json")
+          result=run_15(frozen)
+          print("LOCKED_PRIOR_COHORT_15",result["aggregate"])
+          print("CLOSED_WIN_MTM_RETURNS_BY_PAIR_FOR_WM3")
+          for x in result["results"]:
+              if x["mode"]=="WM3":
+                  print(x["symbol"],x["closed"],x["wins"],
+                        x["mark_to_market_total_return_pct"],x["realized_return_pct"])
+          PY
+
+      - name: Offline CLI passport integration (H1 closed through H4/D1)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from williams_ai.causal_paper_lab import frozen_markets
+          market=frozen_markets()["BTCUSDT"]
+          chart={"symbol":"BTCUSDT","tick_size":market["tick_size"],
+                 "as_of":market["bars"][-1]["close_time"],
+                 "timeframes":{"H1":{"bars":market["bars"]}}}
+          Path("/tmp/closed_chart.json").write_text(json.dumps(chart))
+          PY
+          python -m williams_ai.chart_cli /tmp/closed_chart.json --causal-top-down > /tmp/closed_passport.json
+          grep -q "UNCONFIRMED_NESTED_DEGREES" /tmp/closed_passport.json

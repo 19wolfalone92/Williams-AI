@@ -156,6 +156,9 @@ def simulate_one(
     eq=START_EQUITY
     peak=eq
     max_dd=0.0
+    mtm_peak=START_EQUITY
+    mtm_max_dd=0.0
+    exposure_bars=0
     closed=0
     wins=0
     losses=0
@@ -221,7 +224,7 @@ def simulate_one(
                         eq-=entry_fee
                         fees+=entry_fee
                         position={"side":side,"entry":entry,"qty":qty,
-                                  "stop":stop,"entered":i,"source":mode}
+                                  "entry_fee":entry_fee,"stop":stop,"entered":i,"source":mode}
                         append(i,"SIM_ENTRY",side=side,entry=round(entry,8),
                                stop=round(stop,8),qty=round(qty,8),source=mode)
         # Stop-first within any OHLC bar, even ambiguous entry and stop touch.
@@ -236,10 +239,17 @@ def simulate_one(
                 eq+=outcome-close_fee
                 closed+=1
                 stops+=1
-                if outcome>0:wins+=1;gross_wins+=outcome
-                else:losses+=1;gross_losses+=abs(outcome)
+                # Count trade outcomes AFTER entry and exit commission.
+                # The original win-rate classified tiny gross wins as profitable
+                # even when both exchange-side fees made the campaign lose.
+                net_trade=outcome-position["entry_fee"]-close_fee
+                if net_trade>0:wins+=1;gross_wins+=net_trade
+                else:losses+=1;gross_losses+=abs(net_trade)
                 append(i,"SIM_STOP",side=side,exit=round(price,8),
-                       pnl_before_exit_fee=round(outcome,6))
+                       pnl_before_exit_fee=round(outcome,6),
+                       pnl_net_all_fees=round(net_trade,6),
+                       entry_fee=round(position["entry_fee"],6),
+                       exit_fee=round(close_fee,6))
                 position=None
                 peak=max(peak,eq)
                 max_dd=max(max_dd,(peak-eq)/peak)
@@ -268,11 +278,29 @@ def simulate_one(
             candidates=_candidate(candles,ind,mode,i,tick_size)
             if any(s["side"]!=position["side"] for s in candidates):
                 append(i,"OPPOSITE_SIGNAL_IGNORED_NOT_EXIT")
+        # Evaluate observable mark-to-market risk at EACH completed candle,
+        # including unrealized losses on the still-open position. An assumed
+        # close here is for risk reporting ONLY; it is NOT a trade exit.
+        mtm=eq
+        if position is not None:
+            exposure_bars+=1
+            side=position["side"]
+            sign=1 if side=="LONG" else -1
+            mark_exit=c.close*(1-sign*SLIPPAGE_BPS/10000)
+            mtm+=_pnl(position["qty"],side,position["entry"],mark_exit)
+            mtm-=position["qty"]*mark_exit*FEE_BPS/10000
+        mtm_peak=max(mtm_peak,mtm)
+        mtm_max_dd=max(mtm_max_dd,(mtm_peak-mtm)/mtm_peak)
     unrealized=None
+    mark_to_market_equity=eq
     if position is not None:
         sign=1 if position["side"]=="LONG" else -1
         mark=candles[end-1].close
         unrealized=_pnl(position["qty"],position["side"],position["entry"],mark)
+        sign=1 if position["side"]=="LONG" else -1
+        assumed_exit=mark*(1-sign*SLIPPAGE_BPS/10000)
+        mark_to_market_equity=eq+_pnl(position["qty"],position["side"],position["entry"],assumed_exit)
+        mark_to_market_equity-=position["qty"]*assumed_exit*FEE_BPS/10000
     return {
         "symbol":symbol,"mode":mode,"timeframe":"H1",
         "from":candles[start_index].at.isoformat(),"to":candles[end-1].at.isoformat(),
@@ -281,9 +309,13 @@ def simulate_one(
         "stop_exits":stops,"non_stop_exits":0,
         "realized_return_pct":round((eq/START_EQUITY-1)*100,4),
         "cash_equity":round(eq,5),
+        "mark_to_market_equity_after_estimated_exit_costs":round(mark_to_market_equity,5),
+        "mark_to_market_total_return_pct":round((mark_to_market_equity/START_EQUITY-1)*100,4),
         "fees_in_equity":round(fees,5),
         "max_realized_drawdown_pct":round(max_dd*100,4),
-        "profit_factor_gross_before_fees":round(gross_wins/gross_losses,4) if gross_losses else None,
+        "max_mtm_closed_bar_drawdown_pct":round(mtm_max_dd*100,4),
+        "bars_with_open_risk":exposure_bars,
+        "profit_factor_net_all_fees":round(gross_wins/gross_losses,4) if gross_losses else None,
         "open_position":(
             {"side":position["side"],"stop":position["stop"],
              "unrealized_mark_pnl":round(unrealized,6),
@@ -330,6 +362,9 @@ def run_15(path:Path=FROZEN_DATA,*,test_fraction:float=0.25)->dict[str,Any]:
             "wins":sum(x["wins"] for x in subset),
             "cash_realized_return_pct_equal_initial_capital":round(
                 sum(x["realized_return_pct"] for x in subset)/len(subset),4),
+            "mtm_total_return_pct_equal_initial_capital":round(
+                sum(x["mark_to_market_total_return_pct"] for x in subset)/len(subset),4),
+            "worst_pair_mtm_drawdown_pct":max(x["max_mtm_closed_bar_drawdown_pct"] for x in subset),
             "pairs_with_open_position":sum(x["open_position"] is not None for x in subset),
             "rejected":sum(x["rejected_setups"] for x in subset),
             "non_stop_exits":sum(x["non_stop_exits"] for x in subset),
