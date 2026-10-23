@@ -50,40 +50,46 @@ def _squat(
     """
     if data is None or len(data)!=len(bars):
         return {"status":"UNKNOWN_TICK_VOLUME_REQUIRED","observed_at":[]}
-    indices=range(max(1,extreme_index-2),min(len(bars),extreme_index+2))
-    ticks=[]
-    for row in data:
-        v=row.get("tick_volume")
-        if v is None or isinstance(v,bool) or not isinstance(v,(int,float)) or not isfinite(v) or v<=0:
-            return {
-                "status":"UNKNOWN_TICK_VOLUME_REQUIRED",
-                "observed_at":[],
-                "note":"Binance base traded volume / number_of_trades is NOT silently treated as TC1 tick volume.",
-            }
-        ticks.append(float(v))
+    # The Squat must be one of the THREE most extreme price bars of the
+    # FIVE-BAR terminal neighborhood, not merely a candle near the end.
+    neighborhood=list(range(max(0,extreme_index-2),
+                            min(len(bars),extreme_index+3)))
+    price_extremes=sorted(neighborhood,
+                         key=lambda i: bars[i].high if sign>0 else -bars[i].low,
+                         reverse=True)[:3]
     found=[]
-    for i in indices:
+    incomplete=False
+    for i in price_extremes:
         if i<1:
             continue
-        # MFI / tick count, not RSI-style money flow.
-        mfi_now=(bars[i].high-bars[i].low)/ticks[i]
-        mfi_prev=(bars[i-1].high-bars[i-1].low)/ticks[i-1]
-        if ticks[i]>ticks[i-1] and mfi_now<mfi_prev:
-            # Within extreme's last three HIGH/LOW bars (the candidate W5
-            # pivot index or its two closest predecessor bars). In many
-            # trends a measuring Squat may occur elsewhere too, so NOT
-            # a claim that Squat alone completes the market swing.
+        a=data[i].get("tick_volume")
+        b=data[i-1].get("tick_volume")
+        valid=lambda x:(isinstance(x,(int,float)) and not isinstance(x,bool)
+                        and isfinite(x) and x>0)
+        if not valid(a) or not valid(b):
+            incomplete=True
+            continue
+        # Book's Market Facilitation Index, NOT volume-price MFI/RSI:
+        # facilitation=(high-low)/tick_count.
+        mfi_now=(bars[i].high-bars[i].low)/float(a)
+        mfi_prev=(bars[i-1].high-bars[i-1].low)/float(b)
+        if a>b and mfi_now<mfi_prev:
             found.append({
                 "index":i,
                 "closed_at":bars[i].at.isoformat(),
                 "volume_grew":True,
                 "facilitation_fell":True,
+                "among_three_terminal_price_extremes":True,
             })
     return {
-        "status":"OBSERVED_TC1_SQUAT_IN_TERMINAL_WINDOW" if found
-                 else "NOT_OBSERVED_WITH_AVAILABLE_TICK_COUNTS",
-        "observed_at":found[-3:],
+        "status":(
+            "OBSERVED_TC1_SQUAT_IN_TERMINAL_WINDOW" if found
+            else "UNKNOWN_TICK_VOLUME_REQUIRED" if incomplete
+            else "NOT_OBSERVED_WITH_AVAILABLE_TICK_COUNTS"
+        ),
+        "observed_at":found,
         "volume_type":"EXPLICIT_TICK_COUNT_ONLY",
+        "note":"Binance base volume and trade-count proxies are not canonical tick volume",
     }
 
 
