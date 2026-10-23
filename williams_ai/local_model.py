@@ -498,7 +498,7 @@ class LocalWilliamsModel:
                 "exchange_sl_confirmed":{"type":"boolean","enum":[False]},
                 "trade_action":{"type":"null"},
                 "execution_allowed":{"type":"boolean","enum":[False]},
-                "reason":{"type":"string"},
+                "reason":{"type":"string","maxLength":360},
             }
             response_format["schema"]={
                 "type":"object","properties":properties,
@@ -515,13 +515,20 @@ class LocalWilliamsModel:
         )
         choices=response.get("choices",[]) if isinstance(response,dict) else []
         raw=choices[0].get("message",{}).get("content","") if choices else ""
+        # Never turn an invalid or truncated model response into a plausible
+        # NO_SETUP. Distinguish the Qwen runtime failure from chart evidence.
+        if not isinstance(raw,str) or not raw.strip():
+            raise ValueError("GGUF_EMPTY_DECISION_RESPONSE")
         try:
-            proposal=json.loads(raw) if isinstance(raw,str) else {}
-        except json.JSONDecodeError:
-            proposal={}
+            proposal=json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("GGUF_MALFORMED_JSON_RESPONSE") from exc
         if not isinstance(proposal,dict):
-            proposal={}
-        # Never repair unsupported claims silently to create a false pass.
+            raise ValueError("GGUF_RESPONSE_IS_NOT_AN_OBJECT")
+        mandatory={"symbol","as_of","edition","setup","side"}
+        if not mandatory.issubset(proposal):
+            raise ValueError("GGUF_MISSING_MANDATORY_DECISION_FIELDS")
+        # Validation still belongs to the independent algorithm_guard.
         if isinstance(proposal.get("reason"),str):
             proposal["reason"]=proposal["reason"][:600]
         return proposal
