@@ -45,6 +45,7 @@ class LocalWilliamsModel:
         n_ctx: int = 4096,
         gpu_layers: int = 0,
         loader: Callable[..., Any] | None = None,
+        use_decision_schema: bool = False,
     ) -> None:
         path = Path(model_path).expanduser()
         if not path.is_file() or path.suffix.lower() != ".gguf":
@@ -67,6 +68,7 @@ class LocalWilliamsModel:
             n_gpu_layers=gpu_layers,
             verbose=False,
         )
+        self._decision_schema = bool(use_decision_schema)
 
     def study_passage(self, passage: str, *, edition: str, page: int,
                       rule_cards: list[dict[str, Any]]) -> str:
@@ -256,12 +258,46 @@ class LocalWilliamsModel:
             "trade_action (null), execution_allowed (false), "
             "reason (кратко). При отсутствии данных — NO_SETUP."
         )
+        # Optional llama.cpp JSON-Schema constrained decoding prevents weak
+        # models from inventing timestamps, editions or a fake exchange fill.
+        # It enforces OUTPUT SHAPE only; it does NOT prove market understanding.
+        response_format: dict[str, Any] = {"type":"json_object"}
+        if self._decision_schema:
+            def enum(*values: str) -> dict[str, Any]:
+                return {"type":"string","enum":list(values)}
+            properties={
+                "symbol":enum(str(chart_analysis.get("symbol"))),
+                "as_of":enum(str(chart_analysis.get("as_of"))),
+                "edition":enum(edition),
+                "setup":enum(
+                    "WM1","WM2","WM3","TC1_FRACTAL","AO_ZERO_CROSS",
+                    "AO_SAUCER","AO_TWIN_PEAKS","AC","ZONE",
+                    "BALANCE_LINE","WAVE_HYPOTHESIS","NO_SETUP","UNKNOWN"),
+                "side":enum("LONG","SHORT","NONE"),
+                "rule_ids":{"type":"array",
+                            "items":enum(*[x["id"] for x in cards]),
+                            "maxItems":8},
+                "entry_state":enum("UNKNOWN","NO_SETUP","CLOSED_CANDIDATE",
+                                   "PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY"),
+                "exit_basis":enum("NONE","UNKNOWN"),
+                "wave_degree_verified":{"type":"boolean","enum":[False]},
+                "exchange_fill_confirmed":{"type":"boolean","enum":[False]},
+                "exchange_sl_confirmed":{"type":"boolean","enum":[False]},
+                "trade_action":{"type":"null"},
+                "execution_allowed":{"type":"boolean","enum":[False]},
+                "reason":{"type":"string"},
+            }
+            response_format["schema"]={
+                "type":"object","properties":properties,
+                "required":list(properties),
+                "additionalProperties":False,
+            }
         response=self._model.create_chat_completion(
             messages=[
                 {"role":"system","content":system},
                 {"role":"user","content":user_context},
             ],
-            response_format={"type":"json_object"},
+            response_format=response_format,
             temperature=0.0,max_tokens=650,stream=False,
         )
         choices=response.get("choices",[]) if isinstance(response,dict) else []
