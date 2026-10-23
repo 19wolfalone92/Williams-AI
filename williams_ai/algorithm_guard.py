@@ -109,9 +109,9 @@ def audit_reasoning(
     if isinstance(reason,str) and setup not in {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS"}:
         import re
         negation=reason.strip().lower()
-        if (re.match(r"^no_setup(?:\\b|[\\s.:;,])",negation)
-                or re.match(r"^no (?:valid |confirmed |clear )?setup (?:found|confirmed|observed|detected)(?:\\b|[.:;,])",negation)
-                or re.match(r"^нет подтвержд[её]нн(?:ого|ых) (?:сигнала|сетапа|паттерна)(?:\\b|[.:;,])",negation)):
+        if (re.match(r"^no_setup(?:\b|[\s.:;,])",negation)
+                or re.match(r"^no (?:valid |confirmed |clear )?setup (?:found|confirmed|observed|detected)(?:\b|[.:;,])",negation)
+                or re.match(r"^нет подтвержд[её]нн(?:ого|ых) (?:сигнала|сетапа|паттерна)(?:\b|[.:;,])",negation)):
             fail("EXPLANATION_CONTRADICTS_SELECTED_SETUP")
     if proposal.get("exit_basis")=="OPPOSITE_SIGNAL_ONLY":
         fail("UNEXECUTED_OPPOSITE_WISE_MAN_NOT_A_TRADE_EXIT")
