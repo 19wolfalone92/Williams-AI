@@ -14,7 +14,7 @@ from .book_rules import registry
 _ALLOWED_ED = {"TC1","NTD","TC2","COURSE"}
 _TRADE_SETUPS = {"WM1","WM2","WM3"}
 _NTD_SETUPS={"AO_ZERO_CROSS","AO_SAUCER","AO_TWIN_PEAKS","AC","ZONE","BALANCE_LINE"}
-_NONENTRY_SETUPS={"WAVE_HYPOTHESIS","NO_SETUP","UNKNOWN"}
+_NONENTRY_SETUPS={"WAVE_HYPOTHESIS","TC1_FIVE_MAGIC_BULLETS","NO_SETUP","UNKNOWN"}
 _TC1_SETUPS={"TC1_FRACTAL"}
 _ALL_SETUP=_TRADE_SETUPS|_NTD_SETUPS|_NONENTRY_SETUPS|_TC1_SETUPS
 _ALLOWED_EXIT={"NONE","SL_CONFIRMED","OPPOSITE_SIGNAL_ONLY","EXECUTED_REVERSAL",
@@ -130,6 +130,11 @@ def audit_reasoning(
         "AC":{"NTD.AC"},
         "ZONE":{"NTD.ZONE","NTD.ZONE.ADDED"},
         "BALANCE_LINE":{"NTD.BALANCE"},
+        "TC1_FIVE_MAGIC_BULLETS":{
+            "TC1.MAGIC.DIVERGENCE","TC1.MAGIC.TARGET",
+            "TC1.MAGIC.FRACTAL","TC1.MAGIC.SQUAT",
+            "TC1.MAGIC.MOMENTUM",
+        },
         "WAVE_HYPOTHESIS":{
             "TC1.W3","TC1.W4","TC1.W5","TC1.RHYTHM",
             "COURSE.W4.ZERO","COURSE.RHYTHM","COURSE.HUMP",
@@ -146,6 +151,17 @@ def audit_reasoning(
         fail("NTD_PATTERN_IS_NOT_TC2_WISE_MAN")
     if setup in _TRADE_SETUPS and side=="NONE":
         fail("SETUP_SIDE_REQUIRED")
+    if setup=="TC1_FIVE_MAGIC_BULLETS":
+        if source!="TC1":
+            fail("MAGIC_BULLETS_ARE_TC1_NOT_NTD_FIVE_DIMENSIONS")
+        found=observation.get("tc1_five_magic_bullets",{})
+        sample=found.get("last_n_wave_candidates",[]) if isinstance(found,dict) else []
+        if not sample:
+            fail("NO_CLOSED_FIVE_BULLET_WAVE_CANDIDATE")
+        else:
+            note("ZERO_POINT_EVIDENCE_NOT_AUTOMATIC_EXECUTED_REVERSAL")
+            if not any(x.get("all_five_observed") for x in sample if isinstance(x,dict)):
+                note("LESS_THAN_FIVE_OR_UNKNOWN_BULLETS_NOT_COMPLETE")
     if setup in _TC1_SETUPS and source!="TC1":
         fail("TC1_INITIATING_FRACTAL_CANNOT_USE_OTHER_EDITION")
     if setup in _TC1_SETUPS and side=="NONE":
