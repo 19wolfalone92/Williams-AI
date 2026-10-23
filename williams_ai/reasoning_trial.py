@@ -127,10 +127,25 @@ def evaluate_historical_thought(
             args["primary_pages"]=sources
         if coach_notebook is not None:
             args["prior_lessons"]=prior
-        submitted=model.propose_chart_reasoning(evidence,**args)
+        try:
+            submitted=model.propose_chart_reasoning(evidence,**args)
+        except ValueError as exc:
+            # A real-model ValueError used to appear only as
+            # OTHER_ValueError, hiding whether it came from inference or
+            # the independent source/time critic. Never log raw runtime
+            # exceptions: they can carry private model paths/book text.
+            code=str(exc)
+            if code.startswith("GGUF_") and len(code)<=90 and code.isascii():
+                raise
+            raise ValueError("GGUF_MODEL_INFERENCE_VALUE_ERROR") from exc
     else:
         submitted=proposal
-    result=audit_reasoning(evidence,submitted)
+    try:
+        result=audit_reasoning(evidence,submitted)
+    except (ValueError,TypeError) as exc:
+        if model is None:
+            raise
+        raise ValueError("GGUF_AUDITOR_INVALID_PROPOSAL") from exc
     reason=submitted.get("reason","") if isinstance(submitted,dict) else ""
     return {
         "mode":"LOCAL_BLINDED_REASONING_TRIAL",
