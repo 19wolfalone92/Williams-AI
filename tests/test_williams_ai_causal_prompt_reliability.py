@@ -84,6 +84,29 @@ class GGUFPromptHistoricalReliability(unittest.TestCase):
             self.assertEqual(len(lengths),len(CASES))
             self.assertGreater(min(lengths),0)
 
+    def test_real_model_runtime_error_not_confused_with_source_audit(self):
+        market=frozen_markets()["ETHUSDT"]
+        class BrokenRuntime:
+            def propose_chart_reasoning(self,chart,*,edition):
+                raise ValueError("PRIVATE_PATH_DONT_LOG_OR_EXPOSE_TO_USER")
+        with self.assertRaisesRegex(ValueError,"GGUF_MODEL_INFERENCE_VALUE_ERROR") as result:
+            evaluate_historical_thought(
+                "ETHUSDT",market["bars"],tick_size=market["tick_size"],
+                bar_index=410,edition="TC2",model=BrokenRuntime())
+        self.assertNotIn("PRIVATE_PATH",str(result.exception))
+
+    def test_real_model_invalid_timestamp_rejected_by_auditor_with_safe_reason(self):
+        market=frozen_markets()["ETHUSDT"]
+        class BrokenDecision:
+            def propose_chart_reasoning(self,chart,*,edition):
+                return {"symbol":chart["symbol"],"as_of":None,
+                        "edition":edition,"setup":"NO_SETUP","side":"NONE",
+                        "trade_action":None,"execution_allowed":False}
+        with self.assertRaisesRegex(ValueError,"GGUF_AUDITOR_INVALID_PROPOSAL"):
+            evaluate_historical_thought(
+                "ETHUSDT",market["bars"],tick_size=market["tick_size"],
+                bar_index=410,edition="TC2",model=BrokenDecision())
+
     def test_context_does_not_expand_to_unbounded_history_with_more_bars(self):
         markets=frozen_markets()
         x=markets["XRPUSDT"]
