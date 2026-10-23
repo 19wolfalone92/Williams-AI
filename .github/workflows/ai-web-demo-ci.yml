@@ -74,3 +74,18 @@ jobs:
                   print(x["symbol"],x["closed"],x["wins"],
                         x["mark_to_market_total_return_pct"],x["realized_return_pct"])
           PY
+
+      - name: Offline CLI passport integration (H1 closed through H4/D1)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from williams_ai.causal_paper_lab import frozen_markets
+          market=frozen_markets()["BTCUSDT"]
+          chart={"symbol":"BTCUSDT","tick_size":market["tick_size"],
+                 "as_of":market["bars"][-1]["close_time"],
+                 "timeframes":{"H1":{"bars":market["bars"]}}}
+          Path("/tmp/closed_chart.json").write_text(json.dumps(chart))
+          PY
+          python -m williams_ai.chart_cli /tmp/closed_chart.json --causal-top-down > /tmp/closed_passport.json
+          grep -q "UNCONFIRMED_NESTED_DEGREES" /tmp/closed_passport.json
