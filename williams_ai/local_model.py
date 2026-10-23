@@ -480,6 +480,27 @@ class LocalWilliamsModel:
                     or observation["wave_structure"]["corrective_alternatives"]):
                 admissible.add("WAVE_HYPOTHESIS")
             nonentry=admissible <= {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS","TC1_FIVE_MAGIC_BULLETS"}
+            # Book WM3 differentiates a confirmed fractal awaiting a
+            # FUTURE price breakout from a touch visible on THIS closed bar.
+            # A previously touched fractal cannot license 'fresh breakout'.
+            # No future candle or intrabar order is inferred.
+            available_entries={"UNKNOWN","NO_SETUP","CLOSED_CANDIDATE"}
+            if edition=="TC2":
+                for c in candidates:
+                    if c.get("type")!="WM3_FRACTAL":
+                        continue
+                    if (c.get("state")=="AWAITING_PRICE_TRIGGER"
+                            and c.get("confirmed_at")
+                            and c["confirmed_at"]<=chart_analysis.get("as_of","")):
+                        available_entries.add("PENDING_TRIGGER")
+                    if (c.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                            and c.get("price_touch_observed_at")==chart_analysis.get("as_of")):
+                        available_entries.add("CLOSED_BAR_TOUCH_ONLY")
+            observation["permitted_wm3_entry_states_from_closed_bars"]={
+                "PENDING_TRIGGER":"PENDING_TRIGGER" in available_entries,
+                "CLOSED_BAR_TOUCH_ONLY":"CLOSED_BAR_TOUCH_ONLY" in available_entries,
+                "old_price_touches_not_new_signal":True,
+            }
             properties={
                 "symbol":enum(str(chart_analysis.get("symbol"))),
                 "as_of":enum(str(chart_analysis.get("as_of"))),
@@ -490,8 +511,7 @@ class LocalWilliamsModel:
                 "rule_ids":{"type":"array",
                             "items":enum(*[x["id"] for x in cards]),
                             "maxItems":8},
-                "entry_state":enum("UNKNOWN","NO_SETUP","CLOSED_CANDIDATE",
-                                   "PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY"),
+                "entry_state":enum(*sorted(available_entries)),
                 "exit_basis":enum("NONE","UNKNOWN"),
                 "wave_degree_verified":{"type":"boolean","enum":[False]},
                 "exchange_fill_confirmed":{"type":"boolean","enum":[False]},
