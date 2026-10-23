@@ -111,6 +111,19 @@ def run_actual_history_exam(model, *,verified_weights:dict,
     substantive=sum(x["verdict"]=="PROVISIONAL_REASONING_ONLY"
                     and x["setup"] not in ("NO_SETUP","UNKNOWN")
                     for x in results)
+    confirmed_technical_setup_discussions=sum(
+        x["verdict"]=="PROVISIONAL_REASONING_ONLY"
+        and x["setup"] in (
+            "WM1","WM2","WM3","TC1_FRACTAL",
+            "AO_ZERO_CROSS","AO_SAUCER","AO_TWIN_PEAKS",
+            "AC","ZONE","BALANCE_LINE",
+        ) for x in results
+    )
+    first_pass_prose_conflicts=sum(
+        "EXPLANATION_CONTRADICTS_SELECTED_SETUP"
+        in (x.get("supervised_retry") or {}).get("first_attempt_failures",[])
+        for x in results
+    )
     first_pass_supported=sum(
         bool(x.get("supervised_retry") and
              x["supervised_retry"]["first_attempt_verdict"]=="SOURCE_CONSISTENT")
@@ -136,6 +149,11 @@ def run_actual_history_exam(model, *,verified_weights:dict,
         "model_supported_reasoning_cases":supported,
         "model_no_setup_responses":model_no_setup,
         "source_consistent_substantive_cases":substantive,
+        "source_consistent_signal_discussion_cases_not_fills":confirmed_technical_setup_discussions,
+        "first_attempt_explicit_setup_prose_contradictions":first_pass_prose_conflicts,
+        "confirmed_real_binance_entries":0,
+        "confirmed_protective_sl_orders":0,
+        "self_consistent_explanation_is_not_trading_skill":True,
         "abstentions_are_not_book_mastery":True,
         "guided_correction_enabled":guided_correction,
         "first_attempt_source_consistent_cases":first_pass_supported if guided_correction else None,
