@@ -20,12 +20,14 @@ from typing import Any
 from .algorithm_guard import audit_reasoning
 from .causal_paper_lab import FROZEN_DATA,frozen_markets
 from .chart_reader import analyze_chart
+from .causal_timeframes import aggregate_closed_h1
 
 
 def evaluate_historical_thought(
     symbol:str, rows:list[dict[str,Any]], *,
     tick_size:float,bar_index:int,edition:str="TC2",
     model:Any=None,proposal:dict[str,Any]|None=None,
+    include_topdown:bool=True,
 )->dict[str,Any]:
     """bar_index is a 0-based last closed bar, not next bar to trade.
 
@@ -41,6 +43,30 @@ def evaluate_historical_thought(
     evidence=analyze_chart(symbol,"H1",prefix,as_of=as_of,tick_size=tick_size)
     if evidence["gaps"] or evidence["execution_allowed"] is not False:
         raise ValueError("No causal and contiguous market history")
+    if include_topdown:
+        # Efficiently reconstruct only completely CLOSED higher bars. Reuse
+        # already calculated H1 observation, avoiding an expensive duplicate
+        # full H1 chart analysis on every historical checkpoint.
+        higher={}
+        for tf in ("D1","H4"):
+            closed=aggregate_closed_h1(prefix,tf)
+            if len(closed)<45:
+                higher[tf]={"status":"INSUFFICIENT_CLOSED_HISTORY",
+                            "bars":len(closed),"wave_degree":"UNKNOWN"}
+            else:
+                tf_view=analyze_chart(
+                    symbol,tf,closed,as_of=as_of,tick_size=tick_size)
+                higher[tf]={
+                    "status":"OBSERVED_CLOSED_BARS",
+                    "bars":len(closed),
+                    "closed_through":closed[-1]["close_time"],
+                    "market_context":tf_view["evidence"]["market_context"],
+                    "ao":tf_view["evidence"]["ao"],
+                    "ac":tf_view["evidence"]["ac"],
+                    "wave_degree":tf_view["wave_structure"]["wave_degree"],
+                    "wave_hypotheses_unverified":True,
+                }
+        evidence["higher_timeframe_context"]=higher
     submitted=model.propose_chart_reasoning(evidence,edition=edition) if model is not None else proposal
     result=audit_reasoning(evidence,submitted)
     reason=submitted.get("reason","") if isinstance(submitted,dict) else ""
@@ -64,6 +90,7 @@ def main()->None:
     p.add_argument("--symbol",required=True)
     p.add_argument("--bar-index",required=True,type=int)
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE"],default="TC2")
+    p.add_argument("--no-topdown",action="store_true",help="Disable complete H4/D1 context")
     group=p.add_mutually_exclusive_group(required=True)
     group.add_argument("--local-model",type=Path)
     group.add_argument("--proposal-file",type=Path)
@@ -81,7 +108,8 @@ def main()->None:
     x=markets[a.symbol]
     output=evaluate_historical_thought(
         a.symbol,x["bars"],tick_size=x["tick_size"],bar_index=a.bar_index,
-        edition=a.edition,model=model,proposal=proposal)
+        edition=a.edition,model=model,proposal=proposal,
+        include_topdown=not a.no_topdown)
     print(json.dumps(output,ensure_ascii=False,indent=2))
 
 
