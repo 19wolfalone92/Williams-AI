@@ -1,0 +1,38 @@
+name: Williams AI REAL Wise Men historical replay (not synthetic 10m)
+
+on:
+  push:
+    branches:
+      - experiment/real-wisemen-rolling-replay-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  actual-book-evidence-event-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Entire Williams AI source and no-lookahead regression suite
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Genuine 49-symbol Binance history, completed H1 bar by bar, WM1 WM2 WM3
+        run: |
+          set -o pipefail
+          python -m williams_ai.real_wiseman_replay \
+            --workers 7 \
+            --out /tmp/actual_verified_williams_wisemen_jan_feb.json \
+            | tee /tmp/actual_verified_williams_wisemen.log
+      - name: Store counts and skill honestly, not model weights or OHLC dumps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-williams-real-h1-signal-event-jan-feb-research-only
+          path: |
+            /tmp/actual_verified_williams_wisemen_jan_feb.json
+            /tmp/actual_verified_williams_wisemen.log
+          if-no-files-found: ignore
+          retention-days: 7
