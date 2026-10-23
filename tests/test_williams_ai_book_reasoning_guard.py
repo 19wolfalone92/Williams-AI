@@ -87,6 +87,48 @@ class GateTests(unittest.TestCase):
         x=audit_reasoning(self.observed,self.prop(exit_basis="OPPOSITE_SIGNAL_ONLY"))
         self.assertIn("UNEXECUTED_OPPOSITE_WISE_MAN_NOT_A_TRADE_EXIT",x["hard_failures"])
 
+    def test_wm3_touch_at_old_bar_not_new_fake_entry(self):
+        old=self.rows[350]["close_time"]
+        fake={**self.observed,"candidates":[{
+            "type":"WM3_FRACTAL","side":"LONG",
+            "state":"CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL",
+            "price_touch_observed_at":old,
+        }]}
+        claim=self.prop(setup="WM3",side="LONG",
+                        entry_state="CLOSED_BAR_TOUCH_ONLY",
+                        rule_ids=["TC2.WM3"])
+        out=audit_reasoning(fake,claim)
+        self.assertIn("WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR",out["hard_failures"])
+        current=fake["candidates"][0]
+        current["price_touch_observed_at"]=self.as_of
+        ok=audit_reasoning(fake,claim)
+        self.assertNotIn("WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR",ok["hard_failures"])
+
+    def test_ntd_observation_not_entry_before_first_external_fractal(self):
+        fake={**self.observed,"edition_evidence":{"NTD":{
+            "entry_admitted":False,"signals":[{
+                "name":"AO_ZERO_CROSS","side":"LONG"
+            }]}}}
+        result=audit_reasoning(fake,self.prop(
+            edition="NTD",setup="AO_ZERO_CROSS",side="LONG",
+            entry_state="PENDING_TRIGGER",rule_ids=["NTD.AO"]))
+        self.assertIn("NTD_ENTRY_CLAIM_WITHOUT_FIRST_OUTSIDE_FRACTAL",
+                      result["hard_failures"])
+        observed_only=audit_reasoning(fake,self.prop(
+            edition="NTD",setup="AO_ZERO_CROSS",side="LONG",
+            entry_state="CLOSED_CANDIDATE",rule_ids=["NTD.AO"]))
+        self.assertEqual(observed_only["verdict"],"PROVISIONAL_REASONING_ONLY")
+
+    def test_wm1_heuristic_failure_cannot_claim_price_execution(self):
+        fake={**self.observed,"candidates":[{
+            "type":"WM1","side":"LONG","angle_heuristic":False
+        }]}
+        x=audit_reasoning(fake,self.prop(
+            setup="WM1",side="LONG",entry_state="CLOSED_BAR_TOUCH_ONLY",
+            rule_ids=["TC2.WM1.ANG"]))
+        self.assertIn("WM1_ENTRY_CLAIM_WITHOUT_EVEN_ANGLE_HEURISTIC",
+                      x["hard_failures"])
+
     def test_source_alias_and_hallucinated_rule_rejected(self):
         x=audit_reasoning(self.observed,self.prop(
             edition="NTD",setup="WM1",side="LONG",
