@@ -75,7 +75,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(len(package["books"]),4)
         self.assertEqual(len(package["rule_cards"]),27)
         checked=sum(x["status"]=="REVIEWED_PAGES" for x in package["rule_cards"])
-        self.assertEqual(checked,19)
+        self.assertEqual(checked,27)
         by_id={x["id"]:x for x in package["rule_cards"]}
         for source in ("TC2.WM2","TC2.WM3","TC2.CAMPAIGN","NTD.EXITS"):
             self.assertEqual(by_id[source]["status"],"REVIEWED_PAGES")
