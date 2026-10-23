@@ -119,9 +119,23 @@ def top_down_market_evidence(
             "wave_alternatives": result["wave_structure"]["impulse_alternatives"],
             "corrective_alternatives": result["wave_structure"]["corrective_alternatives"],
             "wave_degree": result["wave_structure"]["wave_degree"],
+            "principle_first_structure": (
+                result["principle_evidence"]["observable_facts"]
+                      ["multi_resolution_price_structure"]
+            ),
+            "principle_first_market_scenarios": [
+                q["hypothesis"] for q in result["principle_evidence"]
+                    ["competing_market_scenarios"]
+                if q["status"]=="EVIDENCE_COMPATIBLE_NOT_PREDICTION"
+            ],
+            "ao_near_zero_not_w4_proof": result["principle_evidence"]
+                ["observable_facts"]["momentum"]
+                ["ao_near_zero_relative_to_recent_amplitude"],
             "trade_action": None,
         }
         higher.append((tf,ctx["market_context"]))
+    from .market_hierarchy import reconcile_market_hierarchy
+    parent_child=reconcile_market_hierarchy(evidence)
     confident=[x[1] for x in higher if x[0] in {"D1","H4"} and x[1] in {"UP_CONTEXT","DOWN_CONTEXT"}]
     if len(confident)==2 and confident[0]==confident[1]:
         trend="HIGHER_TIMEFRAMES_DIRECTIONALLY_ALIGNED"
@@ -134,6 +148,7 @@ def top_down_market_evidence(
         "authority": "READ_ONLY_CONTEXT_NOT_EXECUTION",
         "timeframes": evidence,
         "higher_context": trend,
+        "conditional_parent_child_market_structure": parent_child,
         "wave_hierarchy_status": "UNCONFIRMED_NESTED_DEGREES",
         "wave_rhythm": "100–140 bars is a heuristic for scale, NOT a proof or hard lookback",
         "trade_action": None, "execution_allowed": False,

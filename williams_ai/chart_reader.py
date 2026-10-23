@@ -343,6 +343,13 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
     waves=wave_context(candles,lines["ao"])
     result["wave_structure"]=waves
     result["market_position"]=market_position(candles,lines["ao"])
+    # Principle-first interpretation MUST come from closed-price / indicator
+    # relationships at several scales, not the shape of example book images.
+    # This does not certify the Elliott count or authorize an order.
+    from .nonlinear_market_principles import nonlinear_market_principles
+    result["principle_evidence"]=nonlinear_market_principles(
+        candles,lines["ao"],lines["ac"],alligator_context=phase,
+        diverging_evidence=result["market_position"])
     # NTD remains an independent, observation-only source profile. A NTD
     # entry requires a separate proven initial outside-mouth fractal breakout
     # and must never piggyback TC2's Wise Men first-entry policy.

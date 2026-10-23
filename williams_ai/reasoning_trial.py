@@ -68,7 +68,22 @@ def evaluate_historical_thought(
                     "ac":tf_view["evidence"]["ac"],
                     "wave_degree":tf_view["wave_structure"]["wave_degree"],
                     "wave_hypotheses_unverified":True,
+                    "nonlinear_structure":tf_view["principle_evidence"]
+                        ["observable_facts"]["multi_resolution_price_structure"],
+                    "supported_not_proven_market_scenarios":[
+                        q["hypothesis"] for q in tf_view["principle_evidence"]
+                            ["competing_market_scenarios"]
+                        if q["status"]=="EVIDENCE_COMPATIBLE_NOT_PREDICTION"
+                    ],
                 }
+        from .market_hierarchy import reconcile_market_hierarchy
+        frames_for_relations={**higher,"H1":{
+            "status":"OBSERVED_CLOSED_BARS",
+            "market_context":evidence.get("evidence",{}).get("market_context","UNKNOWN"),
+        }}
+        higher["conditional_parent_child_relations"] = (
+            reconcile_market_hierarchy(frames_for_relations)["parent_child_relations"]
+        )
         evidence["higher_timeframe_context"]=higher
     sources=[]
     if book_index is not None:
