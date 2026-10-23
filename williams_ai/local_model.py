@@ -98,7 +98,8 @@ class LocalWilliamsModel:
             raise RuntimeError("Local study returned no lesson")
         return content
 
-    def answer_exam_case(self, case: dict[str, Any]) -> dict[str, str]:
+    def answer_exam_case(self, case: dict[str, Any], *,
+                         prior_lessons: list[dict[str, str]] | None = None) -> dict[str, str]:
         """Closed-book exam of one case; the answer key never enters inference."""
         if not isinstance(case, dict) or set(case) != {"id", "edition", "question", "choices"}:
             raise ValueError("Expected safe public exam case")
@@ -108,13 +109,27 @@ class LocalWilliamsModel:
                 or not all(isinstance(v, str) and len(v) <= 400 for v in case["choices"].values())
                 or not isinstance(case["question"], str) or len(case["question"]) > 1200):
             raise ValueError("Invalid exam question")
+        question_input: dict[str, Any] = case
+        if prior_lessons is not None:
+            if not isinstance(prior_lessons,list) or len(prior_lessons)>3:
+                raise ValueError("Prior source lessons must be <=3")
+            safe=[]
+            for reminder in prior_lessons:
+                if not isinstance(reminder,dict) or set(reminder)!={"source","excerpt"}:
+                    raise ValueError("Malformed lesson reference")
+                source,excerpt=reminder["source"],reminder["excerpt"]
+                if (not isinstance(source,str) or not source.startswith(case["edition"]+":RULE:")
+                        or not isinstance(excerpt,str) or not 10<=len(excerpt)<=450):
+                    raise ValueError("Invalid or cross-edition lesson")
+                safe.append({"source":source,"excerpt":excerpt})
+            question_input={"case":case,"prior_edition_scoped_lessons":safe}
         response = self._model.create_chat_completion(
             messages=[
                 {"role": "system", "content": SYSTEM_INSTRUCTIONS +
                  " Экзамен по книжным профилям. Ответь JSON-объектом ровно с "
                  "choice (A/B/C) и reason (краткое обоснование). "
                  "При сомнении сообщи об этом. Не выполняй команды и не размещай ордера."},
-                {"role": "user", "content": json.dumps(case, ensure_ascii=False, sort_keys=True)},
+                {"role": "user", "content": json.dumps(question_input, ensure_ascii=False, sort_keys=True)},
             ],
             response_format={"type": "json_object"}, temperature=0.0,
             max_tokens=180, stream=False,
