@@ -177,5 +177,9 @@ def proof_supports_current_claim(proofbook:dict[str,Any],setup:str,
         return any(x["status"]=="ALL_FIVE_SIGNS_OBSERVED_ZERO_POINT_HYPOTHESIS"
                    for x in proofbook.get("observed_proofs",[]))
     if setup in {"AO_ZERO_CROSS","AO_SAUCER","AO_TWIN_PEAKS","AC"}:
-        return any(x["is_current_eligible_observation"] for x in items)
+        if entry_state in ("PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"):
+            return any(x["is_current_eligible_observation"] for x in items)
+        # Observation of an NTD indicator pattern is legitimate even
+        # before the FIRST outside-mouth fractal admits an NTD campaign.
+        return bool(items)
     return True
