@@ -106,6 +106,9 @@ class GateTests(unittest.TestCase):
         fake={**self.observed,"candidates":[{
             "type":"WM3_FRACTAL","side":"LONG",
             "state":"CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL",
+            # A visible touch is only legitimate after the fractal's t+2
+            # confirmation. Older synthetic fixture omitted this obligation.
+            "confirmed_at":self.rows[349]["close_time"],
             "price_touch_observed_at":old,
         }]}
         claim=self.prop(setup="WM3",side="LONG",
