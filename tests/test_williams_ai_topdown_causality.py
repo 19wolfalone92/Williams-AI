@@ -69,6 +69,24 @@ class UTCHigherTimeframeTests(unittest.TestCase):
         self.assertFalse(later["execution_allowed"])
         self.assertIsNone(later["trade_action"])
 
+    def test_disjoint_second_market_window_no_overlap_and_no_orders(self):
+        from williams_ai.causal_paper_lab import FROZEN_DATA,run_15
+        from pathlib import Path
+        older_path=Path(__file__).resolve().parents[1]/"examples/ai_binance_15pair_h1_prior_holdout_20260902.json"
+        recent=frozen_markets(FROZEN_DATA)
+        older=frozen_markets(older_path)
+        self.assertEqual(set(recent),set(older))
+        for symbol in recent:
+            self.assertEqual(len(older[symbol]["bars"]),1200)
+            self.assertLess(older[symbol]["bars"][-1]["close_time"],recent[symbol]["bars"][0]["close_time"])
+        report=run_15(older_path)
+        self.assertEqual(report["pairs"],15)
+        self.assertEqual(len(report["results"]),45)
+        self.assertFalse(report["execution_allowed"])
+        for group in report["aggregate"].values():
+            self.assertEqual(group["non_stop_exits"],0)
+            self.assertGreater(group["closed_trades"],0)
+
     def test_all_fifteen_actual_markets_have_caused_context_not_orders(self):
         markets=frozen_markets()
         self.assertEqual(len(markets),15)
