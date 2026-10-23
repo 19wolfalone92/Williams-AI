@@ -250,6 +250,28 @@ class LocalWilliamsModel:
                             "supported_not_proven_market_scenarios",
                         ) if k in f
                     }
+        # Show the language model competing hierarchical theses, NOT a
+        # single certified fifth wave or an automatic entry filter.
+        thesis_brief=[]
+        if isinstance(high,dict):
+            thesis=high.get("cross_scale_wave_theses",{})
+            if isinstance(thesis,dict):
+                for relation in thesis.get("parents_and_children",[])[:2]:
+                    if isinstance(relation,dict):
+                        thesis_brief.append({
+                            "parent":relation.get("parent"),
+                            "child":relation.get("child"),
+                            "status":relation.get("status"),
+                            "alternatives":[{
+                                "hypothesis":v.get("hypothesis"),
+                                "support":v.get("support",[])[:2],
+                                "falsifier":v.get("potential_falsifier"),
+                                "not_proved":v.get("not_proved"),
+                            } for v in relation.get("alternatives",[])[:3]
+                                if isinstance(v,dict)],
+                            "verified_wave_degree":False,
+                            "not_trade_signal":True,
+                        })
         edition_details=chart_analysis.get("edition_evidence",{}).get(edition,{})
         if isinstance(edition_details,dict):
             edition_details={
@@ -273,6 +295,7 @@ class LocalWilliamsModel:
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
             "complete_higher_timeframe_context":higher_brief,
+            "competing_h1_h4_d1_wave_theses":thesis_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
@@ -429,6 +452,9 @@ class LocalWilliamsModel:
             "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
             "а не копируй графическую форму из иллюстрации. "
             "Наблюдение признака не доказывает будущую цену или торговый fill. "
+            "Различай коррекцию младшей волны и разворот старшей по "
+            "competing_h1_h4_d1_wave_theses; каждой гипотезе нужна "
+            "проверяемая структурная альтернатива, а не уверенность в W4/W5. "
             "Проверяй current_book_signal_proofs: старый WM3, "
             "непройденный Teeth, NTD без допуска, неполные 5 пуль "
             "не являются исполненным входом. "
