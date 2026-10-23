@@ -271,14 +271,26 @@ class LocalWilliamsModel:
             # STILL checks trigger/Teeth/time/side/source. This is a safety
             # interlock, not model comprehension or automatic authorization.
             admissible={"NO_SETUP","UNKNOWN"}
+            candidate_sides=set()
             for candidate in candidates:
                 if edition=="TC2":
-                    observed={
-                        "WM1":"WM1","WM2_SUPER_AO":"WM2",
-                        "WM3_FRACTAL":"WM3",
-                    }.get(candidate.get("type"))
+                    kind=candidate.get("type")
+                    state=candidate.get("state")
+                    observed=None
+                    if kind=="WM1" and candidate.get("bar_time")==chart_analysis.get("as_of"):
+                        observed="WM1"
+                    elif kind=="WM2_SUPER_AO" and state=="MOMENTUM_CANDIDATE_NOT_ORDER":
+                        observed="WM2"
+                    elif kind=="WM3_FRACTAL" and (
+                            state=="AWAITING_PRICE_TRIGGER"
+                            or (state=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                                and candidate.get("price_touch_observed_at")==chart_analysis.get("as_of"))):
+                        # A past completed breakout is NOT a new entry now.
+                        observed="WM3"
                     if observed:
                         admissible.add(observed)
+                        if candidate.get("side") in {"LONG","SHORT"}:
+                            candidate_sides.add(candidate["side"])
             if edition=="NTD":
                 signals=observation.get("edition_evidence",{}).get("signals",[])
                 ntd_map={
@@ -293,13 +305,19 @@ class LocalWilliamsModel:
                     for item in signals[-12:]:
                         if isinstance(item,dict):
                             observed=ntd_map.get(item.get("name"))
-                            if observed:admissible.add(observed)
+                            if observed:
+                                admissible.add(observed)
+                                if item.get("side") in {"LONG","SHORT"}:
+                                    candidate_sides.add(item["side"])
             if edition=="TC1":
                 shapes=observation.get("edition_evidence",{}).get("recent_formations",[])
                 if isinstance(shapes,list) and any(
                         isinstance(x,dict) and x.get("type")=="TC1_INITIATING_FRACTAL"
                         for x in shapes):
                     admissible.add("TC1_FRACTAL")
+                    candidate_sides.update(x["side"] for x in shapes
+                        if isinstance(x,dict) and x.get("type")=="TC1_INITIATING_FRACTAL"
+                        and x.get("side") in {"LONG","SHORT"})
             if edition in {"TC1","COURSE"} and (
                     observation["wave_structure"]["impulse_alternatives"]
                     or observation["wave_structure"]["corrective_alternatives"]):
@@ -310,7 +328,8 @@ class LocalWilliamsModel:
                 "as_of":enum(str(chart_analysis.get("as_of"))),
                 "edition":enum(edition),
                 "setup":enum(*sorted(admissible)),
-                "side":enum("NONE") if nonentry else enum("LONG","SHORT","NONE"),
+                "side":enum(*sorted({"NONE"} | candidate_sides))
+                    if not nonentry and candidate_sides else enum("NONE"),
                 "rule_ids":{"type":"array",
                             "items":enum(*[x["id"] for x in cards]),
                             "maxItems":8},
