@@ -1,0 +1,48 @@
+name: Williams AI STRICT Jan-Feb 2025 learning qualification, no execution
+
+on:
+  push:
+    branches:
+      - fix/failclosed-walkforward-multitoken-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  offline-causality-and-risk-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Every Williams AI read-only test
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+          python -m compileall -q williams_ai
+  genuine-49-market-purged-calendar-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verified authentic Binance Jan-Feb, strict temporal holdout, then reviewed 2026
+        run: |
+          set -o pipefail
+          python -m williams_ai.many_token_learning \
+            --workers 7 \
+            --out /tmp/williams_ai_strict_jan_feb_research_report.json \
+            | tee /tmp/strict_temporal_learning.log
+      - name: Publish diagnostic only; NEVER model weights or private books
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authentic-market-purged-calendar-validation-no-trading-qualification
+          path: |
+            /tmp/strict_temporal_learning.log
+            /tmp/williams_ai_strict_jan_feb_research_report.json
+          if-no-files-found: ignore
+          retention-days: 5
