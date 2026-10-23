@@ -171,6 +171,7 @@ class LocalWilliamsModel:
             "as_of":chart_analysis.get("as_of"),
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
+            "complete_higher_timeframe_context":chart_analysis.get("higher_timeframe_context",{}),
             "observed_candidates":candidates,
             "market_position":{
                 "structure":position.get("structure"),
