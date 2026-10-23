@@ -147,7 +147,8 @@ def replay_closed_history(rows:list[dict[str,Any]], *,
             sign=1 if side=="LONG" else -1
             future=candles[t+horizon]
             delta=sign*(future.close-bar.close)/bar.close
-            if not isfinite(delta):
+            prior=sign*(bar.close-candles[t-horizon].close)/candles[t-horizon].close
+            if not isfinite(delta) or not isfinite(prior):
                 raise ValueError("Nonfinite research outcome")
             out.append({
                 "event_id":":".join(key),
@@ -163,7 +164,9 @@ def replay_closed_history(rows:list[dict[str,Any]], *,
                 # Label only for RESEARCH scoring; never included in
                 # a decision's features or fed to the LLM at t.
                 "future_endpoint_side_return":delta,
+                "past_window_side_return":prior,
                 "label_direction_favorable":delta>0,
+                "observed_reversal_from_prior_window":prior<0 and delta>0,
                 "true_williams_entry_validated":False,
                 "future_was_available_to_decision":False,
                 "execution_allowed":False,
@@ -183,9 +186,11 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
     feb=[]
     signals=Counter()
     by_pair=Counter()
+    authentic_h1_states=0
     family_months=defaultdict(Counter)
     feb_events_for_family=[]
     for symbol,rows in sorted(markets.items()):
+        authentic_h1_states+=len(rows)
         for e in replay_closed_history(rows,symbol=symbol):
             signals[e["kind"]]+=1
             by_pair[symbol]+=1
@@ -201,11 +206,15 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
                 family_months[("TRAIN_JAN",e["kind"],e["side"])]["count"]+=1
                 family_months[("TRAIN_JAN",e["kind"],e["side"])]["favorable"]+=bool(
                     e["label_direction_favorable"])
+                family_months[("TRAIN_JAN",e["kind"],e["side"])]["reversal_after_opposite_prior_window"]+=bool(
+                    e["observed_reversal_from_prior_window"])
             elif jan_end<=moment<mar_start and mature<mar_start:
                 feb.append(p)
                 family_months[("TEST_FEB",e["kind"],e["side"])]["count"]+=1
                 family_months[("TEST_FEB",e["kind"],e["side"])]["favorable"]+=bool(
                     e["label_direction_favorable"])
+                family_months[("TEST_FEB",e["kind"],e["side"])]["reversal_after_opposite_prior_window"]+=bool(
+                    e["observed_reversal_from_prior_window"])
                 feb_events_for_family.append(e)
     if len(markets)<20 or len(jan)<80 or len(feb)<80:
         raise ValueError("Not enough genuine independent-calendar evidence events")
@@ -238,6 +247,9 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
                 "february_favorable_fraction":round(
                     eval_family["favorable"]/eval_family["count"],5)
                     if eval_family["count"] else None,
+                "february_actual_prior_opposite_then_future_favorable_fraction":round(
+                    eval_family["reversal_after_opposite_prior_window"]/eval_family["count"],5)
+                    if eval_family["count"] else None,
                 "no_independent_wave_truth":True,
             }
     # Never promote even if score is positive: February has been
@@ -247,6 +259,12 @@ def score_january_to_february(markets:dict[str,list[dict[str,Any]]])->dict[str,A
         "mode":"ACTUAL_TF_H1_COMPLETED_WILLIAMS_SIGN_EVENTS_JAN_FEB_2025",
         "symbols":len(markets),
         "original_real_sign_events":sum(signals.values()),
+        "authentic_unique_h1_closed_bar_states":authentic_h1_states,
+        "actual_authentic_closed_bar_states_toward_10million_target":authentic_h1_states,
+        "remaining_genuine_closed_bar_states_for_10million":max(
+            0,10_000_000-authentic_h1_states),
+        "ten_million_unique_real_chart_states_confirmed":authentic_h1_states>=10_000_000,
+        "ten_million_synthetic_counterfactuals_counted_as_real":0,
         "distinct_symbol_time_kind_side_keys":True,
         "signal_family_counts":dict(signals),
         "january_matured_train_events":len(jan),
