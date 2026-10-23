@@ -297,7 +297,7 @@ class LocalWilliamsModel:
             "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
             "а не копируй графическую форму из иллюстрации. "
             "Наблюдение признака не доказывает будущую цену или торговый fill. "
-            "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, TC1_FRACTAL, "
+            "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, TC1_FRACTAL, TC1_FIVE_MAGIC_BULLETS, "
             "AO_ZERO_CROSS, AO_SAUCER, AO_TWIN_PEAKS, AC, ZONE, "
             "BALANCE_LINE, WAVE_HYPOTHESIS, NO_SETUP, UNKNOWN), "
             "side (LONG/SHORT/NONE), rule_ids (идентификаторы карточек), "
@@ -360,6 +360,8 @@ class LocalWilliamsModel:
                                 if item.get("side") in {"LONG","SHORT"}:
                                     candidate_sides.add(item["side"])
             if edition=="TC1":
+                if bullet_cases:
+                    admissible.add("TC1_FIVE_MAGIC_BULLETS")
                 shapes=observation.get("edition_evidence",{}).get("recent_formations",[])
                 if isinstance(shapes,list) and any(
                         isinstance(x,dict) and x.get("type")=="TC1_INITIATING_FRACTAL"
@@ -372,7 +374,7 @@ class LocalWilliamsModel:
                     observation["wave_structure"]["impulse_alternatives"]
                     or observation["wave_structure"]["corrective_alternatives"]):
                 admissible.add("WAVE_HYPOTHESIS")
-            nonentry=admissible <= {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS"}
+            nonentry=admissible <= {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS","TC1_FIVE_MAGIC_BULLETS"}
             properties={
                 "symbol":enum(str(chart_analysis.get("symbol"))),
                 "as_of":enum(str(chart_analysis.get("as_of"))),
