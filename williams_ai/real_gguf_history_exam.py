@@ -107,7 +107,10 @@ def run_actual_history_exam(model, *,verified_weights:dict,
     counts=Counter(x["verdict"] for x in results)
     failures=Counter(y for x in results for y in x["hard_failures"])
     supported=sum(x["verdict"]=="PROVISIONAL_REASONING_ONLY" for x in results)
-    model_no_setup=sum(x["setup"]=="NO_SETUP" for x in results)
+    model_no_setup=sum(x["setup"] in ("NO_SETUP","UNKNOWN") for x in results)
+    substantive=sum(x["verdict"]=="PROVISIONAL_REASONING_ONLY"
+                    and x["setup"] not in ("NO_SETUP","UNKNOWN")
+                    for x in results)
     first_pass_supported=sum(
         bool(x.get("supervised_retry") and
              x["supervised_retry"]["first_attempt_verdict"]=="SOURCE_CONSISTENT")
@@ -132,13 +135,18 @@ def run_actual_history_exam(model, *,verified_weights:dict,
         "verdict_counts":dict(counts),"failure_reasons":dict(failures),
         "model_supported_reasoning_cases":supported,
         "model_no_setup_responses":model_no_setup,
+        "source_consistent_substantive_cases":substantive,
+        "abstentions_are_not_book_mastery":True,
         "guided_correction_enabled":guided_correction,
         "first_attempt_source_consistent_cases":first_pass_supported if guided_correction else None,
         "corrected_substantive_reasoning_cases":corrected_substantive if guided_correction else None,
         "corrected_safe_abstentions":corrected_abstentions if guided_correction else None,
         "guided_same_case_revision_is_not_blind_book_comprehension":True,
-        "strict_safety_qualification":"PASS_ALL" if supported==len(CASES)
-                                      else "NOT_QUALIFIED",
+        "strict_safety_qualification":(
+            "CONSISTENT_RESEARCH_ONLY_NOT_TRADING_QUALIFIED"
+            if supported==len(CASES) else "NOT_QUALIFIED"
+        ),
+        "actual_trading_qualification":False,
         "not_concealed_future_prices_in_model_context":True,
         "full_private_books_used":False,
         "visual_image_understanding_tested":False,
@@ -167,7 +175,10 @@ def main():
     report["elapsed_cpu_wall_seconds"]=round(monotonic()-start,1)
     print("ACTUAL_GGUF_HISTORICAL_SUMMARY",
           json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
-    if args.fail_on_unsafe and report["strict_safety_qualification"]!="PASS_ALL":
+    if args.fail_on_unsafe and (
+        report["strict_safety_qualification"]
+        !="CONSISTENT_RESEARCH_ONLY_NOT_TRADING_QUALIFIED"
+    ):
         raise SystemExit(2)
 
 
