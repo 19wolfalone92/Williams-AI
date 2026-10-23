@@ -262,6 +262,14 @@ class LocalWilliamsModel:
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
+            "current_book_signal_proofs":[{
+                "setup":p.get("setup"),"side":p.get("side"),
+                "status":p.get("status"),
+                "source_rule_id":p.get("source_rule_id"),
+                "currently_valid":p.get("is_current_eligible_observation",False),
+            } for p in chart_analysis.get("signal_proofs",{})
+                .get("observed_proofs",[])[-12:]
+                if isinstance(p,dict)],
             "market_position":{
                 "structure":position.get("structure"),
                 "recent_levels":position.get("recent_levels",{}),
@@ -401,6 +409,9 @@ class LocalWilliamsModel:
             "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
             "а не копируй графическую форму из иллюстрации. "
             "Наблюдение признака не доказывает будущую цену или торговый fill. "
+            "Проверяй current_book_signal_proofs: старый фрактал, сломанный "
+            "фильтр Teeth, не допущенный NTD сигнал и частичные 5 пуль "
+            "нельзя представлять новым завершённым сигналом входа. "
             "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, TC1_FRACTAL, TC1_FIVE_MAGIC_BULLETS, "
             "AO_ZERO_CROSS, AO_SAUCER, AO_TWIN_PEAKS, AC, ZONE, "
             "BALANCE_LINE, WAVE_HYPOTHESIS, NO_SETUP, UNKNOWN), "
