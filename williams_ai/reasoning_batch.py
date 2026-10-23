@@ -24,6 +24,8 @@ def examine_many(
     editions:tuple[str,...]=EDITION_ORDER,
     checkpoints:tuple[int,...]=(299,599,899,1199),
     book_index:Path|None=None,
+    coach_notebook:Path|None=None,
+    model_id:str|None=None,
 )->dict[str,Any]:
     if not markets:
         raise ValueError("Need historical market data")
@@ -49,7 +51,8 @@ def examine_many(
                     result=evaluate_historical_thought(
                         symbol,market["bars"],tick_size=market["tick_size"],
                         bar_index=last_bar,edition=edition,model=model,
-                        book_index=book_index)
+                        book_index=book_index,
+                        coach_notebook=coach_notebook,model_id=model_id)
                 except (ValueError,TypeError,RuntimeError,KeyError,IndexError) as exc:
                     # Do not stop the exam when the GGUF emits invalid JSON.
                     malformed_cases+=1
@@ -113,6 +116,7 @@ def main()->None:
     p=argparse.ArgumentParser(description="Four-book, 15-market closed-chart local GGUF consistency exam")
     p.add_argument("--local-model",type=Path,required=True)
     p.add_argument("--book-index",type=Path,help="Private source-page database outside git")
+    p.add_argument("--coach-notebook",type=Path,help="Private model-specific learning journal")
     p.add_argument("--dataset",type=Path,default=FROZEN_DATA)
     p.add_argument("--gpu-layers",type=int,default=0)
     p.add_argument("--edition",choices=[*EDITION_ORDER,"ALL"],default="ALL")
@@ -127,8 +131,13 @@ def main()->None:
     select=dict(sorted(all_markets.items())[:args.pairs])
     positions={1:(899,),2:(599,999),4:(299,599,899,1199)}[args.checkpoints]
     editions=EDITION_ORDER if args.edition=="ALL" else (args.edition,)
+    model_id=None
+    if args.coach_notebook:
+        from .study_cli import _model_identity
+        model_id=_model_identity(args.local_model)
     output=examine_many(select,model,editions=editions,checkpoints=positions,
-                        book_index=args.book_index)
+                        book_index=args.book_index,
+                        coach_notebook=args.coach_notebook,model_id=model_id)
     print(json.dumps(output,ensure_ascii=False,indent=2))
 
 
