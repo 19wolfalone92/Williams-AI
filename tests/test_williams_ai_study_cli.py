@@ -77,7 +77,7 @@ class FourBookStudyCLITests(unittest.TestCase):
                                      budget_per_book=2,rounds=4)
         self.assertEqual(run["new_study_chunks"],0)
         self.assertGreater(run["failed_or_retry_chunks"],0)
-        self.assertEqual(run["progress"]["books"][2]["studied_chunks"],0)
+        self.assertEqual(next(x for x in run["progress"]["books"] if x["edition"]=="TC2")["studied_chunks"],0)
         self.assertLessEqual(len(student.calls),2)
 
     def test_model_identity_uses_actual_bytes_not_name(self):
