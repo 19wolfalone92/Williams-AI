@@ -101,6 +101,18 @@ def audit_reasoning(
         fail("WAVE_DEGREE_UNVERIFIABLE_FROM_CURRENT_EVIDENCE")
     if proposal.get("future_candle_used") is True:
         fail("FUTURE_CANDLE_CLAIM")
+    # In the REAL Qwen3 1.7B historical exam, a structured WM2 / WM3
+    # was sometimes accompanied by the literal explanation "NO_SETUP" or
+    # "No setup confirmed". A structurally valid JSON must not be graded as
+    # reasoned knowledge when the answer itself denies its selected signal.
+    reason=proposal.get("reason")
+    if isinstance(reason,str) and setup not in {"NO_SETUP","UNKNOWN","WAVE_HYPOTHESIS"}:
+        import re
+        negation=reason.strip().lower()
+        if (re.match(r"^no_setup(?:\\b|[\\s.:;,])",negation)
+                or re.match(r"^no (?:valid |confirmed |clear )?setup (?:found|confirmed|observed|detected)(?:\\b|[.:;,])",negation)
+                or re.match(r"^нет подтвержд[её]нн(?:ого|ых) (?:сигнала|сетапа|паттерна)(?:\\b|[.:;,])",negation)):
+            fail("EXPLANATION_CONTRADICTS_SELECTED_SETUP")
     if proposal.get("exit_basis")=="OPPOSITE_SIGNAL_ONLY":
         fail("UNEXECUTED_OPPOSITE_WISE_MAN_NOT_A_TRADE_EXIT")
     if proposal.get("exit_basis") in {"SL_CONFIRMED","EXECUTED_REVERSAL"}:
