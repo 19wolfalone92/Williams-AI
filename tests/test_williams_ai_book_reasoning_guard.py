@@ -164,5 +164,49 @@ class GateTests(unittest.TestCase):
             self.assertNotIn(self.rows[-1]["close_time"],prompt)
 
 
+    def test_batch_exam_never_calls_no_setup_100pct_book_mastery(self):
+        from williams_ai.reasoning_batch import examine_many
+        class Conservative:
+            def __init__(self):self.called=0
+            def propose_chart_reasoning(self,chart,*,edition):
+                self.called+=1
+                return {
+                    "symbol":chart["symbol"],"as_of":chart["as_of"],
+                    "edition":edition,"setup":"NO_SETUP","side":"NONE",
+                    "trade_action":None,"execution_allowed":False,
+                    "reason":"No order or definitive wave proof",
+                }
+        model=Conservative()
+        two={
+            k:frozen_markets()[k] for k in ("BTCUSDT","ETHUSDT")
+        }
+        result=examine_many(two,model,editions=("TC2","NTD"),checkpoints=(299,599))
+        self.assertEqual(result["tested_cases"],8)
+        self.assertEqual(model.called,8)
+        self.assertEqual(result["source_consistency_percent"],100)
+        self.assertEqual(result["abstained_or_unknown_cases"],8)
+        self.assertEqual(result["substantive_claim_cases"],0)
+        self.assertIsNone(result["substantive_source_consistency_percent"])
+        self.assertIsNone(result["full_book_understanding_percent"])
+        self.assertFalse(result["execution_allowed"])
+
+    def test_batch_exam_exposes_fabricated_execution_claims(self):
+        from williams_ai.reasoning_batch import examine_many
+        class Fabricator:
+            def propose_chart_reasoning(self,chart,*,edition):
+                return {
+                    "symbol":chart["symbol"],"as_of":chart["as_of"],
+                    "edition":edition,"setup":"WM1","side":"LONG",
+                    "trade_action":{"buy":True},"exchange_fill_confirmed":True,
+                    "wave_degree_verified":True,
+                }
+        result=examine_many({"ETHUSDT":self.x},Fabricator(),
+                            editions=("TC2",),checkpoints=(299,))
+        self.assertEqual(result["tested_cases"],1)
+        self.assertEqual(result["unsupported_claim_cases"],1)
+        self.assertIn("CANNOT_CONFIRM_EXCHANGE_FILL_FROM_OHLC",result["failure_counts"])
+        self.assertIn("WAVE_DEGREE_UNVERIFIABLE_FROM_CURRENT_EVIDENCE",result["failure_counts"])
+        self.assertIsNone(result["trade_action"])
+
 if __name__=="__main__":
     unittest.main()
