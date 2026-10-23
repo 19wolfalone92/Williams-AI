@@ -33,7 +33,11 @@ LESSONS: dict[str,tuple[str,str]]={
     ),
     "WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR":(
         "TC2.WM3",
-        "A prior WM3 price touch is not a fresh current-bar breakout. Separate pending from touched."
+        "A prior WM3 price touch is not a fresh current-bar breakout. If a confirmed valid fractal is still pending, report PENDING_TRIGGER; otherwise abstain."
+    ),
+    "WM3_ENTRY_STATE_MUST_BE_PENDING_OR_FRESH_CLOSED_TOUCH":(
+        "TC2.WM3",
+        "WM3 requires an explicit confirmed pending fractal (PENDING_TRIGGER) or a verified price touch on the last closed bar (CLOSED_BAR_TOUCH_ONLY). Other states do not prove WM3."
     ),
     "WM3_NO_CONFIRMED_FRACTAL_IN_OBSERVATION":(
         "TC2.WM3",
