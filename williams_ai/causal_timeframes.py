@@ -119,6 +119,18 @@ def top_down_market_evidence(
             "wave_alternatives": result["wave_structure"]["impulse_alternatives"],
             "corrective_alternatives": result["wave_structure"]["corrective_alternatives"],
             "wave_degree": result["wave_structure"]["wave_degree"],
+            "principle_first_structure": (
+                result["principle_evidence"]["observable_facts"]
+                      ["multi_resolution_price_structure"]
+            ),
+            "principle_first_market_scenarios": [
+                q["hypothesis"] for q in result["principle_evidence"]
+                    ["competing_market_scenarios"]
+                if q["status"]=="EVIDENCE_COMPATIBLE_NOT_PREDICTION"
+            ],
+            "ao_near_zero_not_w4_proof": result["principle_evidence"]
+                ["observable_facts"]["momentum"]
+                ["ao_near_zero_relative_to_recent_amplitude"],
             "trade_action": None,
         }
         higher.append((tf,ctx["market_context"]))
