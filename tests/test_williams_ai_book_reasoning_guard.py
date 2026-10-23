@@ -150,6 +150,23 @@ class GateTests(unittest.TestCase):
         self.assertIn("CROSS_EDITION_RULE_MIXING",x["hard_failures"])
         self.assertIn("HALLUCINATED_SOURCE_RULE",x["hard_failures"])
 
+    def test_stale_wm1_even_if_in_candidate_list_cannot_be_current_entry(self):
+        fake={**self.observed,"candidates":[{
+            "type":"WM1","side":"LONG","angle_heuristic":True,
+            "bar_time":"2026-09-01T08:59:59+00:00",
+            "state":"REVERSAL_BAR_VISIBLE_ANGULATION_REVIEW_REQUIRED",
+        }]}
+        claim=self.prop(setup="WM1",side="LONG",
+                        entry_state="PENDING_TRIGGER",
+                        rule_ids=["TC2.WM1.BAR"])
+        x=audit_reasoning(fake,claim)
+        self.assertIn("WM1_REVERSAL_BAR_FROM_PAST_NOT_CURRENT_CANDLE",
+                      x["hard_failures"])
+        fake["candidates"][0]["bar_time"]=self.as_of
+        fresh=audit_reasoning(fake,claim)
+        self.assertNotIn("WM1_REVERSAL_BAR_FROM_PAST_NOT_CURRENT_CANDLE",
+                         fresh["hard_failures"])
+
     def test_wm1_visual_uncertainty_stays_visible(self):
         obs={**self.observed,"candidates":[
             {"type":"WM1","side":"LONG","angle_heuristic":False,
