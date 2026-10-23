@@ -388,6 +388,9 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
             "status":"SHAPE_ONLY_SUBWAVE_COUNTS_NOT_CONFIRMED",
             "source":"TC1 PDF 53-54; manual graph validation required",
         })
+    from .signal_proofs import current_signal_proofs
+    # Verify currently observable signals independently of pictures or LLM.
+    result["signal_proofs"]=current_signal_proofs(result)
     result["warnings"].append(
         "WM1 angulation numerical check is an approximation; no verified nested Elliott wave labelling.")
     return result
