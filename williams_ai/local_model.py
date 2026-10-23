@@ -432,7 +432,10 @@ class LocalWilliamsModel:
             "exit_basis (NONE/UNKNOWN), wave_degree_verified (false), "
             "exchange_fill_confirmed (false), exchange_sl_confirmed (false), "
             "trade_action (null), execution_allowed (false), "
-            "reason (кратко). При отсутствии данных — NO_SETUP."
+            "reason (кратко). При отсутствии данных — NO_SETUP. "
+            "Поле reason обязано соответствовать setup: нельзя выбрать WM2/WM3, "
+            "а затем написать NO_SETUP или No setup found. "
+            "При отсутствии подтверждений выбирай NO_SETUP и объясняй, какой факт отсутствует."
         )
         # Optional llama.cpp JSON-Schema constrained decoding prevents weak
         # models from inventing timestamps, editions or a fake exchange fill.
@@ -542,14 +545,26 @@ class LocalWilliamsModel:
                 "required":list(properties),
                 "additionalProperties":False,
             }
-        response=self._model.create_chat_completion(
-            messages=[
-                {"role":"system","content":system},
-                {"role":"user","content":user_context},
-            ],
-            response_format=response_format,
-            temperature=0.0,max_tokens=650,stream=False,
-        )
+        try:
+            response=self._model.create_chat_completion(
+                messages=[
+                    {"role":"system","content":system},
+                    {"role":"user","content":user_context},
+                ],
+                response_format=response_format,
+                temperature=0.0,max_tokens=650,stream=False,
+            )
+        except ValueError as exc:
+            # Do not send arbitrary llama.cpp exception strings, local paths
+            # or private page excerpts into public CI logs. Stable codes
+            # distinguish context overflow from schema/runtime failures.
+            diagnostic=str(exc).lower()
+            if ("context" in diagnostic or "n_ctx" in diagnostic
+                    or ("prompt" in diagnostic and "token" in diagnostic)):
+                raise ValueError("GGUF_RUNTIME_CONTEXT_WINDOW_EXCEEDED") from exc
+            if "schema" in diagnostic or "grammar" in diagnostic:
+                raise ValueError("GGUF_RUNTIME_GRAMMAR_ERROR") from exc
+            raise ValueError("GGUF_RUNTIME_VALUE_ERROR") from exc
         choices=response.get("choices",[]) if isinstance(response,dict) else []
         raw=choices[0].get("message",{}).get("content","") if choices else ""
         # Never turn an invalid or truncated model response into a plausible
