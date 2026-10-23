@@ -204,6 +204,22 @@ class LocalWilliamsModel:
             "none_is_a_trade_signal":True,
             "wave_degree_verified":False,
         }
+        magic=chart_analysis.get("tc1_five_magic_bullets",{})
+        bullet_cases=magic.get("last_n_wave_candidates",[]) if isinstance(magic,dict) else []
+        bullets={
+            "source":"TC1_Magic_Bullets_NOT_NTD_Five_Dimensions",
+            "zero_point_is_hypothesis_not_executable_entry":True,
+            "independent_signs":[
+                {"terminal_at":p.get("terminal_extreme_at"),
+                 "direction":p.get("direction_of_prior_impulse"),
+                 "observed":p.get("observed_bullets"),
+                 "unknown":p.get("unknown_bullets"),
+                 "evidence_status":{k:v.get("status") for k,v in p.get("bullets",{}).items()}}
+                for p in bullet_cases[-2:] if isinstance(p,dict)
+            ],
+            "trading_requires_separate_confirmed_TC2_NTD_Course_rules":True,
+            "source_page_references":"TC1 PDF 53-54,60-65,82-84",
+        }
         observation={
             "symbol":chart_analysis.get("symbol"),
             "as_of":chart_analysis.get("as_of"),
@@ -211,6 +227,7 @@ class LocalWilliamsModel:
             "indicators":chart_analysis.get("evidence",{}),
             "complete_higher_timeframe_context":chart_analysis.get("higher_timeframe_context",{}),
             "principle_first_nonlinear_evidence":mechanism_brief,
+            "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
             "market_position":{
                 "structure":position.get("structure"),
@@ -268,6 +285,13 @@ class LocalWilliamsModel:
             "Не утверждай исполнение заявки или SL по OHLC. "
             "Не превращай непроверенные волны в подтверждённые. "
             "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
+            "Пять Волшебных Пуль TC1 — дивергенция W3/W5, целевая зона, "
+            "терминальный фрактал, Squat с настоящим тик-объёмом, поворот "
+            "Profitunity MACD 5/34/5. Это НЕ пять измерений NTD и НЕ "
+            "автоматический вход, выход или стоп. "
+            "Не симулируй человеческий страх/жадность; воспроизводи "
+            "дисциплину: не мсти убыткам, не увеличивай риск без плана, "
+            "не отменяй SL, при новых фактах пересматривай свою разметку. "
             "Сопоставляй подтверждённые свинги разных масштабов, Alligator, "
             "AO, AC, дивергенции, условия продолжения и коррекции. "
             "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
