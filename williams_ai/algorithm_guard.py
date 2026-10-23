@@ -239,6 +239,18 @@ def audit_reasoning(
             note("NTD_ZONE_OR_BALANCE_LINE_NOT_A_STANDALONE_FIRST_ENTRY")
     else:
         note("STRUCTURAL_INTERPRETATION_ONLY_NOT_ENTRY")
+    # Independent second gate for full real historical chart passports.
+    # Source existence / time / price state are proof obligations, not
+    # self-reported model confidence. Synthetic partial test observations
+    # lacking a manifest continue to be diagnosed by the legacy checks.
+    book=observation.get("signal_proofs")
+    if isinstance(book,dict) and setup in {
+        "WM1","WM2","WM3","TC1_FIVE_MAGIC_BULLETS",
+        "AO_ZERO_CROSS","AO_SAUCER","AO_TWIN_PEAKS","AC",
+    }:
+        from .signal_proofs import proof_supports_current_claim
+        if not proof_supports_current_claim(book,setup,side,entry):
+            fail("NO_CAUSAL_CURRENT_SOURCE_EVIDENCE_FOR_CLAIM")
     return {
         "mode":"READ_ONLY_REASONING_AUDIT",
         "symbol":observation.get("symbol"),
