@@ -185,12 +185,32 @@ class LocalWilliamsModel:
                   "confirmed_at","price_touch_observed_at",
                   "entry_trigger","teeth_filter_at_trigger","angle_heuristic")
             candidates.append({key:item[key] for key in keys if key in item})
+        # The trader's job is to reason about changing mechanisms, NOT
+        # memorize silhouettes from printed Elliott illustrations.
+        principles=chart_analysis.get("principle_evidence",{})
+        pf=principles.get("observable_facts",{}) if isinstance(principles,dict) else {}
+        candidate_scenarios=principles.get("competing_market_scenarios",[]) if isinstance(principles,dict) else []
+        mechanism_brief={
+            "principle":"NONLINEAR_MARKET_EVIDENCE_NOT_BOOK_PICTURE_MATCH",
+            "confirmed_structure_by_scale":pf.get("multi_resolution_price_structure",{}),
+            "ao_ac_state":pf.get("momentum",{}),
+            "volatility_state":pf.get("volatility",{}).get("state")
+                if isinstance(pf.get("volatility"),dict) else "UNKNOWN",
+            "competing_unproven_scenarios":[{
+                "kind":q.get("hypothesis"),"status":q.get("status"),
+                "supports":q.get("supporting_observations",[])[:3],
+                "contradicts":q.get("contradicting_observations",[])[:2]
+            } for q in candidate_scenarios[:5] if isinstance(q,dict)],
+            "none_is_a_trade_signal":True,
+            "wave_degree_verified":False,
+        }
         observation={
             "symbol":chart_analysis.get("symbol"),
             "as_of":chart_analysis.get("as_of"),
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
             "complete_higher_timeframe_context":chart_analysis.get("higher_timeframe_context",{}),
+            "principle_first_nonlinear_evidence":mechanism_brief,
             "observed_candidates":candidates,
             "market_position":{
                 "structure":position.get("structure"),
@@ -247,6 +267,12 @@ class LocalWilliamsModel:
             "Каждое утверждение относится к переданному изданию. "
             "Не утверждай исполнение заявки или SL по OHLC. "
             "Не превращай непроверенные волны в подтверждённые. "
+            "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
+            "Сопоставляй подтверждённые свинги разных масштабов, Alligator, "
+            "AO, AC, дивергенции, условия продолжения и коррекции. "
+            "Держи конкурирующие сценарии, ищи их опровержения и признаки, "
+            "а не копируй графическую форму из иллюстрации. "
+            "Наблюдение признака не доказывает будущую цену или торговый fill. "
             "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, TC1_FRACTAL, "
             "AO_ZERO_CROSS, AO_SAUCER, AO_TWIN_PEAKS, AC, ZONE, "
             "BALANCE_LINE, WAVE_HYPOTHESIS, NO_SETUP, UNKNOWN), "
