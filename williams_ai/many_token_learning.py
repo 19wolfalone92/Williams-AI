@@ -169,6 +169,17 @@ def main()->None:
     from .genuine_graph_audit import genuine_market_graph_audit
     graph_audit=genuine_market_graph_audit(train["markets"])
     report=learn_and_evaluate(train)
+    # This is a SEPARATE stricter learning experiment: train only on
+    # January, purge labels crossing into February, validate in February
+    # without looking at any 2026 outcomes. The earlier Jan/Feb->2026
+    # research curve remains visible but cannot authorize promotion.
+    from .temporal_qualification import qualify_verified_training
+    calendar_gate=qualify_verified_training(train["markets"])
+    report["strict_training_only_calendar_validation"]={
+        k:v for k,v in calendar_gate.items() if k!="per_symbol"
+    }
+    report["research_model_promotion_allowed"]=False
+    report["legacy_joint_jan_feb_fit_is_not_qualified_for_trading"]=True
     report["real_causal_graph_audit"]={
         k:v for k,v in graph_audit.items() if k!="per_token"
     }
@@ -180,6 +191,9 @@ def main()->None:
           json.dumps({k:v for k,v in report.items() if k not in
                       ("per_2026_symbol","symbols_unavailable")},
                      ensure_ascii=False,sort_keys=True),flush=True)
+    print("PURGED_JAN_FEB_RESEARCH_QUALIFICATION",
+          json.dumps(report["strict_training_only_calendar_validation"],
+                     sort_keys=True),flush=True)
     print("GENUINE_MULTITOKEN_GRAPH_AUDIT",
           json.dumps(report["real_causal_graph_audit"],sort_keys=True),flush=True)
     print("SYMBOL_SET",json.dumps({"available":train["available"],
