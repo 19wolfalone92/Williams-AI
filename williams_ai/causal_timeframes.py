@@ -43,7 +43,7 @@ def aggregate_closed_h1(
         # Binance klines close at UTC hh:59:59.999.
         if (ms + 1) % HOUR_MS != 0:
             raise ValueError("H1 candle close must be aligned to UTC hour boundary")
-        key = (ms + 1) // (hours * HOUR_MS)
+        key = ms // (hours * HOUR_MS)
         slots.setdefault(key, []).append(row)
     out = []
     for key in sorted(slots):
