@@ -248,7 +248,7 @@ class FiveMagicBulletsTests(unittest.TestCase):
             def __init__(self,**_):self.calls=[]
             def create_chat_completion(self,**args):
                 self.calls.append(args)
-                content=__import__("json").loads(kwargs["messages"][1]["content"])
+                content=__import__("json").loads(args["messages"][1]["content"])
                 reply={"symbol":content["chart"]["symbol"],"as_of":content["chart"]["as_of"],
                        "edition":content["edition"],"setup":"NO_SETUP","side":"NONE",
                        "rule_ids":[],"trade_action":None,"execution_allowed":False}
