@@ -1,0 +1,66 @@
+name: Williams AI REAL Qwen3 1.7B model competence evaluation
+
+on:
+  push:
+    branches:
+      - experiment/real-qwen3-1p7b-gguf-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  actual-one-point-seven-gguf-inference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HOME: /tmp/williams_public_models
+      MODEL_FILE: Qwen3-1.7B-Q4_K_M.gguf
+      MODEL_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python causal/safety contracts
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Real local CPU GGUF inference runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download PINNED publicly licensed Qwen3 1.7B (no private books)
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          import os
+          dest=Path('/tmp/verified_williams_public_gguf')
+          dest.mkdir(parents=True,exist_ok=True)
+          downloaded=hf_hub_download(
+            repo_id='unsloth/Qwen3-1.7B-GGUF',
+            revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+            filename=os.environ['MODEL_FILE'],
+            local_dir=str(dest))
+          print('REAL_1P7B_MODEL_FILE',downloaded)
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          print('REAL_1P7B_MODEL_HASH_AND_BYTES',
+                actual_gguf_sha256(Path(downloaded),os.environ['MODEL_SHA256']))
+          PY
+      - name: ACTUAL 1.7B reasoning, source exam and H1/H4/D1 decision grammar
+        run: |
+          set -o pipefail
+          python -m williams_ai.real_gguf_acceptance \
+            --local-model "/tmp/verified_williams_public_gguf/${MODEL_FILE}" \
+            --expected-sha256 "${MODEL_SHA256}" \
+            --max-questions 10 --history-cases 2 --ctx 8192 \
+            --require-public-smoke-pass | tee /tmp/williams_real_1p7b_exam.log
+      - name: Upload only PUBLIC 1.7B model research results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-qwen3-1p7b-real-evaluation
+          path: /tmp/williams_real_1p7b_exam.log
+          if-no-files-found: ignore
+          retention-days: 5
