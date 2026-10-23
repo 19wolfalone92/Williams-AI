@@ -15,7 +15,8 @@ _ALLOWED_ED = {"TC1","NTD","TC2","COURSE"}
 _TRADE_SETUPS = {"WM1","WM2","WM3"}
 _NTD_SETUPS={"AO_ZERO_CROSS","AO_SAUCER","AO_TWIN_PEAKS","AC","ZONE","BALANCE_LINE"}
 _NONENTRY_SETUPS={"WAVE_HYPOTHESIS","NO_SETUP","UNKNOWN"}
-_ALL_SETUP=_TRADE_SETUPS|_NTD_SETUPS|_NONENTRY_SETUPS
+_TC1_SETUPS={"TC1_FRACTAL"}
+_ALL_SETUP=_TRADE_SETUPS|_NTD_SETUPS|_NONENTRY_SETUPS|_TC1_SETUPS
 _ALLOWED_EXIT={"NONE","SL_CONFIRMED","OPPOSITE_SIGNAL_ONLY","EXECUTED_REVERSAL",
                "STRUCTURAL_INVALIDATION","UNKNOWN"}
 
@@ -122,6 +123,7 @@ def audit_reasoning(
         "WM1":{"TC2.WM1.BAR","TC2.WM1.ANG","TC2.WM1.TRIGGER","TC2.WM1.STOP"},
         "WM2":{"TC2.WM2"},
         "WM3":{"TC2.WM3"},
+        "TC1_FRACTAL":{"TC1.FRACTAL"},
         "AO_ZERO_CROSS":{"NTD.AO"},
         "AO_SAUCER":{"NTD.AO"},
         "AO_TWIN_PEAKS":{"NTD.AO"},
@@ -144,6 +146,10 @@ def audit_reasoning(
         fail("NTD_PATTERN_IS_NOT_TC2_WISE_MAN")
     if setup in _TRADE_SETUPS and side=="NONE":
         fail("SETUP_SIDE_REQUIRED")
+    if setup in _TC1_SETUPS and source!="TC1":
+        fail("TC1_INITIATING_FRACTAL_CANNOT_USE_OTHER_EDITION")
+    if setup in _TC1_SETUPS and side=="NONE":
+        fail("TC1_FRACTAL_SIDE_REQUIRED")
     if setup=="WM1":
         matches=[c for c in evidence if c.get("type")=="WM1"
                  and c.get("side")==side]
@@ -170,6 +176,16 @@ def audit_reasoning(
             fail("WM3_NO_VERIFIED_TEETH_PASS_AT_PRICE_TOUCH")
         else:
             note("WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL")
+    elif setup=="TC1_FRACTAL":
+        shapes=observation.get("edition_evidence",{}).get("TC1",{}).get("recent_formations",[])
+        matched=[x for x in shapes if x.get("side")==side
+                 and x.get("type")=="TC1_INITIATING_FRACTAL"]
+        if not matched:
+            fail("TC1_FRACTAL_NOT_OBSERVED_ON_CLOSED_BARS")
+        else:
+            note("TC1_FRACTAL_SHAPE_IS_NOT_TRADE_EXECUTION")
+            if any(x.get("same_level_bars_skipped") for x in matched):
+                note("EQUAL_LEVEL_FRACTAL_REQUIRES_VISUAL_INSPECTION")
     elif setup in _NTD_SETUPS:
         ntd=observation.get("edition_evidence",{}).get("NTD",{})
         if not ntd.get("entry_admitted"):
