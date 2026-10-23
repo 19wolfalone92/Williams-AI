@@ -159,6 +159,8 @@ def audit_reasoning(
             note("WM1_ANGLULATION_HUMAN_IMAGE_REVIEW_REQUIRED")
             if not any(x.get("angle_heuristic") is True for x in matches):
                 note("WM1_NUMERICAL_ANGULATION_NOT_EVEN_POSITIVE")
+                if entry in {"CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"}:
+                    fail("WM1_ENTRY_CLAIM_WITHOUT_EVEN_ANGLE_HEURISTIC")
     elif setup=="WM2":
         matches=[c for c in evidence if c.get("type")=="WM2_SUPER_AO"
                  and c.get("side")==side]
@@ -176,6 +178,14 @@ def audit_reasoning(
             fail("WM3_NO_VERIFIED_TEETH_PASS_AT_PRICE_TOUCH")
         else:
             note("WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL")
+        if entry=="PENDING_TRIGGER" and not any(
+                x.get("state")=="AWAITING_PRICE_TRIGGER" for x in matches):
+            fail("WM3_NO_CURRENT_PENDING_VALID_FRACTAL")
+        if entry=="CLOSED_BAR_TOUCH_ONLY" and not any(
+                x.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                and x.get("price_touch_observed_at")==observation.get("as_of")
+                for x in matches):
+            fail("WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR")
     elif setup=="TC1_FRACTAL":
         shapes=observation.get("edition_evidence",{}).get("TC1",{}).get("recent_formations",[])
         matched=[x for x in shapes if x.get("side")==side
@@ -190,6 +200,8 @@ def audit_reasoning(
         ntd=observation.get("edition_evidence",{}).get("NTD",{})
         if not ntd.get("entry_admitted"):
             note("NTD_FIRST_OUTSIDE_FRACTAL_BREAKOUT_NOT_ESTABLISHED")
+            if entry in {"PENDING_TRIGGER","CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"}:
+                fail("NTD_ENTRY_CLAIM_WITHOUT_FIRST_OUTSIDE_FRACTAL")
         named={
             "AO_ZERO_CROSS":"AO_ZERO_CROSS","AO_SAUCER":"AO_SAUCER_THREE_BAR",
             "AO_TWIN_PEAKS":"AO_TWIN_PEAKS_POSSIBLE",
