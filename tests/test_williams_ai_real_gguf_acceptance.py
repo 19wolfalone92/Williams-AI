@@ -25,7 +25,11 @@ class RealModelContractTests(unittest.TestCase):
             def __init__(self,**kwargs):self.kwargs=kwargs;self.calls=[]
             def create_chat_completion(self,**kwargs):
                 self.calls.append(kwargs)
-                return {"choices":[{"message":{"content":"{}"}}]}
+                payload=__import__("json").loads(kwargs["messages"][1]["content"])
+                response={"symbol":payload["chart"]["symbol"],"as_of":payload["chart"]["as_of"],
+                          "edition":payload["edition"],"setup":"NO_SETUP","side":"NONE",
+                          "rule_ids":[],"trade_action":None,"execution_allowed":False}
+                return {"choices":[{"message":{"content":__import__("json").dumps(response)}}]}
         with tempfile.TemporaryDirectory() as temp:
             path=Path(temp)/"fake.gguf"
             path.write_bytes(b"fake-content-only")
