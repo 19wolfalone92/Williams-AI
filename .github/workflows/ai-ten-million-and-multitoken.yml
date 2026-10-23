@@ -1,0 +1,59 @@
+name: Williams AI 10 MILLION counterfactual safety + many-token real market learning
+
+on:
+  push:
+    branches:
+      - experiment/million-scenario-multitoken-learning-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  ten-million-distinct-synthetic-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: All Williams AI no-order and causal contracts first
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Exactly 10,000,000 unique COUNTERFACTUAL checks (not model requests)
+        run: |
+          set -o pipefail
+          python -m williams_ai.ten_million_stress --cases 10000000 | tee /tmp/10m_counterfactual_readonly.log
+      - name: Save honest metamorphic research counts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ten-million-counterfactual-checks-not-neural-inference
+          path: /tmp/10m_counterfactual_readonly.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  many-verified-binance-tokens-self-learning:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Real SHA256 verified Jan-Feb 2025 USD-M tokens and logistic paper learner
+        run: |
+          set -o pipefail
+          python -m williams_ai.many_token_learning \
+            --workers 7 \
+            --out /tmp/williams_multitoken_honest_2025_training_2026_eval.json \
+            | tee /tmp/many_token_learning.log
+      - name: Save only real-archive coverage and research learning scores
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-real-market-many-token-paper-learning-report
+          path: |
+            /tmp/many_token_learning.log
+            /tmp/williams_multitoken_honest_2025_training_2026_eval.json
+          if-no-files-found: ignore
+          retention-days: 7
