@@ -1,0 +1,22 @@
+name: Williams AI fast causal historical 15-pair evaluation
+on:
+  push:
+    branches:
+      - experiment/causal-historical-comprehension-20261023
+permissions:
+  contents: read
+jobs:
+  causal-historical-fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify all Williams AI tests
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Causal multi-scale future-withheld diagnostic
+        run: |
+          python -m williams_ai.historical_comprehension --summary
+          python -m williams_ai.five_bullets_cli --summary
