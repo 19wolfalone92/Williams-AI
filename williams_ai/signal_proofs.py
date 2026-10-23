@@ -55,6 +55,9 @@ def current_signal_proofs(observation:dict[str,Any])->dict[str,Any]:
             elif (state=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
                   and c.get("price_touch_observed_at")==now):
                 status="CURRENT_CLOSED_BAR_TOUCH_TEETH_PASS_NOT_FILL"
+            elif (state=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
+                  and c.get("price_touch_observed_at") is None):
+                status="TEETH_PASS_BUT_TOUCH_DATE_UNKNOWN_NOT_ENTRY"
             elif state=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL":
                 status="OLD_FRACTAL_TOUCH_NOT_CURRENT_SIGNAL"
             elif state=="CLOSED_BAR_TOUCH_REJECTED_BY_TEETH":
@@ -166,6 +169,7 @@ def proof_supports_current_claim(proofbook:dict[str,Any],setup:str,
             else {
                 "CONFIRMED_FRACTAL_PENDING_PRICE_TRIGGER",
                 "CURRENT_CLOSED_BAR_TOUCH_TEETH_PASS_NOT_FILL",
+                "TEETH_PASS_BUT_TOUCH_DATE_UNKNOWN_NOT_ENTRY",
             }
         )
         return any(x["status"] in stage for x in items)
