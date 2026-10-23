@@ -45,7 +45,8 @@ class RealModelContractTests(unittest.TestCase):
             self.assertEqual(schema["properties"]["execution_allowed"]["enum"],[False])
             # A machine-confirmed fractal candidate may be DISCUSSED, not
             # executed; independent Teeth/time auditor remains in force.
-            synthetic={**chart,"candidates":chart["candidates"]+[{
+            synthetic={**chart,"candidates":[x for x in chart["candidates"]
+                                      if x.get("type")!="WM3_FRACTAL"]+[{
                 "type":"WM3_FRACTAL","side":"LONG",
                 "state":"AWAITING_PRICE_TRIGGER"}]}
             model.propose_chart_reasoning(synthetic,edition="TC2")
