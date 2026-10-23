@@ -31,6 +31,30 @@ class NTDSourceRulesTests(unittest.TestCase):
         b=read([-2]*5,[1,2,3,3,5])
         self.assertNotIn(("AC_ACCELERATION_CANDIDATE","LONG"),types(b))
 
+    def test_ac_histogram_sign_not_ao_sign_controls_signal_length(self):
+        # NTD PDF 73-76: AC above zero buys after TWO rising bars,
+        # even if AO is negative. Old implementation incorrectly required
+        # THREE simply because AO was below zero.
+        x=read([-2,-2,-2,-2],[1,1,2,3])
+        self.assertIn(("AC_ACCELERATION_CANDIDATE","LONG"),types(x))
+        self.assertIsNone(x["trade_action"])
+        self.assertTrue(all(s["trade_action"] is None for s in x["signals"]))
+
+    def test_ac_below_zero_requires_three_rising_columns_even_if_ao_positive(self):
+        # The converse: AO positive cannot substitute for AC sign.
+        x=read([2,2,2,2],[-4,-4,-3,-2])
+        self.assertNotIn(("AC_ACCELERATION_CANDIDATE","LONG"),types(x))
+        y=read([2,2,2,2],[-5,-4,-3,-2])
+        self.assertIn(("AC_ACCELERATION_CANDIDATE","LONG"),types(y))
+
+    def test_ac_short_mirror_uses_negative_ac_sign(self):
+        x=read([2,2,2,2],[-1,-1,-2,-3])
+        self.assertIn(("AC_ACCELERATION_CANDIDATE","SHORT"),types(x))
+        y=read([-2,-2,-2,-2],[4,4,3,2])
+        self.assertNotIn(("AC_ACCELERATION_CANDIDATE","SHORT"),types(y))
+        z=read([-2,-2,-2,-2],[5,4,3,2])
+        self.assertIn(("AC_ACCELERATION_CANDIDATE","SHORT"),types(z))
+
     def test_all_price_execution_remains_disallowed(self):
         x=read([1,2,3,4,5],[.1,.2,.3,.4,.5],initial_fractal_triggered=True)
         self.assertIsNone(x["trade_action"])

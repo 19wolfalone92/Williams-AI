@@ -346,7 +346,15 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
     # NTD remains an independent, observation-only source profile. A NTD
     # entry requires a separate proven initial outside-mouth fractal breakout
     # and must never piggyback TC2's Wise Men first-entry policy.
+    from .tc1_fractals import tc1_initiating_fractal_evidence
     result["edition_evidence"]={
+        "TC1": (
+            tc1_initiating_fractal_evidence(candles)
+            if not gaps else
+            {"profile":"TC1_INITIATING_FRACTALS","recent_formations":[],
+             "trade_action":None,"execution_allowed":False,
+             "status":"GAPPED_HISTORY_NOT_ELIGIBLE"}
+        ),
         "NTD": ntd_closed_bar_evidence(
             lines["ao"],lines["ac"],initial_fractal_triggered=False
         ),

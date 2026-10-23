@@ -132,6 +132,102 @@ class LocalWilliamsModel:
         return {"choice": choice if choice in {"A", "B", "C"} else "",
                 "reason": reason[:500] if isinstance(reason, str) else "Ответ не распознан"}
 
+    def propose_chart_reasoning(
+        self, chart_analysis: dict[str, Any], *, edition: str = "TC2"
+    ) -> dict[str, Any]:
+        """Local model's RESEARCH interpretation, never an executable order.
+
+        The response is deliberately fed to algorithm_guard by callers. It
+        cannot certify that a real exchange filled or acknowledged anything.
+        """
+        from .book_rules import registry
+        if edition not in {"TC1", "NTD", "TC2", "COURSE"}:
+            raise ValueError("Unknown edition")
+        if (not isinstance(chart_analysis, dict)
+                or chart_analysis.get("execution_allowed") is not False
+                or chart_analysis.get("gaps", 0)):
+            raise ValueError("Only gap-free read-only closed market analyses")
+        cards=[
+            {"id":c["id"],"summary":c["summary"],"pdf_pages":c["pdf_pages"],
+             "review_status":c["status"]}
+            for c in registry()["rule_cards"] if c["source"]==edition
+        ]
+        # Compact, losslessly structured source cards FIRST. Long original
+        # chart arrays were truncated at 19k chars AFTER source sorting,
+        # silently removing book citations and generating INVALID JSON.
+        # This context is a cautious sketch, not all data on the chart.
+        wave=chart_analysis.get("wave_structure",{})
+        position=chart_analysis.get("market_position",{})
+        candidates=[]
+        for item in chart_analysis.get("candidates",[])[-8:]:
+            if not isinstance(item,dict):
+                continue
+            keys=("type","side","state","bar_time","pivot_time",
+                  "confirmed_at","price_touch_observed_at",
+                  "entry_trigger","teeth_filter_at_trigger","angle_heuristic")
+            candidates.append({key:item[key] for key in keys if key in item})
+        observation={
+            "symbol":chart_analysis.get("symbol"),
+            "as_of":chart_analysis.get("as_of"),
+            "timeframe":chart_analysis.get("timeframe"),
+            "indicators":chart_analysis.get("evidence",{}),
+            "complete_higher_timeframe_context":chart_analysis.get("higher_timeframe_context",{}),
+            "observed_candidates":candidates,
+            "market_position":{
+                "structure":position.get("structure"),
+                "recent_levels":position.get("recent_levels",{}),
+                "divergences":position.get("divergences",[])[-2:],
+            },
+            "wave_structure":{
+                "wave_degree":wave.get("wave_degree","UNKNOWN"),
+                "recent_confirmed_swings":wave.get("recent_confirmed_swings",[])[-8:],
+                "impulse_alternatives":wave.get("impulse_alternatives",[])[-2:],
+                "corrective_alternatives":wave.get("corrective_alternatives",[])[-2:],
+            },
+            "edition_evidence":chart_analysis.get("edition_evidence",{}).get(edition,{}),
+        }
+        user_context=json.dumps({
+            "source_cards":cards,"edition":edition,"chart":observation,
+        },ensure_ascii=False)
+        if len(user_context)>16000:
+            raise ValueError("Model context exceeds safe input bound")
+        system=SYSTEM_INSTRUCTIONS+(
+            " Ты сдаёшь проверку знания книг и применения алгоритмов, НЕ торгуешь. "
+            "Каждое утверждение относится к переданному изданию. "
+            "Не утверждай исполнение заявки или SL по OHLC. "
+            "Не превращай непроверенные волны в подтверждённые. "
+            "Верни только JSON: symbol, as_of, edition, setup (WM1/WM2/WM3, TC1_FRACTAL, "
+            "AO_ZERO_CROSS, AO_SAUCER, AO_TWIN_PEAKS, AC, ZONE, "
+            "BALANCE_LINE, WAVE_HYPOTHESIS, NO_SETUP, UNKNOWN), "
+            "side (LONG/SHORT/NONE), rule_ids (идентификаторы карточек), "
+            "entry_state (NO_SETUP/CLOSED_CANDIDATE/PENDING_TRIGGER/"
+            "CLOSED_BAR_TOUCH_ONLY/UNKNOWN), "
+            "exit_basis (NONE/UNKNOWN), wave_degree_verified (false), "
+            "exchange_fill_confirmed (false), exchange_sl_confirmed (false), "
+            "trade_action (null), execution_allowed (false), "
+            "reason (кратко). При отсутствии данных — NO_SETUP."
+        )
+        response=self._model.create_chat_completion(
+            messages=[
+                {"role":"system","content":system},
+                {"role":"user","content":user_context},
+            ],
+            response_format={"type":"json_object"},
+            temperature=0.0,max_tokens=650,stream=False,
+        )
+        choices=response.get("choices",[]) if isinstance(response,dict) else []
+        raw=choices[0].get("message",{}).get("content","") if choices else ""
+        try:
+            proposal=json.loads(raw) if isinstance(raw,str) else {}
+        except json.JSONDecodeError:
+            proposal={}
+        if not isinstance(proposal,dict):
+            proposal={}
+        # Never repair unsupported claims silently to create a false pass.
+        if isinstance(proposal.get("reason"),str):
+            proposal["reason"]=proposal["reason"][:600]
+        return proposal
+
     def answer(
         self, question: str, report: dict[str, Any],
         *, notes: list[dict[str, Any]] | None = None

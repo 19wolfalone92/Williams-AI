@@ -81,18 +81,24 @@ def ntd_closed_bar_evidence(
                            "First local extremum and second turn found; complete oscillator "
                            "and Alligator context still require graph review.")
                     break
-    if _finite(ac, 4) and _finite(ao, 1):
-        momentum = ao[-1]
+    if _finite(ac, 4):
         for side in ("LONG", "SHORT"):
-            # NTD AC: 2 recent color bars if momentum aligns; 3 otherwise.
-            needed = 2 if (momentum > 0 if side == "LONG" else momentum < 0) else 3
+            # NTD source PDF pp73-76: the sign of the *AC histogram* on
+            # the current signal bar (NOT the AO sign) controls whether
+            # two or three color changes are needed. Crossing zero alone
+            # is never a signal.
+            sign_favors = (ac[-1] > 0 if side == "LONG" else ac[-1] < 0)
+            needed = 2 if sign_favors else 3
             sequence = ac[-(needed+1):]
+            if not all(v is not None for v in sequence):
+                continue
             if all((sequence[j] > sequence[j-1] if side == "LONG"
                     else sequence[j] < sequence[j-1])
                    for j in range(1, len(sequence))):
                 record("AC_ACCELERATION_CANDIDATE", side, "72-80",
-                       "AO sign determines required bar count; AC zero crossing "
-                       "itself is not a trading signal.")
+                       "The AC histogram SIGN on the actual signal candle "
+                       "determines two/three colors; AO sign is NOT this rule. "
+                       "An AC zero cross alone is not an entry trigger.")
     zone = "UNKNOWN"
     if _finite(ac,2) and _finite(ao,2):
         da, dc = ao[-1]-ao[-2], ac[-1]-ac[-2]

@@ -100,11 +100,25 @@ def _candidate(bars: list[Any], ind: dict[str, list[Any]], mode: str,
             if not _reversal(bars,ind,i,side):
                 continue
             trigger=round((bars[i].high if sign==1 else bars[i].low)+sign*tick,10)
-        stop=min(x.low for x in bars[i-4:i+1]) if sign==1 else max(x.high for x in bars[i-4:i+1])
+        if mode=="WM1":
+            # TC2 PDF 131: initial protection belongs beyond the opposing
+            # extreme of the ACTUAL reversal signal bar, not some arbitrary
+            # lowest/highest point in a five-bar window.
+            stop=bars[i].low if sign==1 else bars[i].high
+            stop_policy="TC2_WM1_SIGNAL_BAR_EXTREME"
+            source_rule="TC2.WM1.STOP"
+        else:
+            # Deliberately labeled a lab-only proxy; NOT a verified canonical
+            # WM2 / WM3 campaign stop-transfer algorithm.
+            stop=(min(x.low for x in bars[i-4:i+1]) if sign==1
+                  else max(x.high for x in bars[i-4:i+1]))
+            stop_policy="LAB_FIVE_BAR_STRUCTURAL_PROXY"
+            source_rule="TC2.WM3" if mode=="WM3" else "TC2.WM2"
         if sign*(trigger-stop)<=2*tick:
             continue
         results.append({"formed":i, "side":side, "trigger":trigger,
-                        "stop":stop, "type":mode})
+                        "stop":stop, "type":mode, "stop_policy":stop_policy,
+                        "source_rule":source_rule})
     return results
 
 
@@ -226,7 +240,9 @@ def simulate_one(
                         position={"side":side,"entry":entry,"qty":qty,
                                   "entry_fee":entry_fee,"stop":stop,"entered":i,"source":mode}
                         append(i,"SIM_ENTRY",side=side,entry=round(entry,8),
-                               stop=round(stop,8),qty=round(qty,8),source=mode)
+                               stop=round(stop,8),qty=round(qty,8),source=mode,
+                               stop_policy=signal["stop_policy"],
+                               source_rule=signal["source_rule"])
         # Stop-first within any OHLC bar, even ambiguous entry and stop touch.
         if position is not None:
             side=position["side"]

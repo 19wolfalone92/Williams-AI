@@ -89,3 +89,25 @@ jobs:
           PY
           python -m williams_ai.chart_cli /tmp/closed_chart.json --causal-top-down > /tmp/closed_passport.json
           grep -q "UNCONFIRMED_NESTED_DEGREES" /tmp/closed_passport.json
+
+      - name: Causal local GGUF decision-audit CLI without credentials
+        run: |
+          python - <<'PY'
+          from williams_ai.causal_paper_lab import frozen_markets
+          import json
+          from pathlib import Path
+          bars=frozen_markets()["ETHUSDT"]["bars"]
+          proposal={"symbol":"ETHUSDT","as_of":bars[300]["close_time"],
+                    "edition":"TC2","setup":"NO_SETUP","side":"NONE",
+                    "entry_state":"NO_SETUP","exit_basis":"NONE",
+                    "rule_ids":[],"trade_action":None,"execution_allowed":False}
+          Path("/tmp/no_trade_proposal.json").write_text(json.dumps(proposal))
+          PY
+          python -m williams_ai.reasoning_trial --symbol ETHUSDT --bar-index 300 \
+            --edition TC2 --proposal-file /tmp/no_trade_proposal.json > /tmp/ai_reasoning_report.json
+          grep -q "PROVISIONAL_REASONING_ONLY" /tmp/ai_reasoning_report.json
+          grep -q "INSUFFICIENT_CLOSED_HISTORY" /tmp/ai_reasoning_report.json
+          python - <<'PY'
+          from williams_ai.book_rules import coverage
+          print("FOUR_EDITION_RULE_CARDS",coverage())
+          PY
