@@ -69,6 +69,10 @@ MALFORMED_CODES={
     "GGUF_MALFORMED_JSON_RESPONSE",
     "GGUF_RESPONSE_IS_NOT_AN_OBJECT",
     "GGUF_MISSING_MANDATORY_DECISION_FIELDS",
+    "GGUF_RUNTIME_CONTEXT_WINDOW_EXCEEDED",
+    "GGUF_RUNTIME_GRAMMAR_ERROR",
+    "GGUF_RUNTIME_VALUE_ERROR",
+    "MODEL_CONTEXT_BUDGET_EXCEEDED_AFTER_CAUSAL_COMPACTION",
 }
 
 
@@ -122,6 +126,25 @@ class GuidedReadOnlyModel:
             self.latest=result
             return first
         rule_cards=[]
+        # When the model's prose literally denies its selected JSON setup,
+        # the correction must be about the SAME selected book signal, not a
+        # generic unrelated indicator. Source edits remain edition-bound.
+        if "EXPLANATION_CONTRADICTS_SELECTED_SETUP" in source_rule_errors:
+            chosen=first_audit.get("setup") if first_audit else None
+            rule_by_setup={
+                "WM1":"TC2.WM1.BAR","WM2":"TC2.WM2","WM3":"TC2.WM3",
+                "TC1_FRACTAL":"TC1.FRACTAL",
+                "TC1_FIVE_MAGIC_BULLETS":"TC1.MAGIC.DIVERGENCE",
+                "AO_ZERO_CROSS":"NTD.AO","AO_SAUCER":"NTD.AO",
+                "AO_TWIN_PEAKS":"NTD.AO","AC":"NTD.AC",
+                "ZONE":"NTD.ZONE","BALANCE_LINE":"NTD.BALANCE",
+            }
+            rule=rule_by_setup.get(chosen)
+            if rule is not None and rule.startswith(edition+"."):
+                rule_cards.append({
+                    "source":f"{edition}:RULE:{rule}",
+                    "excerpt":"Your structured setup and plain explanation contradicted each other. If the confirmed source setup is present, name and explain it consistently; otherwise choose NO_SETUP. Never claim actual execution.",
+                })
         for code in source_rule_errors:
             item=LESSONS.get(code)
             if item and item[0].startswith(edition+"."):
