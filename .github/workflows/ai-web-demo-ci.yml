@@ -111,3 +111,7 @@ jobs:
           from williams_ai.book_rules import coverage
           print("FOUR_EDITION_RULE_CARDS",coverage())
           PY
+
+      - name: Five Magic Bullets across 15 symbols and H1 H4 D1, no synthetic tick volume
+        run: |
+          python -m williams_ai.five_bullets_cli --summary
