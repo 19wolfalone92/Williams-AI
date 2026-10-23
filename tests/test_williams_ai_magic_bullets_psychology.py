@@ -87,6 +87,26 @@ class FiveMagicBulletsTests(unittest.TestCase):
                 for c in candidate["bullets"].values():
                     self.assertEqual(c["status"],"OBSERVED")
 
+    def test_bearish_five_bullets_are_mirror_of_bullish_on_all_timeframes(self):
+        for tf in ("M5","M15","H1","H4","D1"):
+            rows=maker(tf=tf)
+            for item in rows:
+                high,low=item["high"],item["low"]
+                item["high"],item["low"]=300-low,300-high
+                item["open"]=300-item["open"]
+                item["close"]=300-item["close"]
+            candles,gaps=validate_closed_bars(rows,tf,rows[-1]["close_time"])
+            self.assertEqual(gaps,0)
+            oscillator=[-x for x in ao_scenario(len(rows))]
+            info=five_magic_bullets(candles,oscillator,
+                                    data=rows,timeframe=tf)
+            self.assertEqual(info["wave_candidate_count"],1)
+            c=info["last_n_wave_candidates"][-1]
+            self.assertEqual(c["direction_of_prior_impulse"],"BEAR")
+            self.assertEqual(c["observed_bullets"],5)
+            self.assertTrue(c["all_five_observed"])
+            self.assertFalse(info["execution_allowed"])
+
     def test_missing_actual_tick_count_blocks_full_five(self):
         rows=maker(tick=False)
         r=five(rows)
