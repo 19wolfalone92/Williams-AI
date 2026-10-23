@@ -189,19 +189,11 @@ class LocalWilliamsModel:
         # are observable from CLOSED historical bars. They are added BEFORE
         # the model prompt is serialized so the small GGUF sees the difference
         # between a waiting fractal and a stale historical breakout.
-        has_pending_wm3=any(
-            q.get("type")=="WM3_FRACTAL"
-            and q.get("state")=="AWAITING_PRICE_TRIGGER"
-            and isinstance(q.get("confirmed_at"),str)
-            and q["confirmed_at"]<=chart_analysis.get("as_of","")
-            for q in candidates
-        )
-        has_current_wm3_touch=any(
-            q.get("type")=="WM3_FRACTAL"
-            and q.get("state")=="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
-            and q.get("price_touch_observed_at")==chart_analysis.get("as_of")
-            for q in candidates
-        )
+        from .decision_contract import contract_for_model
+        decision_contract=contract_for_model(chart_analysis,edition)
+        allowed_wm3=decision_contract["wm3_valid_setup_side_entry_state_combinations"]
+        has_pending_wm3=any(x["entry_state"]=="PENDING_TRIGGER" for x in allowed_wm3)
+        has_current_wm3_touch=any(x["entry_state"]=="CLOSED_BAR_TOUCH_ONLY" for x in allowed_wm3)
         # The trader's job is to reason about changing mechanisms, NOT
         # memorize silhouettes from printed Elliott illustrations.
         principles=chart_analysis.get("principle_evidence",{})
@@ -279,6 +271,7 @@ class LocalWilliamsModel:
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
             "observed_candidates":candidates,
+            "observed_book_setup_state_contract":decision_contract,
             "current_wm3_confirmation_states":{
                 "confirmed_fractal_waiting_for_future_price_break":has_pending_wm3,
                 "price_touched_valid_fractal_on_this_closed_bar":has_current_wm3_touch,
@@ -435,7 +428,11 @@ class LocalWilliamsModel:
             "reason (кратко). При отсутствии данных — NO_SETUP. "
             "Поле reason обязано соответствовать setup: нельзя выбрать WM2/WM3, "
             "а затем написать NO_SETUP или No setup found. "
-            "При отсутствии подтверждений выбирай NO_SETUP и объясняй, какой факт отсутствует."
+            "При отсутствии подтверждений выбирай NO_SETUP и объясняй, какой факт отсутствует. "
+            "Для WM3 обязательно проверяй точную тройку setup,side,entry_state из "
+            "observed_book_setup_state_contract: PENDING_TRIGGER — ещё не пробит, "
+            "CLOSED_BAR_TOUCH_ONLY — касание наблюдено именно сейчас. "
+            "Нет подходящей тройки — WM3 не выбирай; это не исполненный Binance fill."
         )
         # Optional llama.cpp JSON-Schema constrained decoding prevents weak
         # models from inventing timestamps, editions or a fake exchange fill.
