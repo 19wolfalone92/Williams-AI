@@ -178,20 +178,43 @@ class GateTests(unittest.TestCase):
         self.assertIn("WM1_ANGLULATION_HUMAN_IMAGE_REVIEW_REQUIRED",x["uncertainties"])
         self.assertIn("WM1_NUMERICAL_ANGULATION_NOT_EVEN_POSITIVE",x["uncertainties"])
 
-    def test_wm3_requires_teeth_at_breakout_not_formation(self):
-        proposal=self.prop(setup="WM3",side="LONG",rule_ids=["TC2.WM3"])
+    def test_wm3_requires_pending_fractal_or_current_candle_trigger(self):
         obs={**self.observed,"candidates":[{
             "type":"WM3_FRACTAL","side":"LONG",
+            "confirmed_at":self.as_of,
             "state":"AWAITING_PRICE_TRIGGER",
             "teeth_filter_at_confirmation":True,
         }]}
-        x=audit_reasoning(obs,proposal)
-        self.assertIn("WM3_NO_VERIFIED_TEETH_PASS_AT_PRICE_TOUCH",x["hard_failures"])
+        vague=audit_reasoning(obs,self.prop(
+            setup="WM3",side="LONG",entry_state="NO_SETUP",
+            rule_ids=["TC2.WM3"]))
+        self.assertIn(
+            "WM3_ENTRY_STATE_MUST_BE_PENDING_OR_FRESH_CLOSED_TOUCH",
+            vague["hard_failures"]
+        )
+        pending=audit_reasoning(obs,self.prop(
+            setup="WM3",side="LONG",entry_state="PENDING_TRIGGER",
+            rule_ids=["TC2.WM3"]))
+        self.assertEqual(pending["hard_failures"],[])
+        self.assertIn(
+            "WM3_AWAITING_BREAKOUT_NOT_AN_EXCHANGE_FILL",
+            pending["uncertainties"]
+        )
         obs["candidates"][0]["state"]="CLOSED_BAR_TOUCH_PASSES_TEETH_NOT_EXCHANGE_FILL"
-        x=audit_reasoning(obs,proposal)
-        self.assertEqual(x["verdict"],"PROVISIONAL_REASONING_ONLY")
-        self.assertIn("WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL",x["uncertainties"])
-        self.assertIsNone(x["trade_action"])
+        obs["candidates"][0]["price_touch_observed_at"]="2026-01-01T00:00:00+00:00"
+        stale=audit_reasoning(obs,self.prop(
+            setup="WM3",side="LONG",entry_state="CLOSED_BAR_TOUCH_ONLY",
+            rule_ids=["TC2.WM3"]))
+        self.assertIn("WM3_NO_PRICE_TOUCH_ON_THIS_CLOSED_BAR",
+                      stale["hard_failures"])
+        obs["candidates"][0]["price_touch_observed_at"]=self.as_of
+        valid=audit_reasoning(obs,self.prop(
+            setup="WM3",side="LONG",entry_state="CLOSED_BAR_TOUCH_ONLY",
+            rule_ids=["TC2.WM3"]))
+        self.assertEqual(valid["verdict"],"PROVISIONAL_REASONING_ONLY")
+        self.assertIn("WM3_CLOSED_BAR_TOUCH_NOT_AN_EXCHANGE_FILL",
+                      valid["uncertainties"])
+        self.assertIsNone(valid["trade_action"])
 
     def test_ntd_first_fractal_gate_not_same_as_tc2_wise_man(self):
         obs={**self.observed,"edition_evidence":{"NTD":{
