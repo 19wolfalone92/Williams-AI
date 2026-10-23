@@ -55,9 +55,11 @@ def _fetch(url:str)->bytes:
 
 
 def fetch_month(symbol:str,month:str, *,
-                downloader:Callable[[str],bytes]=_fetch
+                downloader:Callable[[str],bytes]=_fetch,
+                approved_symbols:tuple[str,...]=SYMBOLS,
+                approved_months:tuple[str,...]=MONTHS,
                 )->tuple[list[dict[str,Any]],dict[str,Any]]:
-    if symbol not in SYMBOLS or month not in MONTHS:
+    if symbol not in approved_symbols or month not in approved_months:
         raise ValueError("Unapproved symbol or month; no retrospective cherry-picking")
     name=f"{symbol}-1h-{month}.zip"
     base=f"{HOST}/data/futures/um/monthly/klines/{symbol}/1h/{name}"
