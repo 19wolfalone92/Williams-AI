@@ -187,7 +187,22 @@ class LocalWilliamsModel:
             },
             "edition_evidence":chart_analysis.get("edition_evidence",{}).get(edition,{}),
         }
+        pages=[]
+        if primary_pages is not None:
+            if not isinstance(primary_pages,list) or len(primary_pages)>3:
+                raise ValueError("Too many local book citations")
+            for item in primary_pages:
+                if not isinstance(item,dict):
+                    raise ValueError("Invalid page evidence")
+                source=item.get("source")
+                excerpt=item.get("excerpt")
+                if (not isinstance(source,str) or not source.startswith(edition+": PDF ")
+                        or not isinstance(excerpt,str) or not 1<=len(excerpt)<=650
+                        or item.get("status")!="PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"):
+                    raise ValueError("Unverified or mixed-edition source")
+                pages.append({"source":source,"excerpt":excerpt})
         user_context=json.dumps({
+            "primary_book_pages":pages,
             "source_cards":cards,"edition":edition,"chart":observation,
         },ensure_ascii=False)
         if len(user_context)>16000:
