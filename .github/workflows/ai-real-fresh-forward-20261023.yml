@@ -1,0 +1,143 @@
+name: Williams AI fresh-public-H1 REAL GGUF prospective study (NO ORDERS)
+
+on:
+  push:
+    branches:
+      - feature/real-forward-gguf-evaluation-20261023
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "prepare fresh forecasts, or settle an earlier public precommit run after 24H"
+        type: choice
+        options:
+          - prepare
+          - settle
+        default: prepare
+      precommit_run_id:
+        description: "Required only to settle: prior GitHub Actions prepare run number/id"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: williams-ai-public-forward-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  real-public-prospective:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HOME: /tmp/williams_ai_fresh_weights_hf
+      GGUF_FILE: Qwen3-1.7B-Q4_K_M.gguf
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+      STUDY_MODE: ${{ inputs.mode || 'prepare' }}
+      PRECOMMIT_RUN_ID: ${{ inputs.precommit_run_id || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Audit all causal tests before the model exam
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Guard settlement input
+        if: env.STUDY_MODE == 'settle'
+        run: |
+          python - <<'PY'
+          import os
+          raw=os.environ.get('PRECOMMIT_RUN_ID','')
+          if not (raw.isdecimal() and 1 <= int(raw) <= 99999999999999):
+              raise ValueError("Explicit earlier GitHub Actions run ID required")
+          print("PRIOR_COMMITMENT_RUN",raw)
+          PY
+      - name: Download already timestamped public-market predictions
+        if: env.STUDY_MODE == 'settle'
+        uses: actions/download-artifact@v4
+        with:
+          name: fresh-h1-real-gguf-precommit
+          path: /tmp/williams_forward_public
+          run-id: ${{ inputs.precommit_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Capture new settled H1 observations without contacting GGUF
+        if: env.STUDY_MODE == 'settle'
+        run: |
+          python -m williams_ai.public_forward_trial settle \
+            --cohort /tmp/williams_forward_public/cohort.json \
+            --out /tmp/williams_forward_public/settled.json
+      - name: Probe real FUTURES closed H1 with no auth or positions
+        if: env.STUDY_MODE == 'prepare'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/williams_forward_public
+          if python -m williams_ai.public_forward_capture \
+            --symbol BTCUSDT --venue FUTURES \
+            --market-file /tmp/williams_forward_public/probe-futures-market.json \
+            --stamp-file /tmp/williams_forward_public/probe-futures-source.json; then
+            echo "WILLIAMS_VENUE=FUTURES" >> "$GITHUB_ENV"
+            echo "SOURCE_EXPLICIT_FUTURES_MARKET_PUBLIC_H1"
+          else
+            echo "::warning::FUTURES market feed inaccessible or fails strict validation; testing SPOT as a different, explicitly labeled research cohort"
+            python -m williams_ai.public_forward_capture \
+              --symbol BTCUSDT --venue SPOT \
+              --market-file /tmp/williams_forward_public/probe-spot-market.json \
+              --stamp-file /tmp/williams_forward_public/probe-spot-source.json
+            echo "WILLIAMS_VENUE=SPOT" >> "$GITHUB_ENV"
+            echo "SOURCE_EXPLICIT_SPOT_NOT_FUTURES_MARKET_PUBLIC_H1"
+          fi
+      - name: Install actual llama.cpp runtime
+        if: env.STUDY_MODE == 'prepare'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download and SHA256-verify actual pinned GGUF weights
+        if: env.STUDY_MODE == 'prepare'
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          import os
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          p=Path(hf_hub_download(
+              repo_id="unsloth/Qwen3-1.7B-GGUF",
+              revision="b2d17796e6fd93c353a0415a3abd8b7f801701de",
+              filename=os.environ["GGUF_FILE"],
+              local_dir="/tmp/williams_ai_fresh_public_weights",
+          ))
+          print("TRUE_REAL_GGUF",actual_gguf_sha256(p,os.environ["GGUF_SHA256"]))
+          PY
+      - name: Ask the ACTUAL model about THREE fresh public H1 charts BEFORE future exists
+        if: env.STUDY_MODE == 'prepare'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/williams_forward_public
+          python -m williams_ai.public_forward_trial prepare \
+            --venue "$WILLIAMS_VENUE" \
+            --symbols BTCUSDT ETHUSDT SOLUSDT \
+            --model "/tmp/williams_ai_fresh_public_weights/$GGUF_FILE" \
+            --expected-sha256 "$GGUF_SHA256" \
+            --code-id "$GITHUB_SHA" \
+            --out /tmp/williams_forward_public/cohort.json
+      - name: Upload immutable public precommits (UNSCORED)
+        if: always() && env.STUDY_MODE == 'prepare'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-h1-real-gguf-precommit
+          path: /tmp/williams_forward_public/cohort.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload later observed, independently scored public future
+        if: always() && env.STUDY_MODE == 'settle'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-h1-real-gguf-24h-settlement
+          path: /tmp/williams_forward_public/settled.json
+          if-no-files-found: ignore
+          retention-days: 7
