@@ -59,7 +59,7 @@ def validate_book_readiness(book_db:Path)->dict[str,Any]:
 def bootcamp(
     model:Any, *,model_id:str,book_index:Path,study_memory:Path,
     coaching_memory:Path,study_budget_per_book:int=4,
-    study_rounds:int=1,practice_cases:int=29,
+    study_rounds:int=1,practice_cases:int=38,
     historical_markets:dict[str,dict[str,Any]]|None=None,
     historical_editions:tuple[str,...]=("TC1","NTD","TC2","COURSE"),
     checkpoints:tuple[int,...]=(899,),
@@ -140,7 +140,7 @@ def main()->None:
     p.add_argument("--dry-run",action="store_true",help="Check private source index; no model")
     p.add_argument("--study-budget-per-book",type=int,default=4)
     p.add_argument("--study-rounds",type=int,default=1)
-    p.add_argument("--practice-cases",type=int,default=29)
+    p.add_argument("--practice-cases",type=int,default=38)
     p.add_argument("--pairs",type=int,default=15)
     p.add_argument("--checkpoints",choices=[1,2,4],type=int,default=1)
     p.add_argument("--gpu-layers",type=int,default=0)

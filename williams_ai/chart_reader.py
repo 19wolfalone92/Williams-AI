@@ -350,6 +350,11 @@ def analyze_chart(symbol: str, timeframe: str, bars: list[dict[str, Any]],
     result["principle_evidence"]=nonlinear_market_principles(
         candles,lines["ao"],lines["ac"],alligator_context=phase,
         diverging_evidence=result["market_position"])
+    from .five_magic_bullets import five_magic_bullets
+    # Source: TC1 pp.53-54,82-84, *distinct* from NTD five dimensions.
+    # Binance Futures kline base volume is not the same as TC1 tick volume.
+    result["tc1_five_magic_bullets"]=five_magic_bullets(
+        candles,lines["ao"],data=bars,timeframe=timeframe)
     # NTD remains an independent, observation-only source profile. A NTD
     # entry requires a separate proven initial outside-mouth fractal breakout
     # and must never piggyback TC2's Wise Men first-entry policy.
