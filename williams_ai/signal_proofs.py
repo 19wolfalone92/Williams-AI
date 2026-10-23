@@ -36,6 +36,8 @@ def current_signal_proofs(observation:dict[str,Any])->dict[str,Any]:
                     if c.get("angle_heuristic") else
                     "REVERSAL_BAR_CURRENT_ANGLE_NOT_ESTABLISHED"
                 )
+            elif c.get("bar_time") is None:
+                status="REVERSAL_BAR_TIME_UNVERIFIED_VISUAL_REVIEW_ONLY"
             else:status="HISTORICAL_REVERSAL_BAR_NOT_FRESH_SIGNAL"
         elif kind=="WM2_SUPER_AO":
             claim="WM2";rule="TC2.WM2"
@@ -168,8 +170,16 @@ def proof_supports_current_claim(proofbook:dict[str,Any],setup:str,
         )
         return any(x["status"] in stage for x in items)
     if setup=="WM1":
-        return any(x["status"]=="REVERSAL_BAR_CURRENT_ANGLULATION_UNCONFIRMED"
-                   for x in items)
+        allowed={"REVERSAL_BAR_CURRENT_ANGLULATION_UNCONFIRMED",
+                 "REVERSAL_BAR_CURRENT_ANGLE_NOT_ESTABLISHED",
+                 "REVERSAL_BAR_TIME_UNVERIFIED_VISUAL_REVIEW_ONLY"}
+        if entry_state in ("CLOSED_BAR_TOUCH_ONLY","EXCHANGE_FILLED"):
+            return any(x["status"]=="REVERSAL_BAR_CURRENT_ANGLULATION_UNCONFIRMED"
+                       for x in items)
+        # A tentative WM1 hypothesis without numeric angulation evidence
+        # can be discussed with a human chart-review warning, never
+        # described as a filled order or a proved price touch.
+        return any(x["status"] in allowed for x in items)
     if setup=="WM2":
         return any(x["status"]=="CURRENT_CLOSED_THREE_AO_MOMENTUM_BARS_NOT_ORDER"
                    for x in items)
