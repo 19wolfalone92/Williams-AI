@@ -149,7 +149,7 @@ def _model_answer(model:Any, question:dict[str,Any],
 def coach_practice(
     model:Any, notebook_db:Path, *,model_id:str,
     editions:tuple[str,...]=("TC1","NTD","TC2","COURSE"),
-    max_cases:int=28,repeat_after_feedback:bool=True,
+    max_cases:int=29,repeat_after_feedback:bool=True,
 )->dict[str,Any]:
     """Correct -> cited remediation -> same-case guided retry -> private memory.
 
@@ -260,7 +260,7 @@ def main()->None:
     p.add_argument("--local-model",type=Path,required=True)
     p.add_argument("--notebook",type=Path,required=True)
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE","ALL"],default="ALL")
-    p.add_argument("--max-cases",type=int,default=28)
+    p.add_argument("--max-cases",type=int,default=29)
     p.add_argument("--no-retry",action="store_true")
     p.add_argument("--gpu-layers",type=int,default=0)
     args=p.parse_args()
