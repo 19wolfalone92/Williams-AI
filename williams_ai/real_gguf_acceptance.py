@@ -147,7 +147,8 @@ def main()->None:
     args=p.parse_args()
     checked=actual_gguf_sha256(args.local_model,args.expected_sha256)
     from .local_model import LocalWilliamsModel
-    model=LocalWilliamsModel(args.local_model,n_ctx=args.ctx,gpu_layers=0)
+    model=LocalWilliamsModel(args.local_model,n_ctx=args.ctx,gpu_layers=0,
+                             use_decision_schema=True)
     report=public_model_trial(
         model,weight_report=checked,
         max_questions=args.max_questions,history_cases=args.history_cases)
