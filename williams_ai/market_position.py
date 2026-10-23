@@ -1,11 +1,42 @@
-"""Explain *where* a closed price chart sits relative to confirmed structure.
+"""Closed-bar price structure and leg-anchored AO divergence evidence.
 
-This is observational context, not Elliott labelling, probability of
-profit or authorization for any trading order.
+AO extremum may occur BEFORE the corresponding swing-price extreme. Comparing
+only the AO histogram at the pivot candle falsely classifies/omits divergences.
+We compare AO over each independently anchored completed price leg instead.
+Pivot centers need two right-hand CLOSED bars, and no candidate is an entry.
 """
 from __future__ import annotations
 from typing import Any
 from .wave_evidence import confirmed_price_swings
+
+
+def _leg_momentum(
+    pivots: list[dict[str, Any]], ao: list[float | None],
+    target: dict[str, Any], *, side: str,
+) -> dict[str, Any] | None:
+    """Extremal AO on last opposite-swing -> target price swing.
+
+    No guessed anchor: if there is no PRECEDING confirmed opposite pivot,
+    the visual leg is unresolved and divergence must not be asserted.
+    """
+    opposite="L" if side=="BEARISH" else "H"
+    anchors=[p for p in pivots if p["type"]==opposite and p["index"]<target["index"]]
+    if not anchors:
+        return None
+    anchor=anchors[-1]
+    begin=anchor["index"]
+    end=target["index"]
+    candidates=[(i,float(ao[i])) for i in range(begin,end+1) if ao[i] is not None]
+    if not candidates:
+        return None
+    index,value=(max(candidates,key=lambda z:z[1]) if side=="BEARISH"
+                 else min(candidates,key=lambda z:z[1]))
+    return {
+        "anchor_index":begin,
+        "extremum_index":index,
+        "extremum_value":value,
+        "anchor_confirmation_index":anchor["confirmed_at_index"],
+    }
 
 
 def market_position(bars: list[Any], ao: list[float | None]) -> dict[str, Any]:
@@ -34,21 +65,35 @@ def market_position(bars: list[Any], ao: list[float | None]) -> dict[str, Any]:
         if len(sequence) < 2:
             continue
         prior, latest = sequence[-2:]
-        a, b = ao[prior["index"]],ao[latest["index"]]
+        a=_leg_momentum(pivots,ao,prior,side=side)
+        b=_leg_momentum(pivots,ao,latest,side=side)
         if a is None or b is None:
             continue
-        price_div = (latest["price"]>prior["price"] if side=="BEARISH"
-                     else latest["price"]<prior["price"])
-        momentum_div = (b<a if side=="BEARISH" else b>a)
+        # A confirmed price pivot may have originated several bars ago; AO
+        # extremum is recorded only after the pivot is actually confirmed.
+        price_div=(latest["price"]>prior["price"] if side=="BEARISH"
+                   else latest["price"]<prior["price"])
+        momentum_div=(b["extremum_value"]<a["extremum_value"]
+                      if side=="BEARISH" else
+                      b["extremum_value"]>a["extremum_value"])
         if price_div and momentum_div:
             divergences.append({
                 "kind":side + "_AO_DIVERGENCE_CANDIDATE",
                 "older_swing_confirmed_at":bars[prior["confirmed_at_index"]].at.isoformat(),
                 "newer_swing_confirmed_at":bars[latest["confirmed_at_index"]].at.isoformat(),
                 "price_pivots":[prior["price"],latest["price"]],
-                "ao_at_pivots":[a,b],
-                "status":"OBSERVED_DIVERGENCE_NOT_REVERSAL_CONFIRMATION",
-                "source":"TC1: AO momentum versus price wave peaks; not a buy/sell trigger",
+                "ao_leg_extrema":[a["extremum_value"],b["extremum_value"]],
+                "ao_leg_extremum_times":[
+                    bars[a["extremum_index"]].at.isoformat(),
+                    bars[b["extremum_index"]].at.isoformat()
+                ],
+                "ao_leg_anchor_times":[
+                    bars[a["anchor_index"]].at.isoformat(),
+                    bars[b["anchor_index"]].at.isoformat()
+                ],
+                "pivot_ao_only_is_not_used":True,
+                "status":"OBSERVED_LEG_DIVERGENCE_NOT_REVERSAL_CONFIRMATION",
+                "source":"TC1 / visual wave handout: AO leg extrema versus confirmed price pivots",
             })
     latest_high = highs[-1] if highs else None
     latest_low = lows[-1] if lows else None
@@ -68,8 +113,10 @@ def market_position(bars: list[Any], ao: list[float | None]) -> dict[str, Any]:
         "recent_levels": levels,
         "divergences": divergences,
         "hypothesis_limitations": [
-            "Confirmed price swings have at least two right-hand closed bars.",
-            "Divergence is evidence of momentum change, not certain reversal.",
+            "Each pivot requires two closed bars on its right.",
+            "AO measured over swing legs, NOT the histogram exactly at swing pivot.",
+            "Leg must have a preceding independently confirmed opposite pivot.",
+            "Divergence is only momentum evidence, not an entry, exit or certain reversal.",
             "A higher-high structure does not uniquely define Elliott wave degree.",
         ],
         "trade_action": None,
