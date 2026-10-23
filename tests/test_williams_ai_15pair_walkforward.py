@@ -100,6 +100,29 @@ class FrozenMarketTests(unittest.TestCase):
             self.assertTrue(x["fees_in_equity"]>=0)
             self.assertEqual(x["wins"]+x["losses"],x["closed"])
 
+    def test_wm1_stop_is_reversal_bar_not_five_bar_proxy(self):
+        from unittest.mock import patch
+        rows=synthetic(250)
+        bars,_=validate_closed_bars(rows,"H1",rows[-1]["close_time"])
+        ind=indicators(bars)
+        # Change the 4-earlier candle to a much lower low. A five-bar
+        # heuristic would place an incorrect WM1 stop there.
+        low_on_reversal=bars[220].low
+        earlier=bars[217]
+        from williams_ai.chart_reader import Candle
+        bars[217]=Candle(earlier.at,earlier.open,earlier.high,50.0,
+                         earlier.close,earlier.volume)
+        with patch("williams_ai.causal_paper_lab._reversal",return_value=True):
+            result=_candidate(bars,ind,"WM1",220,0.01)
+        long_signal=[x for x in result if x["side"]=="LONG"][0]
+        short_signal=[x for x in result if x["side"]=="SHORT"][0]
+        self.assertEqual(long_signal["stop"],low_on_reversal)
+        self.assertEqual(short_signal["stop"],bars[220].high)
+        self.assertEqual(long_signal["source_rule"],"TC2.WM1.STOP")
+        self.assertEqual(long_signal["stop_policy"],"TC2_WM1_SIGNAL_BAR_EXTREME")
+        with patch("williams_ai.causal_paper_lab._reversal",return_value=False):
+            self.assertEqual(_candidate(bars,ind,"WM1",220,0.01),[])
+
     def test_both_sides_and_stop_priority_are_conservative(self):
         class Bar: pass
         c=Bar();c.open=105;c.high=111;c.low=95
