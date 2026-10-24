@@ -50,7 +50,7 @@ internal class NativeWaveNotebook(private val db:NativeWaveHistoryDb) {
             try {
                 sql.execSQL(
                     "INSERT INTO wave_notes VALUES(?,?,?,?,?,?)",
-                    arrayOf(NativeWaveConfig.VENUE,symbol,tf,revision,row.second,note))
+                    arrayOf<Any>(NativeWaveConfig.VENUE,symbol,tf,revision,row.second,note))
                 sql.setTransactionSuccessful()
             } finally {sql.endTransaction()}
             saved++
