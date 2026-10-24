@@ -155,6 +155,19 @@ class DemoAccountRecoveryTests(unittest.TestCase):
         self.assertIsNone(self.journal.bound_client_ids())
         self.assertEqual(self.journal.status()["reservations"],[])
 
+    def test_recovery_accepts_empty_signed_position_v3_but_keeps_lock(self):
+        self.reserve()
+        class EmptyExchange(FakeSignedDemo):
+            def request(self,method,path,args=None,*,signed=False):
+                if path=="/fapi/v3/positionRisk":
+                    return []
+                return super().request(method,path,args,signed=signed)
+        out=inspect_demo_after_restart(EmptyExchange(stop=False),self.journal)
+        self.assertEqual(out["status"],"FLAT_BUT_PILOT_JOURNAL_LOCKED")
+        self.assertFalse(out["execution_allowed"])
+        self.assertFalse(out["stop_acknowledged"])
+        self.assertEqual(len(self.journal.status()["reservations"]),1)
+
     def test_flat_with_orphan_stop_does_not_unlock(self):
         self.reserve()
         out=inspect_demo_after_restart(FakeSignedDemo(position="0"),self.journal)
