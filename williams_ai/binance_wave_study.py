@@ -201,9 +201,17 @@ def analyze_all_cached(
                 "recent_swings":v["confirmed_swings"][-2:],
             } for k,v in causal_context.items()
         }
-        anchor["higher_timeframe_context"]={
-            "H4":core["H4"],"D1":core["D1"],
-        }
+        anchor["higher_timeframe_context"]={}
+        for tf in ("H4","D1"):
+            frame=core[tf]
+            if (frame.get("status")=="OBSERVED_CLOSED_BARS"
+                    and datetime.fromisoformat(frame["closed_through"])<=cutoff):
+                anchor["higher_timeframe_context"][tf]=frame
+            else:
+                anchor["higher_timeframe_context"][tf]={
+                    "status":"INSUFFICIENT_CLOSED_HISTORY_AS_OF_H1",
+                    "wave_degree":"UNKNOWN",
+                }
         submitted=model.propose_chart_reasoning(anchor,edition=edition)
         audit=audit_reasoning(anchor,submitted)
         report["gguf_independent_source_audit"]={
