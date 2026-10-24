@@ -24,7 +24,8 @@ class MockStudent:
     def answer_exam_case(self,case,*,prior_lessons=None):
         # A fake B response tests orchestration only; not true GGUF ability.
         return {"choice":"B","reason":"Requires a closed confirmation"}
-    def propose_chart_reasoning(self,chart,*,edition,primary_pages,prior_lessons):
+    def propose_chart_reasoning(self,chart,*,edition,primary_pages,prior_lessons,
+                                study_lessons=None,model_id=None):
         self.scenes.append((edition,chart["as_of"],primary_pages,prior_lessons))
         return {"symbol":chart["symbol"],"as_of":chart["as_of"],
                 "edition":edition,"setup":"NO_SETUP","side":"NONE",
