@@ -169,7 +169,17 @@ def study_report(book_db: str | Path, memory_db: str | Path,
                                 n==chunks and pages==total and missing==0
                             )}
                 per_model={student:student_count(student) for student in learners}
-                selected=student_count(model_id) if model_id else None
+                if model_id:
+                    selected=student_count(model_id)
+                elif per_model:
+                    # Backward-compatible unscoped display: the BEST single
+                    # student's count, never SUM of different students.
+                    selected=max(per_model.values(),
+                                 key=lambda x:(x["studied_chunks"],x["pages_started"]))
+                else:
+                    selected={"studied_chunks":0,"pages_started":0,
+                              "indexed_text_chunks_remaining":chunks,
+                              "all_pdf_pages_have_examined_text":False}
                 books.append({
                     "edition":edition,"total_pages":total,
                     "pages_with_text":extracted,"pages_without_text":missing,
@@ -195,6 +205,8 @@ def study_report(book_db: str | Path, memory_db: str | Path,
             "model_id":model_id,
             "tracked_model_ids":learners if model_id is None else [model_id],
             "unscoped_progress_not_summed_across_models":True,
+            "unscoped_counts_represent_best_single_model_not_any_one_named_GGUF":(
+                model_id is None),
             "chunks_needing_retry_or_review":errors,
             "book_comprehension_percent":None,
             "weights_retrained":False,
