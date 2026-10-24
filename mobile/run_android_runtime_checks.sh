@@ -31,6 +31,8 @@ if [[ "${#matches[@]}" -ne 1 ]]; then
   exit 1
 fi
 runner="${matches[0]#instrumentation:}"
+# Remove the pm-display annotation: am instrument accepts only pkg/runner.
+runner="${runner%% *}"
 
 adb shell am instrument -w -e class \
   'com.example.llama.NativeMarketProcessCheckpointTest#seedBeforeProcessStop' \
