@@ -24,6 +24,7 @@ class FakeVenue:
         self.other_symbol_position = "0"
         self.open_orders = []
         self.open_algo_orders = []
+        self.v3_empty_when_flat = False
 
     def __call__(self, method, path, body, headers):
         self.calls.append((method, path, parse_qs(body), headers))
@@ -41,6 +42,10 @@ class FakeVenue:
             position={"symbol":"ETHUSDT","positionSide":"BOTH",
                       "positionAmt":("0" if self.position_reconciliation_fails
                                      else self.position_qty)}
+            if (self.v3_empty_when_flat and not query
+                    and self.position_qty=="0"
+                    and self.other_symbol_position=="0"):
+                return []   # Official V3 omits unused symbols.
             return ([position] if query.get("symbol")==["ETHUSDT"]
                     else [position,{"symbol":"BTCUSDT","positionSide":"BOTH",
                                     "positionAmt":self.other_symbol_position}])
@@ -112,6 +117,13 @@ class DemoGatewayTests(unittest.TestCase):
             self.assertNotIn(symbol, ALLOWED_SYMBOLS)
             with self.assertRaises(DemoSafetyError):
                 self.engine.propose(symbol, "BUY", "1", "95")
+
+    def test_genuinely_empty_binance_v3_position_list_is_flat(self):
+        self.venue.v3_empty_when_flat=True
+        p=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        result=self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        self.assertTrue(result["stop_confirmed"])
+        self.assertEqual(self.venue.market_submissions,1)
 
     def test_prearm_stop_before_single_market_order(self):
         p = self.engine.propose("ETHUSDT", "BUY", "0.2", "95")
