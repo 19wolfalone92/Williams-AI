@@ -186,6 +186,7 @@ python -m williams_ai.binance_wave_watch \
  --intervals all \
  --pages-per-timeframe 50 \
  --poll-seconds 3600 \
+ --archive-checkpoints-per-tf 2 \
  --max-cycles 0
 ```
 
