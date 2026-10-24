@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/causal-wave-comprehension-stress-20261024
+      - feature/continual-ai-trader-learning-20261024
 
 permissions:
   contents: read
