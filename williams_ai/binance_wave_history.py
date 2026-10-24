@@ -298,7 +298,10 @@ class DurableWaveHistory:
             raise ValueError("INVALID_PUBLIC_KLINE_HISTORY_BUDGET")
         remote_ms,tick=_market_snapshot(venue,symbol,fetch,now_ms=now_ms)
         cutoff=remote_ms-FINISH_SAFETY_MS
-        since=floor_open_ms(since_ms,interval)
+        # startTime=0 asks from the earliest publicly available candle.
+        # UTC weekly floors Jan 1 1970 to a NEGATIVE Monday, which Binance
+        # must never receive in a public query.
+        since=0 if since_ms==0 else floor_open_ms(since_ms,interval)
         with self._connect() as conn:
             existing=conn.execute(
                 "SELECT requested_since_ms FROM streams WHERE venue=? AND symbol=? AND interval=?",
@@ -370,7 +373,12 @@ class DurableWaveHistory:
             "checked_server_ms":remote_ms,"price_tick_size":tick,
             "pages_requested":pages,"new_closed_bars_added":total_inserted,
             "sync_state":state,
-            "complete_download_claimed":state=="AT_LATEST_CLOSED_BAR",
+            # An end cursor reaching latest available bars is not
+            # independent evidence that DEMO/public APIs preserve ALL
+            # historical candles back to the pair's listing date.
+            "up_to_snapshot_caught_up":state=="AT_LATEST_CLOSED_BAR",
+            "complete_download_claimed":False,
+            "exchange_listing_date_completeness_unverified":True,
             "venue_switched_automatically":False,
             "trade_action":None,"execution_allowed":False,
         }
