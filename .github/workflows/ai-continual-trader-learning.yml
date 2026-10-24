@@ -19,6 +19,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_williams_ai_continual_trader.py' -v
           python -m unittest discover -s tests -p 'test_williams_ai_binance_universe.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_prequential_skill.py' -v
           python -m unittest discover -s tests -p 'test_williams_ai_williams_signal_experience.py' -v
       - name: Verify real historical stress scenario accounting
         run: python -m unittest discover -s tests -p 'test_williams_ai_ten_million_stress.py' -v
@@ -50,6 +51,12 @@ jobs:
               print("TRAINABLE_MODEL_STATUS",fit.get("validation_state",fit.get("state")))
               print("PAST_TRAIN_COUNT",fit.get("train_count"))
               print("INDEPENDENT_FUTURE_HOLDOUT",fit.get("frozen_test"))
+          online=data.get("prequential_research_skill")
+          assert online and online["execution_allowed"] is False
+          print("ACTUAL_RESOLUTION_DELAYED_ONLINE_LEARNING",online.get("training_updates_after_settlement"))
+          print("FROZEN_VALIDATION_AND_TEST",online.get("validation_frozen"),online.get("test_frozen"))
+          print("PREQUENTIALLY_LEARNED_SKILL_QUALIFICATION",online.get("qualification"))
+          print("GGUF_WEIGHTS_CHANGED",data.get("gguf_weight_updating_performed"))
           print("EXECUTION_AUTHORIZATION_DISABLED")
           PY
 
