@@ -20,6 +20,11 @@ for file in \
   app/src/main/java/com/example/llama/WebResearch.kt \
   app/src/main/java/com/example/llama/BookKnowledge.kt \
   app/src/main/java/com/example/llama/StudyMemory.kt \
+  app/src/main/java/com/example/llama/NativeWaveHistory.kt \
+  app/src/main/java/com/example/llama/NativeWaveStudy.kt \
+  app/src/main/java/com/example/llama/NativeWaveNotebook.kt \
+  app/src/main/java/com/example/llama/NativeWaveSyncService.kt \
+  app/src/main/java/com/example/llama/NativeWaveScheduledJob.kt \
   app/src/main/res/values/strings.xml \
   app/src/main/res/layout/activity_main.xml \
   app/src/main/AndroidManifest.xml; do
@@ -46,7 +51,25 @@ import xml.etree.ElementTree as ET
 root = ET.fromstring(Path(sys.argv[1]).read_text())
 ns = "{http://schemas.android.com/apk/res/android}"
 permissions = [x.attrib.get(ns + "name") for x in root.findall("uses-permission")]
-assert permissions == ["android.permission.INTERNET"], f"Unexpected permissions: {permissions}"
+assert permissions == [
+    "android.permission.INTERNET",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+], f"Unexpected permissions: {permissions}"
+app = root.find("application")
+services = {item.attrib.get(ns+"name"): item
+            for item in app.findall("service")}
+assert set(services) == {
+    "com.example.llama.NativeWaveSyncService",
+    "com.example.llama.NativeWaveScheduledJob",
+}, f"Unexpected Android services: {services}"
+assert services["com.example.llama.NativeWaveSyncService"].attrib.get(
+    ns+"exported") == "false"
+assert services["com.example.llama.NativeWaveScheduledJob"].attrib.get(
+    ns+"permission") == "android.permission.BIND_JOB_SERVICE"
+assert services["com.example.llama.NativeWaveScheduledJob"].attrib.get(
+    ns+"exported") == "true"
 PY
 
 cd "$project"

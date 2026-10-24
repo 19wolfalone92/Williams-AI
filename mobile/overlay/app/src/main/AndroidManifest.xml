@@ -2,10 +2,21 @@
 <!-- INTERNET is used only for opt-in allowlisted research; model inference stays local. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
  <uses-permission android:name="android.permission.INTERNET" />
+ <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
  <application android:allowBackup="false" android:extractNativeLibs="true"
   android:label="@string/app_name" android:icon="@mipmap/ic_launcher"
   android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true"
   android:usesCleartextTraffic="false" android:theme="@style/Theme.AiChatSample">
+  <!-- User-tapped, one bounded PUBLIC Binance READ-ONLY sync; never from boot. -->
+  <service android:name="com.example.llama.NativeWaveSyncService"
+   android:exported="false" android:foregroundServiceType="dataSync" />
+  <!-- Opt-in OS-persisted public market JobService; OS bind permission
+       prevents other apps from launching arbitrary jobs or trading. -->
+  <service android:name="com.example.llama.NativeWaveScheduledJob"
+   android:permission="android.permission.BIND_JOB_SERVICE"
+   android:exported="true" />
   <activity android:name="com.example.llama.MainActivity" android:exported="true"
    android:configChanges="orientation|screenSize|keyboardHidden">
    <intent-filter>

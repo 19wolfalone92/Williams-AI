@@ -1,0 +1,35 @@
+name: Williams AI Android MARKET-only structural regression
+
+on:
+  push:
+    branches:
+      - feature/android-native-binance-waves-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  public-market-only-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check independent offline app market-only wiring and causal SQL
+        run: python -m unittest discover -s tests -p 'test_williams_ai_android_market_overlay.py' -v
+      - name: Run all Williams AI risk/research regressions
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Parse independent Android manifest
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          p=Path("mobile/overlay/app/src/main/AndroidManifest.xml")
+          root=ET.parse(p).getroot()
+          app=root.find("application")
+          assert app.attrib['{http://schemas.android.com/apk/res/android}allowBackup']=="false"
+          print("ANDROID_WILLIAMS_AI_PUBLIC_BINANCE_READONLY_CONTRACT_CONFIRMED")
+          print("ANDROID_DEVICE_AND_ACTUAL_BINANCE_CONNECTIVITY_NOT_TESTED_HERE")
+          PY
