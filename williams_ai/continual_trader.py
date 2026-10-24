@@ -347,10 +347,21 @@ def learn_from_private_experience(
     candidate_brier = _brier(model["weights"], validation)
     # STRICTLY validation decides whether this experiment is worth further
     # research. Holdout outcomes are reported AFTER but never a selection gate.
+    # Classification accuracy is not a trading objective. Even a better
+    # Brier score cannot promote a model that never selects opportunities
+    # or whose selected historical ideas lose money AFTER fixed costs.
+    validation_selected=[
+        x for x in validation
+        if _probability(model["weights"],x.features) >= 0.6
+    ]
+    selected_positive_net=(
+        len(validation_selected)>=10 and
+        sum(x.net_return for x in validation_selected)>0
+    )
     validation_state = (
         "VALIDATION_BEATS_PRIOR_RESEARCH_ONLY"
-        if candidate_brier < prior_brier - 0.005
-        else "NO_MEASURABLE_VALIDATION_GAIN"
+        if candidate_brier < prior_brier - 0.005 and selected_positive_net
+        else "NO_VALIDATED_TRADING_ADVANTAGE_ABSTAIN"
     )
     def bucket(xs: list[Outcome]) -> dict[str, Any]:
         predicted = [_probability(model["weights"], s.features) for s in xs]
@@ -406,6 +417,15 @@ def research_prediction(
         raise ValueError("Nonresearch candidate policy rejected")
     if _seconds(decision_at) <= _seconds(model["trained_through"]):
         raise ValueError("PAST_REPLAY_CANNOT_USE_LATER_LEARNED_MODEL")
+    if model.get("validation_state")!="VALIDATION_BEATS_PRIOR_RESEARCH_ONLY":
+        return {
+            "mode":"VALIDATION_REJECTED_LEARNING_ABSTAIN",
+            "reason":"No validated positive net research advantage over training prior",
+            "scorer":model.get("fingerprint"),
+            "research_positive_outcome_estimate":None,
+            "current_book_signal_confirmed":False,
+            "execution_allowed":False,"trade_action":None,
+        }
     value = _probability(model["weights"], _finite_vector(features))
     return {
         "mode": "LEARNED_PAPER_OUTCOME_ESTIMATE_NOT_TRADE_PROBABILITY",
