@@ -214,6 +214,12 @@ internal class NativeWaveHistoryDb(ctx:Context):SQLiteOpenHelper(
             tick_size TEXT NOT NULL,server_ms INTEGER NOT NULL,
             PRIMARY KEY (venue,symbol,tf)
         )""".trimIndent())
+        db.execSQL("""CREATE TABLE wave_notes(
+            venue TEXT NOT NULL,symbol TEXT NOT NULL,tf TEXT NOT NULL,
+            algorithm_revision TEXT NOT NULL,cutoff_close_ms INTEGER NOT NULL,
+            observed_json TEXT NOT NULL,
+            PRIMARY KEY(venue,symbol,tf,algorithm_revision,cutoff_close_ms)
+        )""".trimIndent())
     }
     override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int) {
         error("Изменение схемы требует явной совместимой миграции")
@@ -301,6 +307,17 @@ internal class NativeWaveHistoryDb(ctx:Context):SQLiteOpenHelper(
         }
         return values
     }
+    /** Aggregate proof that chronological archived checks were actually persisted. */
+    fun historicalNoteCount(symbol:String,tf:String):Int {
+        require(symbol in NativeWaveConfig.symbols && tf in NativeWaveConfig.intervals)
+        return readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM wave_notes WHERE venue=? AND symbol=? AND tf=? "+
+                "AND algorithm_revision=?",
+            arrayOf(NativeWaveConfig.VENUE,symbol,tf,
+                "ANDROID_NATIVE_15TF_WAVE_REVIEW_V1")
+        ).use { if(it.moveToFirst())it.getInt(0) else 0 }
+    }
+
     fun latestClosedHour():Long? {
         return readableDatabase.rawQuery(
             "SELECT MAX(close_ms) FROM wave_candles "+
@@ -317,7 +334,7 @@ internal class NativeWaveDownloader(private val ctx:Context) {
         val db=NativeWaveHistoryDb(ctx)
         try {
             val server=NativeWaveMarketApi.serverTime()
-            var streams=0; var added=0; var errors=0
+            var streams=0; var added=0; var errors=0; var notes=0
             val deadline=System.currentTimeMillis()+24*60_000L
             for (symbol in NativeWaveConfig.symbols) {
                 if(cancelled() || System.currentTimeMillis()>=deadline) break
@@ -346,8 +363,12 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                             if(klines.size<NativeWaveConfig.PAGE_SIZE) break
                             Thread.sleep(150L)
                         }
+                        val progress=NativeWaveNotebook(db).review(
+                            symbol,tf,maxCheckpoints=3,stride=120)
+                        notes+=progress
                         onStatus("${symbol} ${tf}: ${db.cachedCount(symbol,tf)} свечей; "+
-                            "получено новых в цикле ${added}")
+                            "заметок истории: ${db.historicalNoteCount(symbol,tf)}; "+
+                            "новых свечей в цикле ${added}")
                     } catch(e:InterruptedException) { Thread.currentThread().interrupt(); return
                     } catch(e:Exception) {
                         errors++
@@ -364,7 +385,7 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                 }
             }
             onStatus("Завершён ограниченный цикл: сохранено ${added} закрытых "+
-                "свечей, страниц ${streams}, ошибок ${errors}. "+
+                "свечей, страниц ${streams}, новых исторических заметок ${notes}, ошибок ${errors}. "+
                 "История листинга ещё НЕ подтверждена целиком. Сделок нет.")
         } finally { db.close() }
     }
