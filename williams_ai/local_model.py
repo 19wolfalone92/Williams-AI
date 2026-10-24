@@ -333,6 +333,43 @@ class LocalWilliamsModel:
                 and all(k in x for k in (
                     "parent","child","status","confirmed_child_pivots_inside"))
             ],
+            # Trading experience is an external learned, point-in-time
+            # numeric summary of ALREADY RESOLVED paper WM proxy trials.
+            # Never confuse this with primary TC2 source page confirmation.
+            "prior_resolved_private_TC2_paper_experience":(
+                {
+                    "source": "LEARNED_PAST_PAPER_TC2_NOT_AUTHORITATIVE_BOOK",
+                    "known_as_of":chart_analysis["as_of"],
+                    "evidence_count":chart_analysis["past_experience"].get(
+                        "past_examples_used",0),
+                    "by_setup": {
+                        key:{
+                            "count":v.get("count",0),
+                            "status":v.get("status"),
+                            "past_positive_fraction":
+                                v.get("past_positive_fraction"),
+                            "past_mean_net_return":
+                                v.get("past_mean_net_return"),
+                            "not_current_trade_probability":True,
+                        }
+                        for key,v in chart_analysis["past_experience"].get(
+                            "by_wise_man_and_direction",{}).items()
+                        if key in {
+                            "WM1:LONG","WM1:SHORT","WM2:LONG","WM2:SHORT",
+                            "WM3:LONG","WM3:SHORT"}
+                        and isinstance(v,dict)
+                    },
+                    "not_book_confirmation":True,
+                    "no_execution":True,
+                } if edition=="TC2"
+                and isinstance(chart_analysis.get("past_experience"),dict)
+                and chart_analysis["past_experience"].get("execution_allowed") is False
+                and chart_analysis["past_experience"].get("symbol")==
+                    chart_analysis.get("symbol")
+                and chart_analysis["past_experience"].get("as_of")==
+                    chart_analysis["as_of"]
+                else {}
+            ),
             "competing_h1_h4_d1_wave_theses":thesis_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
