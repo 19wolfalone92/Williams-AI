@@ -658,10 +658,21 @@ class LocalWilliamsModel:
         # deterministically, preserving ALL rule IDs, source edition, chart
         # cutoff, validated setup states and private source restrictions.
         # This is NOT a summary made by the model and cannot add future data.
+        # Every actual Qwen chart question receives book-specific entry,
+        # management and exit learning objectives for its own edition.
+        # No private PDF text, model-generated invented rules or mixed-edition
+        # execution authority may be introduced as source knowledge.
+        from .four_book_curriculum import single_book_model_lesson
+        curated=single_book_model_lesson(edition)
+        curated["lessons"]=[{
+            "stage":x["stage"],"objective":x["objective"][:230],
+            "rule_ids":x["rule_ids"],
+        } for x in curated["lessons"]]
         payload={
             "primary_book_pages":pages,
             "previous_model_mistake_corrections":corrections,
             "same_model_unverified_book_study_notes":studied,
+            "edition_specific_study_obligations_not_trade_authority":curated,
             "source_cards":cards,"edition":edition,"chart":observation,
         }
         def encode()->str:
