@@ -193,6 +193,30 @@ def evaluate_blind_wave_gold(
     scored=[x for x in checked if x["truth"]!="UNDETERMINED"]
     voiced=[x for x in scored if not x["abstained"]]
     label_counts=Counter(x["truth"] for x in scored)
+    # The selective (non-abstained) accuracy can be trivially inflated by
+    # answering only one easy case. A full-cohort score treats every
+    # abstention / missing answer as NOT correct, and compares against
+    # predicting the actual majority class for EVERY case.
+    all_gold_classes=Counter(x["market_structure"] for x in decidable)
+    correct_all=sum(x["correct_nonabstention"] for x in scored)
+    full_score=(correct_all/len(decidable) if decidable else None)
+    majority_full=(max(all_gold_classes.values())/len(decidable)
+                   if decidable else None)
+    class_recall={
+        cls:sum(x["correct_nonabstention"] for x in scored
+                if x["truth"]==cls)/size
+        for cls,size in sorted(all_gold_classes.items())
+    }
+    # A 30-case, one-class benchmark is NOT proof of discriminating
+    # impulses, corrections and transitions, even at apparent 100% accuracy.
+    varied=bool(qualified and len(all_gold_classes)>=3
+                and min(all_gold_classes.values())>=5)
+    baseline_beaten=bool(
+        varied and full_score is not None and majority_full is not None
+        and full_score>majority_full
+        and all(value>=0.5 for value in class_recall.values())
+        and len(voiced)/len(decidable)>=0.7
+    )
     return {
         "mode":"DOUBLE_EXPERT_REVIEW_CLOSED_MARKET_PREFIX_WAVE_EXAM",
         "submitted_review_rows":len(reviews),
@@ -219,6 +243,16 @@ def evaluate_blind_wave_gold(
         "descriptive_majority_class_accuracy_not_a_trained_baseline":(
             round(max(label_counts.values())/len(scored),5) if scored else None),
         "bench_sample_size_and_multi_day_sufficiency":qualified,
+        "full_cohort_gold_class_counts":dict(sorted(all_gold_classes.items())),
+        "full_cohort_accuracy_abstentions_and_missing_as_wrong":(
+            round(full_score,5) if full_score is not None else None),
+        "full_cohort_majority_class_baseline":(
+            round(majority_full,5) if majority_full is not None else None),
+        "per_gold_class_recall_abstentions_as_wrong":{
+            key:round(value,5) for key,value in class_recall.items()},
+        "diverse_three_class_min_five_each_benchmark":varied,
+        "research_only_discriminative_baseline_beaten":baseline_beaten,
+        "discriminative_score_not_elliott_degree_or_profit_proof":True,
         "prediction_seal_is_not_independent_timestamp_or_blindness_proof":True,
         "human_reviewer_independence_technically_unverifiable":True,
         "disputed_cases_do_not_become_false_gold_labels":True,
