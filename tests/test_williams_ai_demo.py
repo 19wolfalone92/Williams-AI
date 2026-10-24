@@ -12,6 +12,11 @@ class FakeVenue:
         self.stop_ok = stop_ok
         self.market_submissions = 0
         self.uncertain_entry = False
+        self.position_qty = "0"
+        self.last_order_qty = None
+        self.fake_partial_fill = False
+        self.signed_order_reconciliation_fails = False
+        self.position_reconciliation_fails = False
 
     def __call__(self, method, path, body, headers):
         self.calls.append((method, path, parse_qs(body), headers))
@@ -25,7 +30,8 @@ class FakeVenue:
         if method == "GET" and path == "/fapi/v1/positionSide/dual":
             return {"dualSidePosition": False}
         if method == "GET" and path == "/fapi/v3/positionRisk":
-            return [{"symbol": "ETHUSDT", "positionSide": "BOTH", "positionAmt": "0"}]
+            return [{"symbol": "ETHUSDT", "positionSide": "BOTH", "positionAmt":
+                "0" if self.position_reconciliation_fails else self.position_qty}]
         if method == "POST" and path == "/fapi/v1/algoOrder":
             return {"algoId": 99999, "algoStatus": "NEW"}
         if method == "GET" and path == "/fapi/v1/algoOrder":
@@ -38,7 +44,23 @@ class FakeVenue:
             self.market_submissions += 1
             if self.uncertain_entry:
                 raise TimeoutError("fake exchange timeout")
-            return {"symbol": "ETHUSDT", "orderId": 42, "status": "FILLED"}
+            data=parse_qs(body)
+            qty=data.get("quantity",["0"])[0]
+            self.last_order_qty=qty
+            if data.get("reduceOnly")!=["true"]:
+                self.position_qty=(
+                    qty if data.get("side")==["BUY"] else "-"+qty)
+            if self.fake_partial_fill:
+                return {"symbol":"ETHUSDT","orderId":42,
+                        "status":"FILLED","executedQty":"0.001"}
+            return {"symbol": "ETHUSDT", "orderId": 42, "status": "FILLED",
+                    "executedQty":qty}
+        if method=="GET" and path=="/fapi/v1/order":
+            if self.signed_order_reconciliation_fails:
+                return {"symbol":"ETHUSDT","orderId":42,
+                        "status":"NEW","executedQty":"0"}
+            return {"symbol":"ETHUSDT","orderId":42,
+                    "status":"FILLED","executedQty":self.last_order_qty}
         if method == "DELETE" and path == "/fapi/v1/algoOrder":
             return {"algoId": 99999, "algoStatus": "CANCELED"}
         raise AssertionError(f"Unexpected request {method} {path}")
@@ -83,6 +105,27 @@ class DemoGatewayTests(unittest.TestCase):
         with self.assertRaisesRegex(DemoSafetyError, "использована"):
             self.engine.execute(p.ticket, confirmation="PLACE_DEMO_ORDER")
         self.assertEqual(self.venue.market_submissions, 1)
+
+    def test_exchange_fill_size_mismatch_locks_single_attempt(self):
+        self.venue.fake_partial_fill = True
+        p = self.engine.propose("ETHUSDT", "BUY", "0.2", "95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        self.assertGreaterEqual(self.venue.market_submissions,1)
+
+    def test_missing_signed_fill_recheck_is_not_success(self):
+        self.venue.signed_order_reconciliation_fails = True
+        p = self.engine.propose("ETHUSDT", "BUY", "0.2", "95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+
+    def test_disagreement_with_account_position_is_not_success(self):
+        self.venue.position_reconciliation_fails = True
+        p = self.engine.propose("ETHUSDT", "BUY", "0.2", "95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
 
     def test_stop_rejected_means_no_entry(self):
         self.venue.stop_ok = False
