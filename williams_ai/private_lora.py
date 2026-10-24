@@ -60,6 +60,7 @@ def checked_private_training_data(path:str|Path, *,
     groups={k:[] for k in _SPLITS}
     ids=set()
     case_hashes=set()
+    rule_split_owners={}
     per_edition=Counter()
     with file.open(encoding="utf-8") as reader:
         for lineno,line in enumerate(reader,1):
@@ -98,6 +99,10 @@ def checked_private_training_data(path:str|Path, *,
             case_hashes.add(normalized)
             if obj["split"] not in groups:
                 raise ValueError("UNREGISTERED_TRAINING_SPLIT")
+            source_rule=(ed,obj["rule_id"])
+            owner=rule_split_owners.setdefault(source_rule,obj["split"])
+            if owner!=obj["split"]:
+                raise ValueError("SAME_BOOK_RULE_LEAKED_ACROSS_FROZEN_SPLITS")
             ids.add(case_id)
             per_edition[ed]+=1
             groups[obj["split"]].append(obj)
@@ -114,6 +119,7 @@ def checked_private_training_data(path:str|Path, *,
         "source_editions":dict(sorted(per_edition.items())),
         "test_holdout_loaded_by_training_loop":False,
         "reviewer_declaration_not_independently_verified":True,
+        "individual_book_rules_never_cross_splits":True,
         "items_for_local_fit":{k:groups[k] for k in ("train","validation")},
         "no_execution":True,
     }
