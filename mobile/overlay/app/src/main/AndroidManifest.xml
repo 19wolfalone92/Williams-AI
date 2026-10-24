@@ -2,6 +2,7 @@
 <!-- INTERNET is used only for opt-in allowlisted research; model inference stays local. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
  <uses-permission android:name="android.permission.INTERNET" />
+ <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
  <application android:allowBackup="false" android:extractNativeLibs="true"
@@ -11,6 +12,10 @@
   <!-- User-tapped, one bounded PUBLIC Binance READ-ONLY sync; never from boot. -->
   <service android:name="com.example.llama.NativeWaveSyncService"
    android:exported="false" android:foregroundServiceType="dataSync" />
+  <!-- Android OS-persisted schedule, opt-in; READ-ONLY public market data. -->
+  <service android:name="com.example.llama.WaveMarketJobService"
+   android:permission="android.permission.BIND_JOB_SERVICE"
+   android:exported="true" />
   <activity android:name="com.example.llama.MainActivity" android:exported="true"
    android:configChanges="orientation|screenSize|keyboardHidden">
    <intent-filter>
