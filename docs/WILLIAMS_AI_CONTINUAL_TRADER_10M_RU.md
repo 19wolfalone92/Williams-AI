@@ -550,6 +550,7 @@ python -m williams_ai.private_curriculum \
   --book-index /private/Williams_AI_private_books.sqlite3 \
   --study-memory /private/model_study.sqlite3 \
   --local-model /private/Qwen3-1.7B-Q4_K_M.gguf \
+  --expected-sha256 dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366 \
   --batch-budget 30 --rounds 50
 
 # Новые вопросы только для экспертной ручной разметки.
