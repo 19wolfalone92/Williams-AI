@@ -90,6 +90,24 @@ class ExpertWaveBenchmarkTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"CHANGED_AFTER_SEAL"):
             evaluate_blind_wave_gold(self.ann,self.pred)
 
+    def test_prediction_after_expert_answers_cannot_claim_blind_score(self):
+        a,p=self.base()
+        p[0]["prediction_created_at"]=iso(2)
+        p[0]["precommitted_prediction_sha256"]=prediction_commitment(p[0])
+        self.save(a,p)
+        with self.assertRaisesRegex(
+                ValueError,"MODEL_PREDICTION_MUST_PREDATE_ALL_EXPERT_LABELS"):
+            evaluate_blind_wave_gold(self.ann,self.pred)
+
+    def test_prediction_equal_to_first_expert_review_is_not_blind(self):
+        a,p=self.base()
+        p[0]["prediction_created_at"]=iso(1)
+        p[0]["precommitted_prediction_sha256"]=prediction_commitment(p[0])
+        self.save(a,p)
+        with self.assertRaisesRegex(
+                ValueError,"MODEL_PREDICTION_MUST_PREDATE_ALL_EXPERT_LABELS"):
+            evaluate_blind_wave_gold(self.ann,self.pred)
+
     def test_one_reviewer_repeating_is_not_two_independent_experts(self):
         a,p=self.base()
         a[-1]["reviewer_id"]="reviewer-001"
