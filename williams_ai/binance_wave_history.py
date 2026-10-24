@@ -411,16 +411,29 @@ class DurableWaveHistory:
         }
 
     def recent(self,venue:str,symbol:str,interval:str,
-               limit:int=1200)->list[dict[str,Any]]:
-        if interval not in INTERVAL_MS or not 1<=limit<=50000:
-            raise ValueError("INVALID_ANALYSIS_WINDOW")
+               limit:int=1200,*,as_of_ms:int|None=None)->list[dict[str,Any]]:
+        """Return an immutable closed-market prefix. Never hand a later M1/M5
+        candle to an H1 decision that occurred before that candle closed.
+        """
+        if (interval not in INTERVAL_MS or not isinstance(limit,int)
+                or isinstance(limit,bool) or not 1<=limit<=50000
+                or (as_of_ms is not None and (
+                    not isinstance(as_of_ms,int) or isinstance(as_of_ms,bool)
+                    or as_of_ms<=0))):
+            raise ValueError("INVALID_ANALYSIS_WINDOW_OR_CUTOFF")
         with self._connect() as conn:
-            rows=conn.execute(
+            query=(
                 "SELECT open_ms,close_ms,open,high,low,close,volume,quote_volume,"
                 "trades,taker_buy_base_volume,taker_buy_quote_volume "
                 "FROM candles WHERE venue=? AND symbol=? AND interval=? "
-                "ORDER BY open_ms DESC LIMIT ?",
-                (venue,symbol,interval,limit)).fetchall()
+            )
+            if as_of_ms is None:
+                rows=conn.execute(query+"ORDER BY open_ms DESC LIMIT ?",
+                                  (venue,symbol,interval,limit)).fetchall()
+            else:
+                rows=conn.execute(
+                    query+"AND close_ms<=? ORDER BY open_ms DESC LIMIT ?",
+                    (venue,symbol,interval,as_of_ms,limit)).fetchall()
         rows.reverse()
         out=[]
         prev=None
