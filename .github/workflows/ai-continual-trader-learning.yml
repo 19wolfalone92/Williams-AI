@@ -56,6 +56,12 @@ jobs:
           print("ACTUAL_RESOLUTION_DELAYED_ONLINE_LEARNING",online.get("training_updates_after_settlement"))
           print("FROZEN_VALIDATION_AND_TEST",online.get("validation_frozen"),online.get("test_frozen"))
           print("PREQUENTIALLY_LEARNED_SKILL_QUALIFICATION",online.get("qualification"))
+          edge=data.get("profit_quality_frozen_research_only")
+          assert edge and edge.get("execution_allowed") is False
+          assert edge.get("no_test_selection_or_weight_training") is True
+          print("FROZEN_PAPER_EXPECTANCY_RESEARCH",edge.get("training_only_cohort_gates"))
+          print("FROZEN_PAPER_EXPECTANCY_VALIDATION",edge.get("validation_frozen"))
+          print("FROZEN_PAPER_EXPECTANCY_TEST",edge.get("test_frozen"))
           print("GGUF_WEIGHTS_CHANGED",data.get("gguf_weight_updating_performed"))
           print("EXECUTION_AUTHORIZATION_DISABLED")
           PY
