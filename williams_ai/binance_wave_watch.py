@@ -17,7 +17,8 @@ from typing import Any, Callable
 from .binance_wave_history import INTERVAL_MS,VENUES,DurableWaveHistory,HistoryUnavailable
 from .binance_wave_study import analyze_all_cached
 
-MAX_SYMBOLS=5
+MAX_SYMBOLS=15
+MAX_REQUEST_PAGES_PER_CYCLE=1200
 MIN_PERIOD_SECONDS=300
 
 
@@ -39,6 +40,10 @@ def one_watch_cycle(
             isinstance(archive_checkpoints_per_tf,bool) or
             not 0<=archive_checkpoints_per_tf<=100):
         raise ValueError("INVALID_ARCHIVE_CHECKPOINT_BUDGET")
+    if (not isinstance(max_pages,int) or isinstance(max_pages,bool)
+            or not 1<=max_pages<=100
+            or len(symbols)*len(intervals)*max_pages>MAX_REQUEST_PAGES_PER_CYCLE):
+        raise ValueError("BINANCE_PUBLIC_WEIGHT_LIMIT_CYCLE_BUDGET_EXCEEDED")
     out=[]
     for symbol in symbols:
         stages=[]
@@ -118,7 +123,7 @@ def main()->None:
     p.add_argument("--venue",required=True,choices=tuple(VENUES))
     p.add_argument("--symbols",nargs="+",default=["ETHUSDT"])
     p.add_argument("--intervals",nargs="+",default=["all"])
-    p.add_argument("--pages-per-timeframe",type=int,default=50)
+    p.add_argument("--pages-per-timeframe",type=int,default=5)
     p.add_argument("--poll-seconds",type=int,default=3600,
                    help=">=300; explicit foreground hourly update")
     p.add_argument("--archive-checkpoints-per-tf",type=int,default=2,
