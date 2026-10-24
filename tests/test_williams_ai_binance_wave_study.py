@@ -82,6 +82,37 @@ class FifteenTimeframeResearchTests(unittest.TestCase):
             self.assertFalse(report["full_historical_backfill_completed_for_every_tf"])
             self.assertFalse(report["execution_allowed"])
 
+    def test_sync_study_never_confuses_latest_bar_with_all_listing_history(self):
+        import io
+        import json
+        import contextlib
+        from unittest.mock import patch
+        from williams_ai.binance_wave_study import main
+        source=Venue(interval="1h",n=70)
+        original=DurableWaveHistory.sync
+        def fake_public(self,**args):
+            return original(self,**args,fetch=source,now_ms=NOW,
+                            sleep_seconds=0)
+        with tempfile.TemporaryDirectory() as d:
+            stream=io.StringIO()
+            argv=[
+                "python -m williams_ai.binance_wave_study",
+                "sync-study","--venue","PUBLIC_USDM",
+                "--db",str(Path(d)/"data.db"),
+                "--symbols",SYM,"--intervals","1h",
+            ]
+            with patch("sys.argv",argv),patch.object(
+                    DurableWaveHistory,"sync",fake_public),contextlib.redirect_stdout(stream):
+                main()
+            lines=[line for line in stream.getvalue().splitlines()
+                   if line.startswith("WILLIAMS_AI_ALL_TF_WAVE_STUDY ")]
+            self.assertEqual(len(lines),1)
+            report=json.loads(lines[0].split(" ",1)[1])
+            self.assertTrue(report["up_to_latest_snapshot_caught_up_for_every_tf"])
+            self.assertFalse(report["full_historical_backfill_completed_for_every_tf"])
+            self.assertFalse(report["independent_listing_origin_completeness_verified"])
+            self.assertFalse(report["execution_allowed"])
+
     def test_h1_required_to_explain_full_matrix(self):
         with tempfile.TemporaryDirectory() as d:
             store=DurableWaveHistory(Path(d)/"empty.db")
