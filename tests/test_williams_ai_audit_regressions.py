@@ -110,7 +110,8 @@ class AuditReviewedTrainingData(unittest.TestCase):
             base=root/"wrong-family";base.mkdir()
             (base/"config.json").write_text('{"model_type":"llama"}')
             with self.assertRaisesRegex(ValueError,"CAUSAL_QWEN_MODEL_REQUIRED"):
-                train_private_lora(data=data,model_dir=base,output_dir=root/"adapter")
+                train_private_lora(data=data,model_dir=base,output_dir=root/"adapter",
+                                   source_only_research=True)
             self.assertFalse((root/"adapter").exists())
 
     def test_every_partition_must_cover_all_four_books(self):

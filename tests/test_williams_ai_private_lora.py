@@ -105,7 +105,8 @@ class OfflineIndependentSupervisionTests(unittest.TestCase):
     def test_loss_masks_every_prompt_token_and_never_truncates_answer(self):
         tok=type("MockTokenizer",(),{
             "eos_token":"<end>",
-            "apply_chat_template":lambda self,messages,tokenize,add_generation_prompt:[11,12,13],
+            "apply_chat_template":lambda self,messages,tokenize,add_generation_prompt,enable_thinking:
+                [11,12,13] if add_generation_prompt else [11,12,13,21,22,23],
             "encode":lambda self,text,add_special_tokens:[21,22,23],
         })()
         sample=_tokenized(candidates()[:1],tok,max_tokens=128)[0]

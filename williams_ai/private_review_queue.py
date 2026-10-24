@@ -29,28 +29,40 @@ _TASKS=(
 )
 
 
+def source_rules_by_split()->dict[str,dict[str,list[dict[str,Any]]]]:
+    """One partition assignment shared by text and market lesson queues."""
+    grouped=defaultdict(list)
+    for card in registry()["rule_cards"]:
+        if card["status"]=="REVIEWED_PAGES":
+            grouped[card["source"]].append(card)
+    result={k:{} for k in ("train","validation","test")}
+    for edition,cards in grouped.items():
+        rules=sorted(cards,key=lambda r:r["id"])
+        train=max(1,len(rules)*3//5)
+        validation=max(1,(len(rules)-train)//2)
+        for split,items in (("train",rules[:train]),
+                            ("validation",rules[train:train+validation]),
+                            ("test",rules[train+validation:])):
+            if not items:raise ValueError("FOUR_BOOKS_NEED_WHOLE_RULE_HOLDOUTS")
+            result[split][edition]=items
+    if any(set(editions)!={"TC1","NTD","TC2","COURSE"}
+           for editions in result.values()):
+        raise ValueError("FOUR_BOOK_RULE_REFERENCE_REQUIRED")
+    return result
+
+
 def propose_private_book_review_queue(output_path:str|Path)->dict[str,Any]:
     """Deterministic per-rule split; no single rule shared train/test."""
     dest=_private_file(output_path,must_exist=False)
     if dest.suffix.lower()!=".jsonl" or dest.exists() or not dest.parent.is_dir():
         raise ValueError("NEW_PRIVATE_JSONL_DESTINATION_REQUIRED")
     books={b["id"]:b for b in registry()["books"]}
-    grouped=defaultdict(list)
-    for c in registry()["rule_cards"]:
-        if c["status"]!="REVIEWED_PAGES" or c["source"] not in books:
-            continue
-        grouped[c["source"]].append(c)
-    if set(grouped)!=set(books):
-        raise ValueError("FOUR_BOOK_RULE_REFERENCE_REQUIRED")
+    partitioned=source_rules_by_split()
     output=[]
-    for edition in sorted(grouped):
-        rules=sorted(grouped[edition],key=lambda z:z["id"])
-        n=len(rules)
-        # Hold out ENTIRE rules, never paraphrases of a train rule.
-        train=max(1,(n*3)//5)
-        validate=max(1,(n-train)//2)
-        for i,rule in enumerate(rules):
-            split="train" if i<train else "validation" if i<train+validate else "test"
+    for edition in sorted(books):
+        i=0
+        for split in ("train","validation","test"):
+          for rule in partitioned[split][edition]:
             for j,(q,a) in enumerate(_TASKS,1):
                 item={
                     "case_id":f"pending-{edition.lower()}-{i:03d}-{j:02d}",
@@ -64,12 +76,14 @@ def propose_private_book_review_queue(output_path:str|Path)->dict[str,Any]:
                     "split":split,
                 }
                 output.append(item)
+            i+=1
     # All items deliberately fail checked_private_training_data until
     # independent review and actual improvements to answers are completed.
     payload="".join(json.dumps(x,ensure_ascii=False,sort_keys=True)+"\n"
                     for x in output)
-    dest.write_text(payload,encoding="utf-8")
-    dest.chmod(0o600)
+    with dest.open("x",encoding="utf-8") as stream:
+        dest.chmod(0o600)
+        stream.write(payload)
     return {
         "mode":"PENDING_4_BOOK_INDEPENDENT_EXPERT_REVIEW_QUEUE",
         "proposals":len(output),

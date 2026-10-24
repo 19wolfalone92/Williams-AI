@@ -15,6 +15,7 @@ on:
       - 'williams_ai/unprompted_source_application.py'
       - 'tests/test_williams_ai_unprompted_source_application.py'
       - 'tests/test_williams_ai_targeted_practical_feedback.py'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -60,14 +61,14 @@ jobs:
           print('VERIFIED_PUBLIC_1P7B_MODEL',
                 actual_gguf_sha256(downloaded,os.environ['GGUF_SHA256']))
           PY
-      - name: Actual GGUF reasoning on 16 held-key questions, four books evenly
+      - name: Actual GGUF reasoning on all 32 held-key questions, four books evenly
         shell: bash
         run: |
           set -o pipefail
           python -m williams_ai.four_book_blind_exam \
             --model "/tmp/williams_ai_4_book_model/${GGUF_FILE}" \
             --expected-sha256 "${GGUF_SHA256}" \
-            --per-edition 4 --ctx 8192 --reasoning-budget 1024 \
+            --per-edition 8 --ctx 8192 --reasoning-budget 1024 \
             | tee /tmp/real_qwen_four_books_report.json
       - name: REAL Qwen autonomously retrieves relevant rules without user hints
         shell: bash
@@ -76,7 +77,7 @@ jobs:
           python -m williams_ai.four_book_blind_exam \
             --model "/tmp/williams_ai_4_book_model/${GGUF_FILE}" \
             --expected-sha256 "${GGUF_SHA256}" \
-            --per-edition 4 --ctx 8192 --reasoning-budget 1024 \
+            --per-edition 8 --ctx 8192 --reasoning-budget 1024 \
             --autonomous-source-retrieval \
             | tee /tmp/real_qwen_automatic_source_report.json
       - name: REAL Qwen remedial SOURCE retrieval for 3 demonstrated weak areas
