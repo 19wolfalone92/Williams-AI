@@ -62,6 +62,15 @@ class WaveHistoryTests(unittest.TestCase):
     def test_all_15_native_binance_futures_intervals(self):
         self.assertEqual(len(INTERVAL_MS),15)
         self.assertEqual(len(ANALYSIS_TFS),15)
+        # Independent actual Binance public USD-M 3d observation:
+        # ETHUSDT 2026-10-23 open = 1792713600000.
+        confirmed_3d_open=1_792_713_600_000
+        self.assertEqual(floor_open_ms(confirmed_3d_open,"3d"),confirmed_3d_open)
+        self.assertEqual(next_open_ms(confirmed_3d_open,"3d"),
+                         confirmed_3d_open+259_200_000)
+        self.assertEqual(parse_closed_candle(
+            _raw(confirmed_3d_open,"3d"),"3d",server_ms=NOW)["open_ms"],
+            confirmed_3d_open)
         self.assertEqual(set(VENUES),{"DEMO_USDM","PUBLIC_USDM"})
         self.assertEqual(next_open_ms(floor_open_ms(1_730_000_000_000,"1M"),"1M"),
                          1_730_419_200_000)
