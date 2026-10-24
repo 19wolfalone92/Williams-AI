@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from williams_ai.demo_account_recovery import inspect_demo_after_restart
+from williams_ai.demo_account_recovery import (
+    inspect_demo_after_restart, inspect_demo_account_before_first_order,
+)
 from williams_ai.demo_futures import DemoSafetyError
 from williams_ai.demo_pilot_readiness import (
     OneCampaignReservation, verify_requoted_manual_pilot,
@@ -183,6 +185,82 @@ class DemoAccountRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(DemoSafetyError,"JOURNAL_INCONSISTENT"):
             inspect_demo_after_restart(client,CorruptJournal())
         self.assertFalse(client.requests)
+
+
+class SignedDemoReadOnlyPreflightTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.journal=OneCampaignReservation(Path(self.tmp.name)/"once.sqlite3")
+
+    class Account:
+        def __init__(self, *,open_orders=None,open_algos=None,
+                     amount="0",hedge=False,other_amount="0",bad_list=False):
+            self.calls=[]
+            self.open_orders=[] if open_orders is None else open_orders
+            self.open_algos=[] if open_algos is None else open_algos
+            self.amount=amount
+            self.hedge=hedge
+            self.other_amount=other_amount
+            self.bad_list=bad_list
+
+        def request(self,method,path,args=None,*,signed=False):
+            if method!="GET" or not signed:
+                raise AssertionError("Never perform mutating or unsigned checks")
+            self.calls.append((method,path,args,signed))
+            if path=="/fapi/v1/positionSide/dual":
+                return {"dualSidePosition":self.hedge}
+            if path=="/fapi/v3/positionRisk":
+                if args is not None:raise AssertionError("Must inspect entire account")
+                if self.bad_list:return []
+                return [
+                    {"symbol":"ETHUSDT","positionSide":"BOTH",
+                     "positionAmt":self.amount},
+                    {"symbol":"BTCUSDT","positionSide":"BOTH",
+                     "positionAmt":self.other_amount},
+                ]
+            if path=="/fapi/v1/openOrders":
+                if args!={"symbol":"ETHUSDT"}:raise AssertionError("Wrong scope")
+                return self.open_orders
+            if path=="/fapi/v1/openAlgoOrders":
+                if args!={"symbol":"ETHUSDT"}:raise AssertionError("Wrong scope")
+                return self.open_algos
+            raise AssertionError("Unsupported DEMO signed call")
+
+    def test_signed_preflight_never_posts_and_does_not_consume_pilot(self):
+        client=self.Account()
+        before=self.journal.status()
+        report=inspect_demo_account_before_first_order(client,self.journal)
+        self.assertEqual(report["status"],
+            "ACCOUNT_FLAT_AND_ETHUSDT_NO_OPEN_ORDERS_AT_CHECK_TIME")
+        self.assertTrue(report["signed_api_key_works_on_demo_host"])
+        self.assertFalse(report["pre_entry_close_position_stop_acceptance_tested"])
+        self.assertFalse(report["execution_allowed"])
+        self.assertTrue(all(call[0]=="GET" and call[3] for call in client.calls))
+        self.assertEqual(len(client.calls),4)
+        self.assertEqual(before,self.journal.status())
+
+    def test_positions_on_other_pair_and_any_pending_orders_block(self):
+        for opts in (
+            {"amount":"0.1"}, {"other_amount":"-0.02"}, {"hedge":True},
+            {"open_orders":[{"orderId":123}]},
+            {"open_algos":[{"algoId":456}]},
+            {"amount":"NaN"},{"bad_list":True},
+        ):
+            with self.subTest(opts=opts):
+                with self.assertRaises(DemoSafetyError):
+                    inspect_demo_account_before_first_order(
+                        self.Account(**opts),self.journal)
+        self.assertEqual(self.journal.status()["reservations"],[])
+
+    def test_existing_pilot_lock_blocks_without_any_signed_request(self):
+        from test_williams_ai_demo_pilot import small_preview
+        preview,_=small_preview()
+        self.journal.reserve_once(preview,now_ms=2_000_000_000_000)
+        venue=self.Account()
+        with self.assertRaisesRegex(DemoSafetyError,"PILOT_LOCK_EXISTS"):
+            inspect_demo_account_before_first_order(venue,self.journal)
+        self.assertEqual(venue.calls,[])
 
 
 class PilotSecondQuoteTests(unittest.TestCase):
