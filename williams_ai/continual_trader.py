@@ -265,6 +265,43 @@ class PrivateExperience:
             "execution_allowed":False,"trade_action":None,
         }
 
+    def cumulative_coverage(self) -> dict[str, Any]:
+        """Persistent progress across independently loaded Binance asset batches.
+
+        Unlike rerunning 4400 friction variations on the SAME graph, a unique
+        (venue-excluded source, symbol, TF, decision) tuple is counted once.
+        The reader must NOT call these separate GGUF decisions or executed
+        trades: several WM signals can occur at the same price snapshot.
+        """
+        with self._connect() as db:
+            n=db.execute("SELECT COUNT(*) FROM outcomes").fetchone()[0]
+            distinct=db.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT symbol,interval,decision_at FROM outcomes
+                )
+            """).fetchone()[0]
+            assets=db.execute("SELECT COUNT(DISTINCT symbol) FROM outcomes").fetchone()[0]
+            timeframes=db.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT symbol,interval FROM outcomes
+                )
+            """).fetchone()[0]
+            span=db.execute("SELECT MIN(decision_at),MAX(resolved_at) FROM outcomes").fetchone()
+            modes={name:int(count) for name,count in db.execute(
+                "SELECT setup,COUNT(*) FROM outcomes GROUP BY setup").fetchall()}
+        return {
+            "durable_resolved_counterfactual_wm_examples":int(n),
+            "durable_unique_symbol_timeframe_decision_snapshots":int(distinct),
+            "crypto_assets_with_persisted_examples":int(assets),
+            "independent_native_asset_timeframe_streams":int(timeframes),
+            "first_stored_decision_at":span[0],
+            "last_stored_resolution_at":span[1],
+            "proxy_wm_by_type":modes,
+            "ten_million_independent_gguf_chart_decisions_proven":False,
+            "fills_executed":0,
+            "execution_allowed":False,"trade_action":None,
+        }
+
     def policies(self) -> list[dict[str, Any]]:
         with self._connect() as db:
             rows = db.execute(
