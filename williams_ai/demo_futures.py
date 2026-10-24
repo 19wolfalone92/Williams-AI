@@ -285,6 +285,104 @@ class DemoFutures:
             and state.get("algoStatus") == "NEW"
         )
 
+    def _flatten_authenticated_position_once(
+        self, proposal: TradeProposal, *,
+        expected_entry_id: str,
+    ) -> dict[str, Any]:
+        """Emergency DEMO-only flatten for an INDEPENDENTLY VERIFIED own fill.
+
+        Only called after signed GET of exact client entry ID and matching
+        account position have succeeded. Recheck both immediately before one
+        reduceOnly MARKET; never retry on network uncertainty. The protective
+        stop must NOT be cancelled on uncertain results. The return is an
+        observation, never proof of successful closure without signed GET.
+        """
+        mode=self._client.request("GET","/fapi/v1/positionSide/dual",signed=True)
+        if (not isinstance(mode,dict) or
+                mode.get("dualSidePosition") is not False):
+            raise DemoSafetyError("EMERGENCY_FLATTEN_POSITION_MODE_UNVERIFIED")
+        order=self._client.request("GET","/fapi/v1/order",{
+            "symbol":proposal.symbol,
+            "orderId":expected_entry_id,
+        },signed=True)
+        if (not isinstance(order,dict)
+                or order.get("symbol")!=proposal.symbol
+                or str(order.get("orderId"))!=expected_entry_id
+                or order.get("clientOrderId")!="WAIEN"+proposal.ticket[:23]
+                or order.get("side")!=proposal.side
+                or order.get("positionSide")!="BOTH"
+                or order.get("status")!="FILLED"
+                or _decimal(order.get("executedQty"))
+                   !=_decimal(proposal.quantity)):
+            raise DemoSafetyError("EMERGENCY_FLATTEN_OWN_ENTRY_UNVERIFIED")
+        positions=self._client.request("GET","/fapi/v3/positionRisk",
+                      {"symbol":proposal.symbol},signed=True)
+        expected=(_decimal(proposal.quantity) if proposal.side=="BUY"
+                  else -_decimal(proposal.quantity))
+        if (not isinstance(positions,list) or len(positions)!=1
+                or not isinstance(positions[0],dict)
+                or positions[0].get("symbol")!=proposal.symbol
+                or positions[0].get("positionSide")!="BOTH"):
+            raise DemoSafetyError("EMERGENCY_FLATTEN_POSITION_NOT_PROVED")
+        try:
+            amount=Decimal(str(positions[0].get("positionAmt")))
+        except (ValueError,TypeError,InvalidOperation) as exc:
+            raise DemoSafetyError("EMERGENCY_FLATTEN_POSITION_NOT_PROVED") from exc
+        if not amount.is_finite() or amount!=expected:
+            raise DemoSafetyError("EMERGENCY_FLATTEN_POSITION_NOT_PROVED")
+        close_side="SELL" if proposal.side=="BUY" else "BUY"
+        response=self._client.request("POST","/fapi/v1/order",{
+            "symbol":proposal.symbol,
+            "side":close_side,
+            "type":"MARKET",
+            "positionSide":"BOTH",
+            "quantity":proposal.quantity,
+            "reduceOnly":"true",
+            "newOrderRespType":"RESULT",
+            "newClientOrderId":"WAIFL"+proposal.ticket[:23],
+        },signed=True)
+        # Never repeat this POST, even if response or readback fails.
+        if (not isinstance(response,dict)
+                or response.get("symbol")!=proposal.symbol
+                or response.get("status")!="FILLED"):
+            raise DemoSafetyError("EMERGENCY_CLOSE_SUBMISSION_UNCERTAIN")
+        try:
+            close_order_id=str(int(response["orderId"]))
+        except (KeyError,ValueError,TypeError) as exc:
+            raise DemoSafetyError("EMERGENCY_CLOSE_ORDER_ID_MISSING") from exc
+        if not int(close_order_id)>0:
+            raise DemoSafetyError("EMERGENCY_CLOSE_ORDER_ID_INVALID")
+        closed=self._client.request("GET","/fapi/v1/order",{
+            "symbol":proposal.symbol,"orderId":close_order_id,
+        },signed=True)
+        pos=self._client.request("GET","/fapi/v3/positionRisk",
+            {"symbol":proposal.symbol},signed=True)
+        if (not isinstance(closed,dict)
+                or str(closed.get("orderId"))!=close_order_id
+                or closed.get("symbol")!=proposal.symbol
+                or closed.get("clientOrderId")!="WAIFL"+proposal.ticket[:23]
+                or closed.get("status")!="FILLED"
+                or closed.get("side")!=close_side
+                or closed.get("positionSide")!="BOTH"
+                or _decimal(closed.get("executedQty"))
+                   !=_decimal(proposal.quantity)
+                or not isinstance(pos,list) or len(pos)>1):
+            raise DemoSafetyError("EMERGENCY_CLOSE_EXCHANGE_PROOF_MISSING")
+        if pos:
+            if (not isinstance(pos[0],dict)
+                    or pos[0].get("symbol")!=proposal.symbol
+                    or pos[0].get("positionSide")!="BOTH"):
+                raise DemoSafetyError("EMERGENCY_CLOSE_POSITION_IDENTITY_INVALID")
+            try:
+                flat=Decimal(str(pos[0].get("positionAmt")))
+            except (ValueError,TypeError,InvalidOperation) as exc:
+                raise DemoSafetyError("EMERGENCY_CLOSE_POSITION_AMOUNT_INVALID") from exc
+            if not flat.is_finite() or flat!=0:
+                raise DemoSafetyError("EMERGENCY_CLOSE_NOT_PROVEN_FLAT")
+        return {"signed_exchange_flat_verified":True,
+                "unknown_reservation_still_locked":True,
+                "protective_stop_not_cancelled_automatically":True}
+
     def execute(self, ticket: str, *, confirmation: str) -> dict[str, Any]:
         if not self._enabled or confirmation != "PLACE_DEMO_ORDER":
             raise DemoSafetyError("DEMO торговля выключена; требуется явное подтверждение")
@@ -317,6 +415,10 @@ class DemoFutures:
         algo_id: str | None = None
         entered = False
         entry_attempted = False
+        # Never flatten merely because a POST returned a status string:
+        # ownership and signed position need independent confirmation.
+        owned_entry_id: str | None = None
+        verified_own_position = False
         try:
             protective = self._client.request(
                 "POST", "/fapi/v1/algoOrder", {
@@ -375,6 +477,7 @@ class DemoFutures:
                     or _decimal(exchange_order.get("executedQty"))
                     !=_decimal(proposal.quantity)):
                 raise DemoSafetyError("DEMO_SIGNED_ORDER_RECONCILIATION_FAILED")
+            owned_entry_id=order_id
             account_positions = self._client.request(
                 "GET", "/fapi/v3/positionRisk",
                 {"symbol":proposal.symbol}, signed=True)
@@ -388,6 +491,7 @@ class DemoFutures:
                     or Decimal(str(account_positions[0].get("positionAmt")))
                     !=expected_position):
                 raise DemoSafetyError("DEMO_ACCOUNT_POSITION_RECONCILIATION_FAILED")
+            verified_own_position=True
             if not self._stop_confirmed(algo_id, proposal):
                 raise DemoSafetyError("После входа подтверждение защитного SL потеряно")
             return {
@@ -403,21 +507,16 @@ class DemoFutures:
                 self._fatal = True
             # Never blindly send a duplicate entry. If POST timed out,
             # the result is unknown: retain the stop and require reconciliation.
-            if entered:
+            # A mismatched signed fill, uncertain POST, partial fill or
+            # vanished position makes blind MARKET flatten dangerous.
+            # Only an independently authenticated own filled order plus
+            # verified exact exposure may authorize ONE reduceOnly close.
+            if entered and verified_own_position and owned_entry_id is not None:
                 try:
-                    self._client.request(
-                        "POST", "/fapi/v1/order", {
-                            "symbol": proposal.symbol,
-                            "side": "SELL" if proposal.side == "BUY" else "BUY",
-                            "type": "MARKET",
-                            "positionSide": "BOTH",
-                            "quantity": proposal.quantity,
-                            "reduceOnly": "true",
-                            "newClientOrderId": "WAIFL" + ticket[:23],
-                        }, signed=True
-                    )
+                    self._flatten_authenticated_position_once(
+                        proposal,expected_entry_id=owned_entry_id)
                 except Exception:
-                    pass
+                    pass   # UNKNOWN remains locked; no retries or SL removal.
             # If entry may have happened on timeout, DO NOT remove SL.
             if algo_id and not entry_attempted and isinstance(exc, DemoSafetyError):
                 try:
