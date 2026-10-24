@@ -29,7 +29,7 @@ from typing import Any
 from .binance_wave_history import DurableWaveHistory, INTERVAL_MS, VENUES
 from .binance_universe import discover_universe, write_universe_snapshot, read_universe_snapshot
 from .causal_paper_lab import frozen_markets
-from .continual_trader import PrivateExperience, learn_from_private_experience
+from .continual_trader import PrivateExperience, learn_from_private_experience, _time
 from .williams_signal_experience import signal_conditioned_outcomes
 from .prequential_skill import causal_incremental_study
 
@@ -53,7 +53,19 @@ def marathon(
     markets: dict[str,dict[str,Any]], *,
     horizon: int = 12,goal: int = 10_000_000,
     min_train: int = 40,min_validation: int = 10,
+    frozen_cutoffs: tuple[str,str,str] | None = None,
 ) -> dict[str,Any]:
+    # Optional absolute, operator-supplied temporal boundaries. Retrospective
+    # quantile splits are always exploratory; they cannot be called a blind
+    # future experiment merely because the final test was left out of fitting.
+    if frozen_cutoffs is not None:
+        if (not isinstance(frozen_cutoffs,(tuple,list)) or
+                len(frozen_cutoffs)!=3):
+            raise ValueError("ALL_THREE_TEMPORAL_CUTOFFS_REQUIRED")
+        parsed=tuple(_time(value).isoformat() for value in frozen_cutoffs)
+        if not parsed[0] < parsed[1] < parsed[2]:
+            raise ValueError("INVALID_PREDECLARED_TEMPORAL_CUTOFF_ORDER")
+        frozen_cutoffs=parsed
     if not isinstance(goal,int) or isinstance(goal,bool) or goal<1:
         raise ValueError("Invalid 10m-budget counter")
     per_market=[]
@@ -98,7 +110,7 @@ def marathon(
     observed=max(x.resolved_at for x in all_cases)
     written=ledger.append(all_cases,knowledge_as_of=observed)
     accumulated=ledger.cumulative_coverage()
-    points=_split_points(all_cases)
+    points=frozen_cutoffs if frozen_cutoffs is not None else _split_points(all_cases)
     model=None
     online=None
     if points is not None:
@@ -143,6 +155,12 @@ def marathon(
         "not_ten_million_independent_gguf_inference":True,
         "learnt_numeric_policy":model,
         "prequential_research_skill":online,
+        "temporal_split_cutoffs":list(points) if points else None,
+        "temporal_split_provenance":(
+            "OPERATOR_SPECIFIED_NOT_INDEPENDENTLY_PROVEN_PREREGISTERED"
+            if frozen_cutoffs is not None else
+            "RETROSPECTIVE_DATASET_DERIVED_NOT_PROSPECTIVE_BLIND"),
+        "repeated_batches_not_new_independent_holdouts":True,
         "gguf_weight_updating_performed":False,
         "invalid_or_incomplete_market_streams":no_data,
         "per_market":per_market,
@@ -169,6 +187,9 @@ def main() -> None:
     p.add_argument("--window",type=int,default=30000)
     p.add_argument("--horizon",type=int,default=12)
     p.add_argument("--goal",type=int,default=10_000_000)
+    p.add_argument("--train-until",help="UTC cutoff fixed BEFORE prospective observations")
+    p.add_argument("--validation-until",help="UTC validation freeze; no later labels")
+    p.add_argument("--observe-until",help="UTC end of frozen evaluation")
     p.add_argument("--discover-universe",action="store_true")
     p.add_argument("--private-universe-snapshot",type=Path)
     args=p.parse_args()
@@ -181,6 +202,19 @@ def main() -> None:
         return
     if not args.private_journal:
         p.error("Learning requires a local private journal")
+    cutoffs=(args.train_until,args.validation_until,args.observe_until)
+    if any(x is not None for x in cutoffs) and not all(x is not None for x in cutoffs):
+        p.error("Specify all 3 temporal cutoffs, or none")
+    if all(x is not None for x in cutoffs):
+        try:
+            parsed=tuple(_time(x).isoformat() for x in cutoffs)
+        except (TypeError,ValueError) as exc:
+            p.error(f"All temporal cutoffs require explicit UTC timezone: {exc}")
+        if not parsed[0]<parsed[1]<parsed[2]:
+            p.error("Temporal cutoffs must be ordered train < validation < observe")
+        cutoffs=parsed
+    else:
+        cutoffs=None
     if args.frozen_fixture == bool(args.history_db):
         p.error("Provide either --frozen-fixture or --history-db, not both/neither")
     if (args.from_universe_snapshot and (args.frozen_fixture or args.symbols)):
@@ -227,7 +261,8 @@ def main() -> None:
                     "rows":rows,"tick_size":float(stats["tick_size"])}
         dataset="PRIVATE_NATIVE_CLOSED_EXCHANGE_CANDLE_ARCHIVE_NOT_PROVEN_BLIND"
     result=marathon(PrivateExperience(args.private_journal),markets,
-                    horizon=args.horizon,goal=args.goal)
+                    horizon=args.horizon,goal=args.goal,
+                    frozen_cutoffs=cutoffs)
     result["dataset_type"]=dataset
     result["historical_futures_venue"]=args.venue
     result["universe_is_live_listing_snapshot_not_delisted_history"]=(
