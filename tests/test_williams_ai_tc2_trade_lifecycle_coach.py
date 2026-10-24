@@ -108,6 +108,18 @@ class BookGroundedLifecycleTests(unittest.TestCase):
         self.assertTrue(all(x["price_breakout_requires_next_observation"]
                             for x in earlier_lesson["entry_observations"]))
 
+    def test_invented_indicator_or_wise_man_cannot_enter_qwen_lesson(self):
+        fake=deepcopy(self.view)
+        fake["candidates"].append({
+            "type":"WM2_SUPER_AO","side":"LONG",
+            "state":"MOMENTUM_CANDIDATE_NOT_ORDER"})
+        with self.assertRaisesRegex(ValueError,"INDEPENDENTLY_REPRODUCED"):
+            teach_tc2_trade_lifecycle(fake,self.data,tick_size=0.01)
+        fake2=deepcopy(self.view)
+        fake2["evidence"]["ao"]=123456789
+        with self.assertRaisesRegex(ValueError,"INDEPENDENTLY_REPRODUCED"):
+            teach_tc2_trade_lifecycle(fake2,self.data,tick_size=0.01)
+
     def test_fail_closed_gaps_future_and_wrong_profile(self):
         x=deepcopy(self.view);x["execution_allowed"]=True
         with self.assertRaisesRegex(ValueError,"READ_ONLY"):
