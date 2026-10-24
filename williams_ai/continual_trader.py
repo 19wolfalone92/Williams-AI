@@ -70,6 +70,8 @@ class Outcome:
     net_return: float
     stopped: bool
     source_hash: str
+    setup: str = "NO_BOOK_SETUP"
+    rule_id: str = "NOT_BOOK_CONFIRMED"
 
     def __post_init__(self):
         if (not isinstance(self.symbol, str)
@@ -93,6 +95,14 @@ class Outcome:
                 or not -5.0 <= self.net_return <= 5.0
                 or not isinstance(self.stopped, bool)):
             raise ValueError("Untrusted paper outcome")
+        if self.setup not in {"NO_BOOK_SETUP", "WM1", "WM2", "WM3"}:
+            raise ValueError("Unrecognized William's Wise Man")
+        if not isinstance(self.rule_id, str) or not 3 <= len(self.rule_id) <= 75:
+            raise ValueError("Book/experiment evidence rule required")
+        if self.setup != "NO_BOOK_SETUP" and not self.rule_id.startswith("TC2."):
+            raise ValueError("Source rule must link to the same TC2 hypothesis")
+        if self.setup == "NO_BOOK_SETUP" and self.rule_id != "NOT_BOOK_CONFIRMED":
+            raise ValueError("Unconfirmed direction is never a book signal")
         if (not isinstance(self.source_hash, str)
                 or len(self.source_hash) != 64
                 or any(c not in "0123456789abcdef" for c in self.source_hash)):
@@ -136,6 +146,7 @@ class PrivateExperience:
                 decision_at TEXT NOT NULL, resolved_at TEXT NOT NULL,
                 features_json TEXT NOT NULL, net_return REAL NOT NULL,
                 stopped INTEGER NOT NULL, source_hash TEXT NOT NULL,
+                setup TEXT NOT NULL,rule_id TEXT NOT NULL,
                 origin TEXT NOT NULL,
                 PRIMARY KEY (symbol,interval,side,decision_at,origin)
             )""")
@@ -168,24 +179,25 @@ class PrivateExperience:
                 f = json.dumps(_finite_vector(obj.features),
                                separators=(",", ":"))
                 existing = db.execute(
-                    """SELECT resolved_at,features_json,net_return,stopped,source_hash
-                       FROM outcomes WHERE symbol=? AND interval=? AND side=?
+                    """SELECT resolved_at,features_json,net_return,stopped,source_hash,
+                       setup,rule_id FROM outcomes WHERE symbol=? AND interval=? AND side=?
                        AND decision_at=? AND origin=?""",
                     (obj.symbol, obj.interval, obj.side,
                      obj.decision_at, ORIGIN),
                 ).fetchone()
                 proposed = (obj.resolved_at, f, obj.net_return,
-                            int(obj.stopped), obj.source_hash)
+                            int(obj.stopped), obj.source_hash, obj.setup,obj.rule_id)
                 if existing:
                     if tuple(existing) != proposed:
                         raise ValueError("CLOSED_OUTCOME_REVISION_REJECTED")
                     repeats += 1
                     continue
                 db.execute(
-                    """INSERT INTO outcomes VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    """INSERT INTO outcomes VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (obj.symbol, obj.interval, obj.side,
                      obj.decision_at, obj.resolved_at, f, obj.net_return,
-                     int(obj.stopped), obj.source_hash, ORIGIN))
+                     int(obj.stopped), obj.source_hash,
+                     obj.setup,obj.rule_id,ORIGIN))
                 inserted += 1
         return {"mode": "PRIVATE_EXPERIENCE_LEDGER",
                 "new_resolved_paper_outcomes": inserted,
@@ -199,14 +211,15 @@ class PrivateExperience:
         with self._connect() as db:
             rows = db.execute(
                 """SELECT symbol,interval,side,decision_at,resolved_at,
-                   features_json,net_return,stopped,source_hash
+                   features_json,net_return,stopped,source_hash,setup,rule_id
                    FROM outcomes WHERE resolved_at<=?
                    ORDER BY decision_at,symbol,side""",
                 (max_time,),
             ).fetchall()
         return [Outcome(a, b, c, d, e, _finite_vector(json.loads(f)), g,
-                        bool(h), i)
-                for a, b, c, d, e, f, g, h, i in rows]
+                        bool(h), i, setup, rule)
+                for a, b, c, d, e, f, g, h, i, setup, rule in rows
+                for unused in (0,)]
 
     def policies(self) -> list[dict[str, Any]]:
         with self._connect() as db:
@@ -256,6 +269,7 @@ def learn_from_private_experience(
     ledger: PrivateExperience, *, train_until: str,
     validate_until: str, observe_until: str, min_train: int = 60,
     min_validation: int = 16,
+    require_williams_setup: bool = True,
 ) -> dict[str, Any]:
     """One anchored chronological experiment using GLOBAL absolute timestamps.
 
@@ -268,6 +282,8 @@ def learn_from_private_experience(
     if not a < b < c:
         raise ValueError("Chronological data cutoff order violated")
     all_outcomes = ledger.samples(resolved_before=observe_until)
+    if require_williams_setup:
+        all_outcomes = [x for x in all_outcomes if x.setup in {"WM1","WM2","WM3"}]
     train = [x for x in all_outcomes
              if _seconds(x.decision_at) < a and _seconds(x.resolved_at) < a]
     validation = [x for x in all_outcomes
@@ -327,7 +343,10 @@ def learn_from_private_experience(
         "frozen_test": bucket(holdout),
         "test_was_never_used_to_fit_or_select": True,
         "market_edition_rule_match_not_proven": True,
-        "verified_WM1_WM2_WM3_signals": 0,
+        "actual_book_confirmed_wm_signals": 0,
+        "source_approximate_tc2_wm_candidate_examples": sum(
+            x.setup in {"WM1","WM2","WM3"} for x in all_outcomes),
+        "only_proxy_williams_setups_used_for_fit": require_williams_setup,
         "real_gguf_weights_updated": False,
         "source": ORIGIN,
         "research_provenance": IDENTITY,
