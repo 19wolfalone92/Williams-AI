@@ -84,6 +84,32 @@ internal object NativeWaveStudy {
             near,jaw,teeth,lips)
     }
 
+    /**
+     * Private, immutable historical note at a past closed candle; can be used
+     * to review evidence seen THEN, not to back-label pivots using later data.
+     */
+    fun archiveNote(bars:List<NativeWaveHistoryDb.Bar>):String {
+        val obs=facts(bars) ?: error("Требуется >=45 закрытых баров для заметки")
+        return org.json.JSONObject().apply {
+            put("algorithm_revision","ANDROID_NATIVE_15TF_WAVE_REVIEW_V1")
+            put("cutoff_close_ms",obs.closedAt)
+            put("available_closed_bars",obs.bars)
+            put("price_close",f(obs.close))
+            put("ao",f(obs.ao))
+            put("ac",f(obs.ac))
+            put("jaw_visible",f(obs.jaw))
+            put("teeth_visible",f(obs.teeth))
+            put("lips_visible",f(obs.lips))
+            put("market_context",obs.context)
+            put("recent_confirmed_pivot",obs.lastPivot)
+            put("ao_near_zero_only_hypothesis",obs.nearZeroAo)
+            put("elliott_wave_degree_verified",false)
+            put("actual_trade_action",org.json.JSONObject.NULL)
+            put("future_bars_used",false)
+            put("weights_gguf_retrained",false)
+        }.toString()
+    }
+
     /** Only the symbols baked into the app are eligible, not remote model URLs. */
     fun symbolForQuestion(question:String):String? {
         val uppercase=question.uppercase(java.util.Locale.ROOT)
