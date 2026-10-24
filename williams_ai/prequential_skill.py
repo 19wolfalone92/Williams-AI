@@ -50,6 +50,8 @@ def _metrics(rows: list[tuple[Outcome, float]], baseline_prior: float) -> dict[s
     predictions = [p for _, p in rows]
     threshold = [x for x, p in rows if p >= 0.60]
     gains = sum(x.net_return for x in threshold)
+    selected_days = {_time(x.decision_at).date() for x in threshold}
+    selected_assets = {x.symbol for x in threshold}
     # Even if favorable, these are overlapping hypothetical trades with no
     # capital allocation, funding fees, partial fill or SL order confirmation.
     raw_paper_mtm = sum(x.net_return for x, _ in rows)
@@ -65,6 +67,8 @@ def _metrics(rows: list[tuple[Outcome, float]], baseline_prior: float) -> dict[s
         "positive_outcome_frequency": round(sum(truth)/n, 6),
         "fixed_p_threshold": 0.60,
         "paper_selected_examples": len(threshold),
+        "paper_selected_distinct_utc_days": len(selected_days),
+        "paper_selected_distinct_assets": len(selected_assets),
         "paper_selected_mean_net": (
             round(gains/len(threshold), 9) if threshold else None),
         "unselected_paper_mean_net": round(raw_paper_mtm/n, 9),
@@ -115,6 +119,11 @@ def causal_incremental_study(
     last_train_resolved:datetime|None = None
     predictions:dict[str,list[tuple[Outcome,float]]] = {
         "train_prequential":[], "validation_frozen":[], "test_frozen":[]}
+    # Enforce information availability at EACH partition cutoff, not merely
+    # at final observe_until. A validation result learned after validation_until
+    # must never qualify a model selected at that earlier validation cutoff.
+    cutoff_purged = {"train_prequential": 0, "validation_frozen": 0,
+                     "test_frozen": 0}
     training_examples = 0
     prior_positive = 0
     for decision in sorted(grouped):
@@ -138,6 +147,18 @@ def causal_incremental_study(
         else:
             partition = "test_frozen"
         for ex in group:
+            resolution = _time(ex.resolved_at)
+            # Train/validation labels are strictly earlier than their freeze
+            # boundary. Final-test labels may settle at observe_until, but
+            # have no influence on learned weights or validation selection.
+            boundary = (a if partition == "train_prequential" else
+                        b if partition == "validation_frozen" else c)
+            known_at_freeze = (resolution <= boundary if
+                               partition == "test_frozen" else
+                               resolution < boundary)
+            if not known_at_freeze:
+                cutoff_purged[partition] += 1
+                continue
             p = _predict(weights, _finite_vector(ex.features))
             predictions[partition].append((ex,p))
             if partition == "train_prequential" and _time(ex.resolved_at)<a:
@@ -167,6 +188,11 @@ def causal_incremental_study(
     meets_validation=(
         improvement>=0.005
         and mval["paper_selected_examples"]>=10
+        # Multi-coin signals on a single crash/pump day are not 10
+        # independent occasions. This is a conservative screening guard,
+        # NOT a claim of statistical independence or trading readiness.
+        and mval["paper_selected_distinct_utc_days"]>=5
+        and mval["paper_selected_distinct_assets"]>=3
         and mval["paper_selected_mean_net"] is not None
         and mval["paper_selected_mean_net"]>0
         and mval["distinct_assets"]>=3
@@ -198,6 +224,9 @@ def causal_incremental_study(
         "test_frozen":mtest,
         "validation_improvement_vs_train_prior_brier":round(improvement,9),
         "qualification":status,
+        "cutoff_purged_late_resolved_outcomes":cutoff_purged,
+        "validation_labels_strictly_settled_before_selection_cutoff":True,
+        "selected_daily_clusters_not_independent_portfolio_pnl":True,
         "frozen_test_never_selected_or_trained":True,
         "simultaneous_crypto_decisions_share_previous_past_only_weights":True,
         "same_symbol_trade_fill_or_portfolio_risk_not_simulated":True,
