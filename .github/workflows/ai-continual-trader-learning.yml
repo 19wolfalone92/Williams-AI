@@ -1,0 +1,52 @@
+name: Williams AI adaptive trader historical learning (no orders)
+on:
+  push:
+    branches:
+      - feature/continual-ai-trader-learning-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adaptive-chronological-trader-lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Private immutable outcome and no-lookahead learning tests
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_continual_trader.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_binance_universe.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_williams_signal_experience.py' -v
+      - name: Entire Williams AI regression suite
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Real previously-reviewed 15-pair Binance OHLC history signal-conditioned private experience
+        run: |
+          python -m williams_ai.trader_marathon --frozen-fixture \
+            --private-journal "${RUNNER_TEMP}/williamsai-private-experiences.sqlite3" \
+            --goal 10000000 > "${RUNNER_TEMP}/williamsai-learning-result.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["RUNNER_TEMP"])/"williamsai-learning-result.json").read_text())
+          assert data["mode"]=="WILLIAMS_AI_CLOSED_MARKET_CONTINUAL_LEARNING"
+          assert data["distinct_crypto_symbols"]==15
+          assert data["execution_allowed"] is False and data["trade_action"] is None
+          assert data["ten_million_independent_trades_claimed"] is False
+          print("ACTUAL_SYMBOLS",data["distinct_crypto_symbols"])
+          print("ACTUAL_CAUSAL_WM_SIGNAL_CHECKS",data["book_signal_proxy_checks_completed"])
+          print("ACTUAL_SETTLED_WM_NEXT_BAR_COUNTERFACTUALS",
+                data["resolved_book_signal_proxy_entry_examples"])
+          print("ACTUAL_PRIVATE_OUTCOME_MEMORY",data["private_persistent_learning"])
+          print("10M_GOAL_COMPLETED",data["goal_verified_as_completed"])
+          print("10M_GOAL_ADDITIONAL_SCENARIOS_NEEDED",
+                data["additional_candidate_checks_needed_to_goal"])
+          fit=data.get("learnt_numeric_policy")
+          if fit:
+              print("TRAINABLE_MODEL_STATUS",fit.get("validation_state",fit.get("state")))
+              print("PAST_TRAIN_COUNT",fit.get("train_count"))
+              print("INDEPENDENT_FUTURE_HOLDOUT",fit.get("frozen_test"))
+          print("EXECUTION_AUTHORIZATION_DISABLED")
+          PY
