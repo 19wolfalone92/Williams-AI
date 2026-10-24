@@ -20,6 +20,9 @@ for file in \
   app/src/main/java/com/example/llama/WebResearch.kt \
   app/src/main/java/com/example/llama/BookKnowledge.kt \
   app/src/main/java/com/example/llama/StudyMemory.kt \
+  app/src/main/java/com/example/llama/NativeWaveHistory.kt \
+  app/src/main/java/com/example/llama/NativeWaveStudy.kt \
+  app/src/main/java/com/example/llama/NativeWaveSyncService.kt \
   app/src/main/res/values/strings.xml \
   app/src/main/res/layout/activity_main.xml \
   app/src/main/AndroidManifest.xml; do
@@ -46,7 +49,11 @@ import xml.etree.ElementTree as ET
 root = ET.fromstring(Path(sys.argv[1]).read_text())
 ns = "{http://schemas.android.com/apk/res/android}"
 permissions = [x.attrib.get(ns + "name") for x in root.findall("uses-permission")]
-assert permissions == ["android.permission.INTERNET"], f"Unexpected permissions: {permissions}"
+assert permissions == [
+    "android.permission.INTERNET",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+], f"Unexpected permissions: {permissions}"
 PY
 
 cd "$project"
