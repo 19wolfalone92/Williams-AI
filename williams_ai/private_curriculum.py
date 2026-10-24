@@ -108,13 +108,17 @@ def main()->None:
     parser.add_argument("--batch-budget",type=int,default=30)
     parser.add_argument("--rounds",type=int,default=50)
     parser.add_argument("--gpu-layers",type=int,default=0)
+    parser.add_argument("--learning-mode",choices=["legacy_json","auto","reasoning"],default="legacy_json")
+    parser.add_argument("--reasoning-budget",type=int,default=2048)
     args=parser.parse_args()
     # Verify ordinary GGUF contents before claim of real model study.
     from .real_gguf_acceptance import actual_gguf_sha256
     actual_gguf_sha256(args.local_model,args.expected_sha256)
     from .local_model import LocalWilliamsModel
     model=LocalWilliamsModel(args.local_model,n_ctx=8192,
-                             gpu_layers=args.gpu_layers)
+                             gpu_layers=args.gpu_layers,
+                             learning_mode=args.learning_mode,
+                             reasoning_budget=args.reasoning_budget)
     data=complete_private_readthrough(
         args.book_index,args.study_memory,model,
         model_id=_model_identity(args.local_model),

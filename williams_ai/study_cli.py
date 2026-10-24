@@ -102,6 +102,8 @@ def main()->None:
     p.add_argument("--report",action="store_true")
     p.add_argument("--local-model",type=Path)
     p.add_argument("--gpu-layers",type=int,default=0)
+    p.add_argument("--learning-mode",choices=["legacy_json","auto","reasoning"],default="legacy_json")
+    p.add_argument("--reasoning-budget",type=int,default=2048)
     p.add_argument("--edition",choices=["TC1","NTD","TC2","COURSE","ALL"],default="ALL")
     p.add_argument("--budget-per-book",type=int,default=10)
     p.add_argument("--rounds",type=int,default=1)
@@ -119,7 +121,8 @@ def main()->None:
         from .local_model import LocalWilliamsModel
         data=train_private_curriculum(
             a.book_index,a.study_memory,
-            LocalWilliamsModel(a.local_model,gpu_layers=a.gpu_layers),
+            LocalWilliamsModel(a.local_model,gpu_layers=a.gpu_layers,
+                               learning_mode=a.learning_mode,reasoning_budget=a.reasoning_budget),
             model_id=_model_identity(a.local_model),
             editions=("TC1","NTD","TC2","COURSE") if a.edition=="ALL" else (a.edition,),
             budget_per_book=a.budget_per_book,rounds=a.rounds,

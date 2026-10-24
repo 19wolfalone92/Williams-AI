@@ -110,6 +110,12 @@ def run_zone_transfer_exam(model: Any, book_index: Path, *,
         results[phase] = {
             "correct": sum(x["correct"] for x in graded), "total": len(graded),
             "malformed_or_failed": sum(x["failure"] is not None for x in graded),
+            "chosen_letter_counts":dict(sorted(Counter(x["chosen"] for x in graded
+                                                        if x["chosen"]).items())),
+            "constant_choice_on_varied_answer_key":(
+                len({x["expected"] for x in graded})>1
+                and all(x["chosen"] for x in graded)
+                and len({x["chosen"] for x in graded})==1),
             "results": graded,
         }
     return {
@@ -140,13 +146,19 @@ def main() -> None:
     parser.add_argument("--local-model", type=Path, required=True)
     parser.add_argument("--expected-sha256", required=True)
     parser.add_argument("--seed", type=int, default=20261024)
+    parser.add_argument("--learning-mode",choices=["auto","legacy_json","reasoning"],default="legacy_json")
+    parser.add_argument("--reasoning-budget",type=int,default=2048)
     args = parser.parse_args()
     from .real_gguf_acceptance import actual_gguf_sha256
     from .local_model import LocalWilliamsModel
     weights = actual_gguf_sha256(args.local_model, args.expected_sha256)
-    result = run_zone_transfer_exam(LocalWilliamsModel(args.local_model, n_ctx=8192),
+    result = run_zone_transfer_exam(LocalWilliamsModel(args.local_model, n_ctx=8192,
+                                    learning_mode=args.learning_mode,
+                                    reasoning_budget=args.reasoning_budget),
                                     args.book_index, seed=args.seed)
     result["verified_gguf_weights"] = weights
+    result["requested_learning_mode"] = args.learning_mode
+    result["reasoning_token_budget"] = args.reasoning_budget
     print("NTD_SOURCE_APPLICATION_SUMMARY", json.dumps(result, ensure_ascii=False), flush=True)
 
 

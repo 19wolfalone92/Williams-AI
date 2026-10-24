@@ -66,6 +66,16 @@ class SourceApplicationProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"REQUIRES_SOURCE_REVIEW"):
             run_zone_transfer_exam(object(),self.book)
 
+    def test_accidental_hits_from_always_a_are_reported_as_constant_choice(self):
+        class Constant:
+            def answer_exam_case(self,case,**kwargs):
+                return {"choice":"A","reason":"constant letter without applying the rule"}
+        result=run_zone_transfer_exam(Constant(),self.book)
+        for phase in result["phases"].values():
+            self.assertGreater(phase["correct"],0)
+            self.assertTrue(phase["constant_choice_on_varied_answer_key"])
+            self.assertEqual(phase["chosen_letter_counts"],{"A":12})
+
     def test_truncated_generated_lesson_never_enters_private_memory(self):
         class Runtime:
             def __init__(self,**kwargs):pass

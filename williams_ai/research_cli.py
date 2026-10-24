@@ -20,6 +20,8 @@ def main():
     study.add_argument("--model", type=Path, required=True)
     study.add_argument("--edition", choices=["TC1", "NTD", "TC2", "COURSE"], required=True)
     study.add_argument("--budget", type=int, default=4, help="Maximum source chunks per invocation, 1..100")
+    study.add_argument("--learning-mode",choices=["legacy_json","auto","reasoning"],default="legacy_json")
+    study.add_argument("--reasoning-budget",type=int,default=2048)
     study.add_argument("--until-complete", action="store_true", help="Continue bounded batches automatically; each completed chunk is checkpointed")
     report = sub.add_parser("report")
     report.add_argument("--books", required=True)
@@ -39,7 +41,8 @@ def main():
         from .local_model import LocalWilliamsModel
         from .study_cli import _model_identity
         model_id = _model_identity(opts.model)
-        model = LocalWilliamsModel(opts.model)
+        model = LocalWilliamsModel(opts.model,learning_mode=opts.learning_mode,
+                                   reasoning_budget=opts.reasoning_budget)
         result = study_batch(opts.books, opts.memory, opts.edition, model,
                              model_id=model_id, budget=opts.budget)
         if opts.until_complete:
