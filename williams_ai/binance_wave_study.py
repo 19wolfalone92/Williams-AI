@@ -129,6 +129,15 @@ def analyze_all_cached(
         })
         views[native]=view
         matrix[native]=passport
+    # Source-backed nesting: inspect confirmed child extrema BETWEEN real
+    # parent confirmed pivots at the same H1 cutoff, never derive Elliott
+    # degree just from a pair of timeframe labels.
+    from .native_nested_waves import nested_evidence_for_views
+    native_nested=(
+        nested_evidence_for_views(views,intervals=list(intervals),
+                                 as_of_ms=common_as_of_ms)
+        if common_as_of_ms is not None else []
+    )
     # Cross-TF parent/child summary is *only* a set of alternatives:
     # correlations, opposing phases and momentum do not certify Elliot waves.
     ordered=[q for q in reversed(INTERVAL_MS) if q in intervals]
@@ -184,6 +193,7 @@ def analyze_all_cached(
         "full_historical_backfill_completed_for_every_tf":False,
         "matrix":matrix,
         "adjacent_cross_scale_competing_hypotheses":cross,
+        "native_confirmed_parent_child_swing_subdivision_hypotheses":native_nested,
         "h1_h4_d1_relationships":relationships["parent_child_relations"],
         "wave_degree_expert_verified":False,
         "alligator_displacement_no_future":True,
@@ -217,6 +227,14 @@ def analyze_all_cached(
                 "recent_swings":v["confirmed_swings"][-2:],
             } for k,v in causal_context.items()
         }
+        anchor["cross_scale_native_subwave_context"]=[
+            {
+                "parent":x["parent"],"child":x["child"],
+                "status":x["status"],
+                "confirmed_child_pivots_inside":x["confirmed_child_pivots_inside"],
+                "wave_degree_verified":False,
+            } for x in native_nested
+        ]
         anchor["higher_timeframe_context"]={}
         for tf in ("H4","D1"):
             frame=core[tf]
