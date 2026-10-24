@@ -6,6 +6,10 @@ on:
     paths:
       - "mobile/**"
       - ".github/workflows/ai-android-apk.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ai-android-apk.yml"
   workflow_dispatch:
 
 permissions:
