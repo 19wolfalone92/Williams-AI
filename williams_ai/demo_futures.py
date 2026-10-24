@@ -100,8 +100,9 @@ class DemoHttp:
             body = data if method != "GET" else None
             connection.request(method, path_with_query, body=body, headers=headers)
             response = connection.getresponse()
-            payload = response.read(128 * 1024 + 1)
-            if len(payload) > 128 * 1024:
+            budget=4_000_000 if path=="/fapi/v1/exchangeInfo" else 128*1024
+            payload = response.read(budget+1)
+            if len(payload) > budget:
                 raise DemoSafetyError("Слишком большой ответ DEMO API")
             if response.status >= 400:
                 # Never log API credentials or full signed URL.
@@ -184,12 +185,15 @@ class DemoFutures:
 
     def _check_contract_filters(self, proposal: TradeProposal) -> None:
         info = self._client.request(
-            "GET", "/fapi/v1/exchangeInfo", {"symbol": proposal.symbol}
+            "GET", "/fapi/v1/exchangeInfo"
         )
-        listing = info.get("symbols")
-        if not isinstance(listing, list) or len(listing) != 1:
+        listing = info.get("symbols") if isinstance(info,dict) else None
+        if not isinstance(listing, list):
             raise DemoSafetyError("Нет точных биржевых ограничений символа")
-        item = listing[0]
+        matching=[x for x in listing if isinstance(x,dict) and x.get("symbol")==proposal.symbol]
+        if len(matching)!=1:
+            raise DemoSafetyError("Нет точных биржевых ограничений символа")
+        item = matching[0]
         if item.get("symbol") != proposal.symbol or item.get("status") != "TRADING":
             raise DemoSafetyError("Контракт недоступен на DEMO")
         qty = _decimal(proposal.quantity)

@@ -47,7 +47,7 @@ class PilotGateTests(unittest.TestCase):
         health=check_public_demo(fetch=fetch,now_ms=CLOCK)
         self.assertEqual(calls,[
             ("/fapi/v1/time",None),
-            ("/fapi/v1/exchangeInfo",{"symbol":"ETHUSDT"}),
+            ("/fapi/v1/exchangeInfo",None),
             ("/fapi/v1/premiumIndex",{"symbol":"ETHUSDT"}),
         ])
         self.assertFalse(health.execution_allowed)

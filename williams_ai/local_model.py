@@ -61,6 +61,10 @@ _STUDY_LESSON_SCHEMA = {
 }
 
 
+_NATIVE_TIMEFRAMES=frozenset({"1m","3m","5m","15m","30m","1h","2h","4h","6h",
+                             "8h","12h","1d","3d","1w","1M"})
+
+
 def _checked_report(report: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(report, dict) or report.get("mode") != "READ_ONLY" or report.get("trade_action", "invalid") is not None:
         raise ValueError("Expected a sanitized READ_ONLY report from build_report")
@@ -280,6 +284,29 @@ class LocalWilliamsModel:
                 or chart_analysis.get("execution_allowed") is not False
                 or chart_analysis.get("gaps", 0)):
             raise ValueError("Only gap-free read-only closed market analyses")
+        from .decision_contract import _as_utc
+        cutoff=_as_utc(chart_analysis.get("as_of"))
+        if cutoff is None:
+            raise ValueError("INVALID_CHART_CONTEXT_TIME")
+        def require_closed_context(value: Any) -> None:
+            at=_as_utc(value)
+            if at is None:
+                raise ValueError("INVALID_MARKET_CONTEXT_TIME")
+            if at>cutoff:
+                raise ValueError("FUTURE_MARKET_CONTEXT_FORBIDDEN")
+        native=chart_analysis.get("all_binance_timeframes_compact",{})
+        if isinstance(native,dict):
+            for name,frame in native.items():
+                if (name in _NATIVE_TIMEFRAMES and isinstance(frame,dict)
+                        and all(k in frame for k in ("close","trend","ao","ac","zone"))):
+                    require_closed_context(frame["close"])
+        high_context=chart_analysis.get("higher_timeframe_context",{})
+        if isinstance(high_context,dict):
+            for name in ("H4","D1"):
+                frame=high_context.get(name,{})
+                if isinstance(frame,dict) and (frame.get("closed_through") is not None
+                        or frame.get("status")=="OBSERVED_CLOSED_BARS"):
+                    require_closed_context(frame.get("closed_through"))
         cards=[
             {"id":c["id"],"summary":c["summary"],"pdf_pages":c["pdf_pages"],
              "review_status":c["status"]}
@@ -426,12 +453,11 @@ class LocalWilliamsModel:
                     if isinstance(chart_analysis.get("all_binance_timeframes_compact",{}),dict)
                     else {}
                 ).items()
-                if key in {"1m","3m","5m","15m","30m","1h","2h","4h","6h",
-                           "8h","12h","1d","3d","1w","1M"}
+                if key in _NATIVE_TIMEFRAMES
                 and isinstance(tf,dict)
                 and all(k in tf for k in ("close","trend","ao","ac","zone"))
                 and isinstance(tf["close"],str)
-                and tf["close"]<=chart_analysis["as_of"]
+                and _as_utc(tf["close"])<=cutoff
             },
             "cross_scale_native_confirmed_pivot_alternatives":[
                 {

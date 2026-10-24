@@ -49,9 +49,10 @@ def _public_get(url: str) -> Any:
         raise ValueError("Non-public or unapproved Binance host forbidden")
     req=Request(url,headers={"User-Agent":"Williams-AI-read-only-public-H1/1.0",
                              "Accept":"application/json"})
+    budget=4_000_000 if url.split("?",1)[0].endswith("/exchangeInfo") else 3_000_000
     with urlopen(req,timeout=15) as response:
-        data=response.read(3_000_001)
-    if len(data)>3_000_000:
+        data=response.read(budget+1)
+    if len(data)>budget:
         raise ValueError("Market data response exceeds bound")
     return json.loads(data)
 
@@ -80,11 +81,17 @@ def capture_latest_closed_h1(
         abs(remote_ms-clock)>MAX_CLOCK_DRIFT_MS
     ):
         raise ValueError("Binance time deviates from observed UTC clock")
-    rules=fetch_json(host+api+"/exchangeInfo?"+urlencode({"symbol":symbol}))
+    metadata_url=host+api+"/exchangeInfo"
+    if venue=="SPOT":
+        metadata_url+="?"+urlencode({"symbol":symbol})
+    rules=fetch_json(metadata_url)
     if (not isinstance(rules,dict) or not isinstance(rules.get("symbols"),list) or
-            len(rules["symbols"])!=1):
+            not rules["symbols"]):
         raise ValueError("Exchange contract filters not verified")
-    pair=rules["symbols"][0]
+    matching=[x for x in rules["symbols"] if isinstance(x,dict) and x.get("symbol")==symbol]
+    if len(matching)!=1:
+        raise ValueError("Exchange contract must occur exactly once in catalog")
+    pair=matching[0]
     if (not isinstance(pair,dict) or pair.get("symbol")!=symbol or
             pair.get("status")!="TRADING" or not isinstance(pair.get("filters"),list)):
         raise ValueError("Unexpected symbol, market status or rules")
@@ -139,6 +146,10 @@ def capture_latest_closed_h1(
     age=(remote_ms/1000)-stamp.timestamp()
     if not (5<=age<7200):
         raise ValueError("LATEST_H1_NOT_FRESH_ENOUGH_FOR_PROSPECTIVE_TEST")
+    # A contiguous series may still omit the most recent safe closed hour.
+    expected_latest=((remote_ms-5000)//HOUR_MS)*HOUR_MS-1
+    if stamp!=datetime.fromtimestamp(expected_latest/1000,timezone.utc):
+        raise ValueError("NOT_LATEST_SAFE_CLOSED_H1")
     if any(datetime.fromisoformat(b["close_time"]).astimezone(timezone.utc)-
            datetime.fromisoformat(a["close_time"]).astimezone(timezone.utc)
            !=timedelta(hours=1) for a,b in zip(bars,bars[1:])):

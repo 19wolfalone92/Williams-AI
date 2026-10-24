@@ -239,19 +239,36 @@ def summarize_sealed_results(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
             _validated_identity(model_id,code_id)
         elif x.get("model_id")!=model_id or x.get("code_id")!=code_id:
             raise ValueError("Cannot mix model or source versions in one cohort")
-        key=(x["symbol"], x["as_of"])
+        if (not isinstance(x.get("symbol"),str) or not x["symbol"]
+                or x.get("baseline_direction") not in _ALLOWED):
+            raise ValueError("Malformed outcome identity or baseline")
+        cutoff=_utc(x.get("as_of"))
+        if _utc(x.get("future_confirmed_at"))!=cutoff+timedelta(hours=HORIZON):
+            raise ValueError("Outcome does not have the sealed 24-hour maturity")
+        expected_called=x["predicted_direction"]!="ABSTAIN"
+        expected_non_neutral=x["observed_24h_direction"]!="NEUTRAL"
+        scoreable=expected_called and expected_non_neutral
+        expected_correct=(x["predicted_direction"]==x["observed_24h_direction"]
+                          if scoreable else None)
+        expected_baseline=(x["baseline_direction"]==x["observed_24h_direction"]
+                           if scoreable else None)
+        expected={"called":expected_called,"non_neutral":expected_non_neutral,
+                  "correct":expected_correct,"baseline_correct_on_selected":expected_baseline}
+        if any(k not in x or x[k] is not v for k,v in expected.items()):
+            raise ValueError("Inconsistent cached outcome flags")
+        key=(x["symbol"], cutoff)
         if key in seen:
             raise ValueError("Duplicate historical observation in evaluation")
         seen.add(key)
-        days.add(_utc(x["as_of"]).date().isoformat())
-        if x["observed_24h_direction"]!="NEUTRAL":
+        days.add(cutoff.date().isoformat())
+        if expected_non_neutral:
             nonneutral+=1
-        if x["called"]:
+        if expected_called:
             called+=1
-            if x["non_neutral"]:
+            if expected_non_neutral:
                 scored+=1
-                hit+=bool(x["correct"])
-                base+=bool(x["baseline_correct_on_selected"])
+                hit+=int(expected_correct)
+                base+=int(expected_baseline)
                 always_up+=x["observed_24h_direction"]=="UP"
                 always_down+=x["observed_24h_direction"]=="DOWN"
     return {

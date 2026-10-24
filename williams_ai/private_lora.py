@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -62,7 +63,18 @@ def checked_private_training_data(path:str|Path, *,
     case_hashes=set()
     rule_split_owners={}
     per_edition=Counter()
-    with file.open(encoding="utf-8") as reader:
+    per_split_editions={k:Counter() for k in _SPLITS}
+    # Fit exactly the bytes whose digest is recorded, even if the operator
+    # replaces the input file while the audit/tokenization is running.
+    with file.open("rb") as source:
+        payload=source.read(40_000_001)
+    if len(payload)>40_000_000:
+        raise ValueError("DATASET_MUST_BE_SMALL_PRIVATE_JSONL")
+    try:
+        text=payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("PRIVATE_DATASET_MUST_BE_UTF8") from exc
+    with io.StringIO(text) as reader:
         for lineno,line in enumerate(reader,1):
             if not line.strip():
                 continue
@@ -93,7 +105,7 @@ def checked_private_training_data(path:str|Path, *,
                     or not isinstance(answer,str) or not 20<=len(answer)<=2500):
                 raise ValueError("EMPTY_OR_OVERSIZED_REVIEWED_LESSON")
             normalized=hashlib.sha256(
-                question.strip().casefold().encode()).hexdigest()
+                re.sub(r"\s+"," ",question).strip().casefold().encode()).hexdigest()
             if normalized in case_hashes:
                 raise ValueError("DUPLICATE_QUESTION_ACROSS_HOLDOUT_PARTITIONS")
             case_hashes.add(normalized)
@@ -105,18 +117,22 @@ def checked_private_training_data(path:str|Path, *,
                 raise ValueError("SAME_BOOK_RULE_LEAKED_ACROSS_FROZEN_SPLITS")
             ids.add(case_id)
             per_edition[ed]+=1
+            per_split_editions[obj["split"]][ed]+=1
             groups[obj["split"]].append(obj)
     if (len(groups["train"])<min_train
             or len(groups["validation"])<min_validation
             or len(groups["test"])<min_test
             or set(per_edition)!=set(books)):
         raise ValueError("INSUFFICIENT_REVIEWED_INDEPENDENT_SOURCE_EXAMPLES")
-    digest=hashlib.sha256(file.read_bytes()).hexdigest()
+    if any(set(counts)!=set(books) for counts in per_split_editions.values()):
+        raise ValueError("FOUR_BOOKS_IN_EACH_SPLIT_REQUIRED")
+    digest=hashlib.sha256(payload).hexdigest()
     return {
         "mode":"LOCAL_INDEPENDENT_EXPERT_DECLARED_SOURCE_TRAINING_SET",
         "source_dataset_sha256":digest,
         "counts":{k:len(v) for k,v in groups.items()},
         "source_editions":dict(sorted(per_edition.items())),
+        "source_editions_by_split":{k:dict(sorted(v.items())) for k,v in per_split_editions.items()},
         "test_holdout_loaded_by_training_loop":False,
         "reviewer_declaration_not_independently_verified":True,
         "individual_book_rules_never_cross_splits":True,
@@ -150,6 +166,28 @@ def _tokenized(cases:list[dict[str,Any]],tokenizer:Any,*,max_tokens:int)->list[d
     return examples
 
 
+def checked_local_qwen_config(base: Path) -> dict[str,str]:
+    """Reject another model family before loading optional CUDA libraries.
+
+    The local digest is an integrity receipt, not independent proof that
+    the weights were published by Qwen or came from a particular revision.
+    """
+    path=base/"config.json"
+    if not path.is_file() or path.stat().st_size>1_000_000:
+        raise ValueError("LOCAL_QWEN_CONFIG_REQUIRED")
+    payload=path.read_bytes()
+    try:
+        config=json.loads(payload)
+    except (ValueError,UnicodeDecodeError) as exc:
+        raise ValueError("LOCAL_QWEN_CONFIG_REQUIRED") from exc
+    if (not isinstance(config,dict) or not isinstance(config.get("model_type"),str)
+            or config["model_type"] not in
+            {"qwen2","qwen2_moe","qwen3","qwen3_moe"}):
+        raise ValueError("LOCAL_CAUSAL_QWEN_MODEL_REQUIRED")
+    return {"model_type":config["model_type"],
+            "config_sha256":hashlib.sha256(payload).hexdigest()}
+
+
 def train_private_lora(
     *, data:Path, model_dir:Path, output_dir:Path,
     max_steps:int=100,max_tokens:int=1024,
@@ -164,6 +202,7 @@ def train_private_lora(
         raise ValueError("LOCAL_BASE_MODEL_AND_NEW_PRIVATE_OUTPUT_REQUIRED")
     if not isinstance(max_steps,int) or isinstance(max_steps,bool) or not 1<=max_steps<=10000:
         raise ValueError("INVALID_TRAINING_STEP_LIMIT")
+    base_receipt=checked_local_qwen_config(base)
     import torch
     if not torch.cuda.is_available():
         raise RuntimeError("PRIVATE_LORA_TRAINING_REQUIRES_LOCAL_CUDA_GPU")
@@ -201,6 +240,8 @@ def train_private_lora(
                 "labels":pad("labels",-100)}
     # TrainingArguments/Trainer implementation may change across versions.
     # Dependencies are imported here, never during the read-only test suite.
+    target.mkdir(parents=True,exist_ok=False,mode=0o700)
+    target.chmod(0o700)
     args=TrainingArguments(
         output_dir=str(target),
         max_steps=max_steps,per_device_train_batch_size=1,
@@ -218,8 +259,7 @@ def train_private_lora(
     # A validation-only improvement is not evidence of new-market profit.
     improved=trained<baseline
     if improved:
-        # Trainer may have created output_dir for state/logs already.
-        # The path was required NOT to exist before this invocation.
+        # The private output directory was created before Trainer logging.
         target.mkdir(parents=True,exist_ok=True,mode=0o700)
         target.chmod(0o700)
         model.save_pretrained(str(target),safe_serialization=True)
@@ -229,6 +269,7 @@ def train_private_lora(
                 "mode":"LOCAL_RESEARCH_LORA_NOT_TRADING_READY",
                 "source_dataset_sha256":audited["source_dataset_sha256"],
                 "base_local_model":base.name,
+                "local_base_config":base_receipt,
                 "optimizer_steps":max_steps,
                 "baseline_validation_loss":baseline,
                 "trained_validation_loss":trained,
@@ -240,6 +281,7 @@ def train_private_lora(
         "adapter_saved":improved,
         "research_only":True,
         "source_dataset_sha256":audited["source_dataset_sha256"],
+        "local_base_config":base_receipt,
         "baseline_validation_loss":baseline,
         "adapted_validation_loss":trained,
         "test_set_never_used_for_training_or_selection":True,

@@ -60,9 +60,10 @@ class NativeBinanceWatchTests(unittest.TestCase):
             if path=="/fapi/v1/time":
                 return {"serverTime":NOW}
             if path=="/fapi/v1/exchangeInfo":
-                return {"symbols":[{"symbol":params["symbol"],
+                return {"symbols":[{"symbol":name,
                     "status":"TRADING","filters":[
-                        {"filterType":"PRICE_FILTER","tickSize":"0.01"}]}]}
+                        {"filterType":"PRICE_FILTER","tickSize":"0.01"}]}
+                        for name in pairs]}
             if path=="/fapi/v1/klines":
                 return []
             raise AssertionError("No account calls")

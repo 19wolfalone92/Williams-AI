@@ -31,7 +31,7 @@ def public_get(venue,entries,stamp):
             raise AssertionError("Mixed up venue during settlement")
         if url.endswith("/time"):
             return {"serverTime":stamp}
-        if "/exchangeInfo?" in url:
+        if "/exchangeInfo" in url:
             return {"symbols":[{
                 "symbol":"BTCUSDT","status":"TRADING",
                 "filters":[{"filterType":"PRICE_FILTER","tickSize":"0.01"}],

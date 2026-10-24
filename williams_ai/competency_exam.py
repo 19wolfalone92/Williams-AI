@@ -69,6 +69,20 @@ def public_question(case: dict[str, Any]) -> dict[str, Any]:
     return {name: case[name] for name in ("id","edition","question","choices")}
 
 
+def safe_exam_answer(request: Callable[[], Any]) -> dict[str, Any]:
+    """Separate a model runtime/format failure from a conceptual book mistake."""
+    try:
+        response=request()
+    except (ValueError,RuntimeError,TypeError,KeyError) as exc:
+        return {"choice":None,"reason":"","answer_error":type(exc).__name__}
+    if (not isinstance(response,dict) or set(response)!={"choice","reason"}
+            or not isinstance(response["choice"],str) or response["choice"] not in {"A","B","C"}
+            or not isinstance(response["reason"],str) or not response["reason"].strip()):
+        return {"choice":None,"reason":"","answer_error":"MODEL_MALFORMED_ANSWER"}
+    return {"choice":response["choice"],"reason":" ".join(response["reason"].split())[:500],
+            "answer_error":None}
+
+
 def grade_exam(
     answer: Callable[[dict[str, Any]], dict[str, str]],
     cases: tuple[dict[str, Any], ...] = CASES,
@@ -77,9 +91,7 @@ def grade_exam(
         raise TypeError("Answer adapter must be callable")
     graded: list[dict[str, Any]] = []
     for case in cases:
-        response = answer(public_question(case))
-        if not isinstance(response, dict):
-            response = {}
+        response = safe_exam_answer(lambda:answer(public_question(case)))
         choice = response.get("choice")
         if choice not in case["choices"]:
             choice = None
@@ -88,6 +100,7 @@ def grade_exam(
         graded.append({
             "id":case["id"],"edition":case["edition"],"pdf_pages":case["pdf_pages"],
             "chosen":choice,"correct":choice == case["correct"],
+            "answer_error":response["answer_error"],
             "reason_for_human_review":reason,
         })
     n = len(graded)
@@ -95,6 +108,7 @@ def grade_exam(
     return {
         "mode":"READ_ONLY","trade_action":None,"execution_allowed":False,
         "total_cases":n,"correct_cases":correct,
+        "failed_model_calls":sum(x["answer_error"] is not None for x in graded),
         "score_on_curated_cases_percent":round(correct*100/n,1) if n else None,
         "book_comprehension_percent":None,"books_retrained":False,
         "results":graded,

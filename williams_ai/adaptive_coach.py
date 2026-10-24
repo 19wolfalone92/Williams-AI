@@ -19,7 +19,7 @@ import sqlite3
 
 from .book_index import _private_database
 from .book_rules import registry
-from .competency_exam import public_question
+from .competency_exam import public_question,safe_exam_answer
 
 CURRICULUM_PATH = Path(__file__).resolve().parents[1] / "knowledge/ADAPTIVE_TUTOR_PRACTICE_RU.json"
 
@@ -140,10 +140,9 @@ def _model_answer(model:Any, question:dict[str,Any],
                   reminders:list[dict[str,str]])->dict[str,Any]:
     # Without reminders, preserve the original answer_exam_case interface.
     if reminders:
-        answer=model.answer_exam_case(question,prior_lessons=reminders)
+        return safe_exam_answer(lambda:model.answer_exam_case(question,prior_lessons=reminders))
     else:
-        answer=model.answer_exam_case(question)
-    return answer if isinstance(answer,dict) else {}
+        return safe_exam_answer(lambda:model.answer_exam_case(question))
 
 
 def coach_practice(
@@ -190,9 +189,15 @@ def coach_practice(
                 "id":case["id"],"edition":case["edition"],
                 "rule_id":case["rule_id"],
                 "initial_correct":correct,"prior_lesson_used":bool(notes),
+                "initial_answer_error":response["answer_error"],
+                "retry_answer_error":None,
                 "same_case_retry_correct":None,
                 "trade_action":None,
             }
+            if response["answer_error"] is not None:
+                results.append(result)
+                db.commit()
+                continue
             if not correct:
                 source=f'{case["edition"]}:RULE:{case["rule_id"]}'
                 # It is a paraphrased verified lesson, NOT a dumped book page.
@@ -207,6 +212,9 @@ def coach_practice(
                                   explanation=excluded.explanation,
                                   updated_at=excluded.updated_at
                 """,(model_id,case["edition"],case["rule_id"],source,explanation,now))
+                # A user interruption during the retry must not roll back
+                # the completed first attempt and its cited correction.
+                db.commit()
                 if repeat_after_feedback:
                     learned=prior_lesson(db,model_id,case["edition"],case["rule_id"])
                     retry=_model_answer(model,question,learned)
@@ -216,6 +224,7 @@ def coach_practice(
                     retry_ok=retry_choice==case["correct"]
                     coached_ok+=int(retry_ok)
                     result["same_case_retry_correct"]=retry_ok
+                    result["retry_answer_error"]=retry["answer_error"]
                     db.execute(
                         "INSERT INTO practice_attempts(model_id,edition,rule_id,case_id,choice,"
                         "success,coaching_visible,attempted_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -223,6 +232,7 @@ def coach_practice(
                          int(retry_ok),1,datetime.now(timezone.utc).isoformat()),
                     )
             results.append(result)
+            db.commit()
         db.commit()
         stored=db.execute(
             "SELECT count(*) FROM private_remediation WHERE model_id=?",
@@ -234,6 +244,8 @@ def coach_practice(
         "model_id":model_id,
         "cases":total,
         "initial_pass":initial_ok,
+        "failed_model_calls":sum(int(r["initial_answer_error"] is not None)+
+                                 int(r["retry_answer_error"] is not None) for r in results),
         "initial_pass_percent":round(initial_ok/total*100,2) if total else None,
         "corrected_same_case_retries":coached_ok,
         "private_misconception_topics":stored,
