@@ -86,7 +86,14 @@ class PrivateMarketLearningTests(unittest.TestCase):
             prediction=research_prediction(
                 result,cases[-1].features,
                 decision_at=(ZERO+timedelta(hours=401)).isoformat())
-            self.assertTrue(0<=prediction["research_positive_outcome_estimate"]<=1)
+            if result["validation_state"]=="VALIDATION_BEATS_PRIOR_RESEARCH_ONLY":
+                self.assertTrue(
+                    0<=prediction["research_positive_outcome_estimate"]<=1)
+            else:
+                self.assertEqual(prediction["mode"],
+                                 "VALIDATION_REJECTED_LEARNING_ABSTAIN")
+                self.assertIsNone(
+                    prediction["research_positive_outcome_estimate"])
             self.assertFalse(prediction["current_book_signal_confirmed"])
             self.assertFalse(prediction["execution_allowed"])
 
