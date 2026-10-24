@@ -218,24 +218,51 @@ def study_report(book_db: str | Path, memory_db: str | Path,
 
 
 def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
-           limit: int = 3) -> list[dict[str, str]]:
-    if not isinstance(question, str) or len(question) > 1500 or not 1 <= limit <= 5:
+           limit: int = 3, model_id: str | None = None) -> list[dict[str, str]]:
+    """Recall model-scoped, source-identified study notes as UNVERIFIED hints.
+
+    For decisions involving a specific GGUF, model_id is mandatory at the
+    caller: unrelated students must never lend each other apparent mastery.
+    An LLM-written summary is not a canonical trading rule.
+    """
+    if not isinstance(question,str) or len(question)>1500 or not 1<=limit<=5:
         raise ValueError("Invalid memory query")
     if edition:
         _known_book(edition)
-    terms = set(re.findall(r"[^\W_]{3,}", question.casefold()))
-    ranked = []
+    if model_id is not None and not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}",model_id):
+        raise ValueError("Invalid GGUF model fingerprint")
+    terms=set(re.findall(r"[^\\W_]{3,}",question.casefold()))
+    ranked=[]
     with memory(memory_db) as db:
-        query = "SELECT edition,page,result FROM study_notes"
-        rows = db.execute(query + (" WHERE edition=?" if edition else ""), (edition,) if edition else ())
-        for book, page, text in rows:
-            obj = json.loads(text)
-            score = len(terms & set(re.findall(r"[^\W_]{3,}", obj["summary"].casefold())))
+        query="SELECT edition,page,result,model_id,source_sha FROM study_notes"
+        conditions=[]
+        args=[]
+        if edition:
+            conditions.append("edition=?")
+            args.append(edition)
+        if model_id is not None:
+            conditions.append("model_id=?")
+            args.append(model_id)
+        if conditions:
+            query+=" WHERE "+" AND ".join(conditions)
+        for book,page,content,student,source_sha in db.execute(query,args):
+            # Reject retained notes referring to superseded source editions.
+            if source_sha!=_known_book(book)["sha256"]:
+                continue
+            obj=json.loads(content)
+            if not isinstance(obj,dict) or obj.get("status")!="SOURCE_DERIVED_UNVERIFIED":
+                continue
+            summary=obj.get("summary")
+            if not isinstance(summary,str):
+                continue
+            score=len(terms & set(re.findall(r"[^\\W_]{3,}",summary.casefold())))
             if score:
-                ranked.append((score, {"source": f"STUDY:{book}: PDF {page}",
-                                       "excerpt": "Непроверенный учебный вывод: " + obj["summary"][:700]}))
-    ranked.sort(key=lambda x: (-x[0], x[1]["source"]))
-    return [item for _, item in ranked[:limit]]
+                ranked.append((score,{"source":f"STUDY:{book}: PDF {page}",
+                                      "excerpt":"Непроверенный учебный вывод: "+summary[:430],
+                                      "status":"MODEL_SPECIFIC_SOURCE_DERIVED_UNVERIFIED",
+                                      "model_id":student}))
+    ranked.sort(key=lambda x:(-x[0],x[1]["source"],x[1]["model_id"]))
+    return [item for _,item in ranked[:limit]]
 
 
 def remember_web(memory_db: str | Path, result: dict[str, Any]) -> int:
