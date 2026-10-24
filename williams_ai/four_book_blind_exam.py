@@ -186,7 +186,8 @@ def four_book_blind_cases(*, seed: int=20261024) -> list[dict[str, Any]]:
 
 
 def grade_four_book_model(model: Any, *, seed: int=20261024,
-                          per_edition: int=8)->dict[str,Any]:
+                          per_edition: int=8,
+                          autonomous_source_retrieval: bool=False)->dict[str,Any]:
     if (isinstance(per_edition,bool) or not isinstance(per_edition,int)
             or not 1<=per_edition<=8):
         raise ValueError("INVALID_PER_EDITION_EXAM_SIZE")
@@ -206,8 +207,13 @@ def grade_four_book_model(model: Any, *, seed: int=20261024,
     for task in tasks:
         public=task["public"]
         try:
-            answer=model.answer_exam_case(public)
-            letter=answer.get("choice") if isinstance(answer,dict) else None
+            if autonomous_source_retrieval:
+                from .unprompted_source_application import answer_with_self_retrieval
+                answer=answer_with_self_retrieval(model,public)
+                letter=answer.get("selected")
+            else:
+                answer=model.answer_exam_case(public)
+                letter=answer.get("choice") if isinstance(answer,dict) else None
             letter=letter if letter in ("A","B","C") else ""
             failure=None if letter else "ABSTENTION_OR_MALFORMED_MODEL_REPLY"
         except (RuntimeError,ValueError,KeyError,TypeError):
@@ -234,6 +240,8 @@ def grade_four_book_model(model: Any, *, seed: int=20261024,
         "mode":"FOUR_WILLIAMS_BOOKS_BLIND_LOCAL_GGUF_RULE_APPLICATION_EXAM",
         "protocol_sha256":manifest,"seed":seed,"total":len(tasks),
         "per_edition":per_edition,
+        "autonomous_question_only_source_retrieval":autonomous_source_retrieval,
+        "no_human_selected_rule":autonomous_source_retrieval,
         "full_32_case_exam_completed":per_edition==8,
         "correct":correct,"accuracy_all_including_abstentions":correct/len(tasks),
         "by_edition":scores,
@@ -260,6 +268,8 @@ def main()->None:
     p.add_argument("--seed",type=int,default=20261024)
     p.add_argument("--per-edition",type=int,choices=range(1,9),default=8)
     p.add_argument("--reasoning-budget",type=int,default=1024)
+    p.add_argument("--autonomous-source-retrieval",action="store_true",
+                   help="Auto lookup reviewed book cards from question text only")
     args=p.parse_args()
     from .real_gguf_acceptance import actual_gguf_sha256
     from .local_model import LocalWilliamsModel
@@ -268,7 +278,8 @@ def main()->None:
                              learning_mode="auto",
                              reasoning_budget=args.reasoning_budget)
     print(json.dumps(grade_four_book_model(
-        model,seed=args.seed,per_edition=args.per_edition),
+        model,seed=args.seed,per_edition=args.per_edition,
+        autonomous_source_retrieval=args.autonomous_source_retrieval),
                      ensure_ascii=False,indent=2,sort_keys=True))
 
 
