@@ -56,8 +56,12 @@ def _read_only_demo_json(path: str, args: dict[str,str]|None=None)->Any:
                               "User-Agent":"Williams-AI-controlled-DEMO-health/1"})
         response=conn.getresponse()
         raw=response.read(131073)
-        if response.status!=200 or len(raw)>131072:
-            raise DemoSafetyError("DEMO_MARKET_ENDPOINT_UNAVAILABLE")
+        if response.status!=200:
+            # Status code alone is public, carries no signed URL or secrets.
+            # Distinguish geographic HTTP 451 from malformed market data.
+            raise DemoSafetyError("DEMO_PUBLIC_HTTP_"+str(int(response.status)))
+        if len(raw)>131072:
+            raise DemoSafetyError("DEMO_PUBLIC_MARKET_RESPONSE_TOO_LARGE")
         return json.loads(raw.decode("utf-8"))
     except (TimeoutError,OSError,ValueError) as exc:
         raise DemoSafetyError("DEMO_MARKET_FEED_UNTRUSTED_OR_UNAVAILABLE") from exc
