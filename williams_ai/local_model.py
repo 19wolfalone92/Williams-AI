@@ -295,6 +295,30 @@ class LocalWilliamsModel:
             "timeframe":chart_analysis.get("timeframe"),
             "indicators":chart_analysis.get("evidence",{}),
             "complete_higher_timeframe_context":higher_brief,
+            # Native exchange M1..MN1 timeframes can supply context even
+            # when waves do not resemble book drawings. Only stamped
+            # CLOSED candles <= this H1 decision time are allowed. The
+            # caller builds the larger study summary, never orders.
+            "native_binance_timeframe_evidence":{
+                key:{
+                    "closed_at":tf["close"],
+                    "trend":tf["trend"],
+                    "ao":tf["ao"],"ac":tf["ac"],
+                    "zone":tf["zone"],
+                    "degree_not_verified":True,
+                }
+                for key,tf in (
+                    chart_analysis.get("all_binance_timeframes_compact",{})
+                    if isinstance(chart_analysis.get("all_binance_timeframes_compact",{}),dict)
+                    else {}
+                ).items()
+                if key in {"1m","3m","5m","15m","30m","1h","2h","4h","6h",
+                           "8h","12h","1d","3d","1w","1M"}
+                and isinstance(tf,dict)
+                and all(k in tf for k in ("close","trend","ao","ac","zone"))
+                and isinstance(tf["close"],str)
+                and tf["close"]<=chart_analysis["as_of"]
+            },
             "competing_h1_h4_d1_wave_theses":thesis_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
