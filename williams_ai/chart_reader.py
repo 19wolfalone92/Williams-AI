@@ -11,7 +11,14 @@ from datetime import datetime, timezone
 from math import isfinite
 from typing import Any
 
-TF_SECONDS = {"M5":300, "M15":900, "H1":3600, "H4":14400, "D1":86400}
+# The 15 native Binance futures candle intervals are available to the
+# same CLOSED-BAR research engine. Month length varies 28-31 UTC days;
+# source ingestion separately verifies exact calendar open/close boundaries.
+TF_SECONDS = {
+    "M1":60,"M3":180,"M5":300,"M15":900,"M30":1800,
+    "H1":3600,"H2":7200,"H4":14400,"H6":21600,"H8":28800,
+    "H12":43200,"D1":86400,"D3":259200,"W1":604800,"MN1":2678400,
+}
 
 
 @dataclass(frozen=True)
