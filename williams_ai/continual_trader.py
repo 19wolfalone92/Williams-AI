@@ -242,15 +242,38 @@ class PrivateExperience:
                 if len(past) < min_same_setup:
                     state = {"count":len(past),"status":"INSUFFICIENT_RESOLVED_EXPERIENCE"}
                 else:
+                    # A high historical win rate is not a positive expected
+                    # trade. Large occasional losses can exceed small wins.
+                    # Include payout asymmetry and clustered evidence count
+                    # for the local GGUF; NONE of this authorizes an entry.
+                    wins=[x.net_return for x in past if x.net_return>0]
+                    losses=[-x.net_return for x in past if x.net_return<0]
+                    gross_wins=sum(wins)
+                    gross_losses=sum(losses)
+                    average_win=(gross_wins/len(wins) if wins else None)
+                    average_loss=(gross_losses/len(losses) if losses else None)
+                    break_even=(
+                        average_loss/(average_win+average_loss)
+                        if average_win is not None and average_loss is not None
+                        and average_win+average_loss>0 else None
+                    )
                     state = {
                         "count":len(past),
                         "status":"PAST_CAUSAL_PAPER_OUTCOMES_UNVERIFIED_FOR_TRADING",
                         "past_positive_fraction":round(
-                            sum(x.net_return > 0 for x in past)/len(past),5),
+                            len(wins)/len(past),5),
                         "past_mean_net_return":round(
                             sum(x.net_return for x in past)/len(past),7),
+                        "past_paper_profit_factor":(
+                            round(gross_wins/gross_losses,5)
+                            if gross_losses>0 else None),
+                        "past_payoff_break_even_win_rate":(
+                            round(break_even,5) if break_even is not None else None),
+                        "distinct_utc_decision_dates_not_independent":len({
+                            _time(x.decision_at).date() for x in past}),
                         "resolved_through":max(x.resolved_at for x in past),
                         "not_future_profit_probability":True,
+                        "not_actual_portfolio_pnl":True,
                     }
                 groups[f"{setup}:{side}"]=state
         return {
