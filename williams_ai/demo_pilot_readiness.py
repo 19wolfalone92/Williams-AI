@@ -184,6 +184,41 @@ def validate_small_pilot(
     }
 
 
+def verify_requoted_manual_pilot(preview:dict[str,Any], proposal:Any)->None:
+    """A new DEMO quote can drift without silently increasing pilot exposure.
+
+    The signed executor rechecks the market once more before submitting.
+    This function only checks the supervised bridge's second, fresh quote:
+    it is NOT an LLM execution authorization or a trade recommendation.
+    """
+    try:
+        if (not isinstance(preview,dict)
+                or preview.get("mode")!="SINGLE_PAIR_DEMO_PREVIEW_ONLY"
+                or preview.get("venue")!="BINANCE_FUTURES_DEMO"
+                or preview.get("execution_allowed") is not False
+                or preview.get("trade_action","INVALID") is not None
+                or preview.get("symbol")!=PAIR
+                or proposal.symbol!=PAIR or proposal.side!=preview["side"]):
+            raise DemoSafetyError("PILOT_PREVIEW_OR_PROPOSAL_UNTRUSTED")
+        original_qty=_dec(preview["quantity"])
+        original_stop=_dec(preview["stop"])
+        original_notional=_dec(preview["estimated_notional_demo_usdt"])
+        current_qty=_dec(proposal.quantity)
+        current_stop=_dec(proposal.stop_price)
+        current_notional=_dec(proposal.notional_usdt)
+        current_risk=_dec(proposal.risk_usdt)
+    except (AttributeError,KeyError,TypeError) as exc:
+        raise DemoSafetyError("PILOT_PREVIEW_OR_PROPOSAL_UNTRUSTED") from exc
+    if (current_qty!=original_qty or current_stop!=original_stop
+            or current_notional>MAX_PREVIEW_NOTIONAL
+            or current_risk>MAX_PREVIEW_STOP_DISTANCE_RISK):
+        raise DemoSafetyError("PILOT_REQUOTE_CHANGED_INTENT_OR_EXCEEDED_LIMIT")
+    old_mark=original_notional/original_qty
+    new_mark=current_notional/current_qty
+    if abs(new_mark/old_mark-1)>Decimal("0.0025"):
+        raise DemoSafetyError("PILOT_MARK_MOVED_MORE_THAN_25_BPS")
+
+
 class OneCampaignReservation:
     """An intentionally permanent per-PAIR one-shot lock until manual audit.
 
