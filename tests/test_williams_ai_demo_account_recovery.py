@@ -240,12 +240,27 @@ class SignedDemoReadOnlyPreflightTests(unittest.TestCase):
         self.assertEqual(len(client.calls),4)
         self.assertEqual(before,self.journal.status())
 
+    def test_authentic_empty_position_risk_v3_allows_readonly_pilot_preflight(self):
+        # The official v3 API omits symbols that have neither a position
+        # nor an open order; [] is the standard flat-account response.
+        class FlatVenue(self.Account):
+            def request(self,method,path,args=None,*,signed=False):
+                if path=="/fapi/v3/positionRisk":
+                    self.calls.append((method,path,args,signed))
+                    return []
+                return super().request(method,path,args,signed=signed)
+        account=FlatVenue()
+        report=inspect_demo_account_before_first_order(account,self.journal)
+        self.assertTrue(report["account_wide_flat_verified"])
+        self.assertFalse(report["execution_allowed"])
+        self.assertEqual(self.journal.status()["reservations"],[])
+
     def test_positions_on_other_pair_and_any_pending_orders_block(self):
         for opts in (
             {"amount":"0.1"}, {"other_amount":"-0.02"}, {"hedge":True},
             {"open_orders":[{"orderId":123}]},
             {"open_algos":[{"algoId":456}]},
-            {"amount":"NaN"},{"bad_list":True},
+            {"amount":"NaN"},
         ):
             with self.subTest(opts=opts):
                 with self.assertRaises(DemoSafetyError):
