@@ -26,6 +26,67 @@ def _position_decimal(v: Any) -> Decimal:
     return amount
 
 
+
+
+def inspect_demo_account_before_first_order(
+    client: Any, journal: OneCampaignReservation
+) -> dict[str, Any]:
+    """One-shot *read-only* signed account readiness. NEVER an order permit.
+
+    Requires a fresh, private journal, one-way account, ZERO exposure on
+    ALL futures symbols, and no ordinary or conditional orders on ETHUSDT.
+    It does NOT test whether Binance accepts pre-position closePosition SL;
+    that crucial live DEMO behavior must still be tested separately.
+    """
+    if journal.status().get("reservations") != []:
+        raise DemoSafetyError("SIGNED_PREFLIGHT_PERMANENT_PILOT_LOCK_EXISTS")
+    side_mode=client.request("GET","/fapi/v1/positionSide/dual",signed=True)
+    if (not isinstance(side_mode,dict) or
+            side_mode.get("dualSidePosition") is not False):
+        raise DemoSafetyError("SIGNED_PREFLIGHT_ONE_WAY_REQUIRED")
+    all_positions=client.request("GET","/fapi/v3/positionRisk",signed=True)
+    if (not isinstance(all_positions,list) or not 1<=len(all_positions)<=3000
+            or not any(isinstance(x,dict) and x.get("symbol")==PAIR
+                       for x in all_positions)):
+        raise DemoSafetyError("SIGNED_PREFLIGHT_FULL_POSITION_LIST_UNTRUSTED")
+    seen=set()
+    for position in all_positions:
+        if not isinstance(position,dict):
+            raise DemoSafetyError("SIGNED_PREFLIGHT_POSITION_INVALID")
+        sym=position.get("symbol")
+        if (not isinstance(sym,str) or len(sym)>30 or sym in seen
+                or position.get("positionSide")!="BOTH"):
+            raise DemoSafetyError("SIGNED_PREFLIGHT_POSITION_IDENTITY_INVALID")
+        seen.add(sym)
+        if _position_decimal(position.get("positionAmt")) != 0:
+            raise DemoSafetyError("SIGNED_PREFLIGHT_EXISTING_POSITION_ON_ACCOUNT")
+    ordinary=client.request(
+        "GET","/fapi/v1/openOrders",{"symbol":PAIR},signed=True)
+    algos=client.request(
+        "GET","/fapi/v1/openAlgoOrders",{"symbol":PAIR},signed=True)
+    if (not isinstance(ordinary,list) or not isinstance(algos,list)
+            or len(ordinary)>200 or len(algos)>200):
+        raise DemoSafetyError("SIGNED_PREFLIGHT_OPEN_ORDERS_UNTRUSTED")
+    # Even a genuine existing protective SL can be owned by another campaign.
+    if ordinary or algos:
+        raise DemoSafetyError("SIGNED_PREFLIGHT_EXISTING_ORDERS_ON_PAIR")
+    return {
+        "mode":"BINANCE_FUTURES_DEMO_SIGNED_ACCOUNT_PREFLIGHT_READ_ONLY",
+        "symbol":PAIR,"venue":"BINANCE_FUTURES_DEMO",
+        "status":"ACCOUNT_FLAT_AND_ETHUSDT_NO_OPEN_ORDERS_AT_CHECK_TIME",
+        "account_wide_flat_verified":True,
+        "position_mode_one_way_verified":True,
+        "pair_has_no_open_orders_at_check_time":True,
+        "no_pilot_reservation_consumed":True,
+        "pre_entry_close_position_stop_acceptance_tested":False,
+        "signed_api_key_works_on_demo_host":True,
+        "no_trades_submitted":True,
+        "next_step_requires_fresh_public_market_check":True,
+        "operator_supervised_only":True,
+        "execution_allowed":False,"trade_action":None,
+    }
+
+
 def inspect_demo_after_restart(client: Any, journal: OneCampaignReservation) -> dict[str, Any]:
     """ONLY signed GETs; no guesswork and no implicit authority to trade.
 
