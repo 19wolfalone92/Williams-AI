@@ -24,6 +24,9 @@ import java.util.Locale
  */
 internal object NativeWaveConfig {
     const val VENUE = "PUBLIC_USDM"
+    // One private SQLite/source-writer at a time across foreground and the
+    // separately opt-in OS-persisted periodic research job.
+    val marketSyncMutex = Any()
     private const val PINNED_HOST = "fapi.binance.com"
     const val ONE_MINUTE = 60_000L
     const val ONE_DAY = 86_400_000L
