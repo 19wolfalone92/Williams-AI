@@ -12,13 +12,14 @@ from williams_ai.private_lora import (
 
 def candidates():
     books={x["id"]:x for x in registry()["books"]}
-    rules={ed:next(r for r in registry()["rule_cards"]
-                   if r["source"]==ed and r["status"]=="REVIEWED_PAGES")
+    rules={ed:sorted((r for r in registry()["rule_cards"]
+                      if r["source"]==ed and r["status"]=="REVIEWED_PAGES"),
+                     key=lambda v:v["id"])[:3]
            for ed in ("TC1","NTD","TC2","COURSE")}
     items=[]
     for i in range(100):
         ed=("TC1","NTD","TC2","COURSE")[i%4]
-        rule=rules[ed]
+        rule=rules[ed][0 if i<64 else 1 if i<82 else 2]
         items.append({
             "case_id":f"approved-{i:04d}",
             "edition":ed,
@@ -57,6 +58,7 @@ class OfflineIndependentSupervisionTests(unittest.TestCase):
             checked["items_for_local_fit"]["train"]+
             checked["items_for_local_fit"]["validation"]))
         self.assertTrue(checked["reviewer_declaration_not_independently_verified"])
+        self.assertTrue(checked["individual_book_rules_never_cross_splits"])
 
     def test_fake_student_or_wrong_page_never_reaches_training(self):
         for key,value in (
@@ -75,6 +77,16 @@ class OfflineIndependentSupervisionTests(unittest.TestCase):
         x[75]["question"]=x[0]["question"]
         self.save(x)
         with self.assertRaisesRegex(ValueError,"DUPLICATE_QUESTION"):
+            checked_private_training_data(self.data)
+
+    def test_book_rule_not_shared_between_train_and_validation(self):
+        rows=candidates()
+        rows[64]["rule_id"]=rows[0]["rule_id"]
+        rows[64]["pdf_page"]=rows[0]["pdf_page"]
+        rows[64]["edition"]=rows[0]["edition"]
+        rows[64]["source_sha256"]=rows[0]["source_sha256"]
+        self.save(rows)
+        with self.assertRaisesRegex(ValueError,"SAME_BOOK_RULE_LEAKED"):
             checked_private_training_data(self.data)
 
     def test_dataset_can_not_be_written_inside_public_repository(self):
