@@ -276,7 +276,7 @@ internal class NativeWaveHistoryDb(ctx:Context,
                     }
                     db.execSQL(
                         "INSERT INTO wave_candles VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        arrayOf(NativeWaveConfig.VENUE,symbol,tf,bar.openTime,bar.closeTime,
+                        arrayOf<Any>(NativeWaveConfig.VENUE,symbol,tf,bar.openTime,bar.closeTime,
                             bar.open,bar.high,bar.low,bar.close,bar.baseVolume,
                             bar.quoteVolume,bar.trades,bar.takerBase,bar.takerQuote))
                     inserted++
@@ -284,7 +284,7 @@ internal class NativeWaveHistoryDb(ctx:Context,
                 previous=bar.openTime
             }
             db.execSQL("INSERT OR REPLACE INTO wave_sources VALUES(?,?,?,?,?)",
-                arrayOf(NativeWaveConfig.VENUE,symbol,tf,tick,server))
+                arrayOf<Any>(NativeWaveConfig.VENUE,symbol,tf,tick,server))
             db.setTransactionSuccessful()
             return inserted
         } finally { db.endTransaction() }
