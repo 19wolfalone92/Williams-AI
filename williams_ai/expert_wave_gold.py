@@ -167,6 +167,13 @@ def evaluate_blind_wave_gold(
         pred_at=_utc(row["prediction_created_at"])
         if pred_at<_utc(row["cutoff"]):
             raise ValueError("PREDICTION_CANNOT_PREDATE_VISIBLE_CANDLE")
+        # Claimed forecast must be committed BEFORE either expert's label;
+        # otherwise a retrospective answer could be written after gold.
+        # User-controlled timestamps remain weaker than third-party
+        # timestamp attestation, which the report explicitly disclaims.
+        first_review=min(_utc(review["reviewed_at"]) for review in groups[case])
+        if pred_at>=first_review:
+            raise ValueError("MODEL_PREDICTION_MUST_PREDATE_ALL_EXPERT_LABELS")
         # The reviewer may prepare gold after prediction; the model may
         # not inspect the results or future bars by this function contract.
         if not isinstance(row["model_id"],str) or not _RATER.fullmatch(row["model_id"]):
