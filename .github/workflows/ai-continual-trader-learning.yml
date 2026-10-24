@@ -62,6 +62,13 @@ jobs:
           print("FROZEN_PAPER_EXPECTANCY_RESEARCH",edge.get("training_only_cohort_gates"))
           print("FROZEN_PAPER_EXPECTANCY_VALIDATION",edge.get("validation_frozen"))
           print("FROZEN_PAPER_EXPECTANCY_TEST",edge.get("test_frozen"))
+          payoff=data.get("online_expected_net_research_only")
+          assert payoff and payoff.get("execution_allowed") is False
+          assert payoff.get("validation_and_test_never_update_model_weights") is True
+          print("TRAINED_CAUSAL_EXPECTED_NET_UPDATES",payoff.get("trained_after_prior_settlement"))
+          print("EXPECTED_NET_VALIDATION_QUALIFICATION",payoff.get("qualification"))
+          print("EXPECTED_NET_VALIDATION",payoff.get("validation_frozen"))
+          print("EXPECTED_NET_HOLDOUT",payoff.get("test_frozen"))
           print("GGUF_WEIGHTS_CHANGED",data.get("gguf_weight_updating_performed"))
           print("EXECUTION_AUTHORIZATION_DISABLED")
           PY
