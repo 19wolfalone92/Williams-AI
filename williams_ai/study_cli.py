@@ -78,7 +78,7 @@ def train_private_curriculum(
         "new_study_chunks":total_studied,
         "failed_or_retry_chunks":total_failed,
         "cycles":tasks,
-        "progress":study_report(book_index,study_memory),
+        "progress":study_report(book_index,study_memory,model_id=model_id),
         "language_model_weights_modified":False,
         "full_books_understood_percent":None,
         "execution_allowed":False,
@@ -98,7 +98,8 @@ def main()->None:
     p.add_argument("--rounds",type=int,default=1)
     a=p.parse_args()
     if a.report:
-        data=study_report(a.book_index,a.study_memory)
+        data=study_report(a.book_index,a.study_memory,
+            model_id=_model_identity(a.local_model) if a.local_model else None)
     else:
         if a.local_model is None:
             p.error("--local-model is required to process books")
