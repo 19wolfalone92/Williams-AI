@@ -109,7 +109,12 @@ def five_magic_bullets(
     timeframe:str="H1",
     last_n:int=16,
 )->dict[str,Any]:
-    if timeframe not in {"M5","M15","H1","H4","D1"}:
+    # The five TC1 terminal-wave signs are scale-relative. Native
+    # Binance minute/hour/day/week/month charts are eligible as research,
+    # but Binance trade-count is NOT book-authenticated Squat tick volume.
+    if timeframe not in {"M1","M3","M5","M15","M30",
+                         "H1","H2","H4","H6","H8","H12",
+                         "D1","D3","W1","MN1"}:
         raise ValueError("Unknown timeframe")
     if not bars or len(bars)!=len(ao):
         raise ValueError("Require aligned nonempty closed bars and oscillator")
