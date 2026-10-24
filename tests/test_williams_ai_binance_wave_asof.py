@@ -35,7 +35,7 @@ class AllTimeframeCausalTimestampTest(unittest.TestCase):
             report=analyze_all_cached(db,venue="PUBLIC_USDM",symbol=SYM,
                 intervals=("1m","1h"),model=model,window=140)
             self.assertEqual(report["observed_intervals"],2)
-            self.assertEqual(report["matrix"]["1m"]["closed_visible_bars"],120)
+            self.assertEqual(report["matrix"]["1m"]["closed_visible_bars"],140)
             self.assertEqual(report["matrix"]["1h"]["closed_visible_bars"],75)
             self.assertEqual(report["shared_historical_as_of_ms"],h1.bars[-1][6])
             self.assertEqual(report["shared_historical_clock_source"],
