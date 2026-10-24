@@ -139,6 +139,7 @@ internal object NativeWaveStudy {
             )
             for(tf in NativeWaveConfig.intervals.keys) {
                 val bars=db.atMost(symbol,tf,asOf,240)
+                val savedHistoricalReviews=db.historicalNoteCount(symbol,tf)
                 val read=facts(bars)
                 if(read==null){
                     out.append("${tf}: INSUFFICIENT CLOSED CANDLES (${bars.size}/45).\n")
@@ -149,7 +150,7 @@ internal object NativeWaveStudy {
                         "закрытых ${read.bars}; C=${f(read.close)}, "+
                         "AO=${f(read.ao)}, AC=${f(read.ac)}, "+
                         "Alligator J/T/L=${f(read.jaw)}/${f(read.teeth)}/${f(read.lips)}, "+
-                        "контекст=${read.context}; "+
+                        "контекст=${read.context}; архивных причинных заметок=${savedHistoricalReviews}; "+
                         (if(read.nearZeroAo)"AO близко к 0 (ГИПОТЕЗА коррекции); " else "")+
                         "pivot=${read.lastPivot}; W3/W4/W5 НЕ ДОКАЗАНЫ.\n")
                 }
