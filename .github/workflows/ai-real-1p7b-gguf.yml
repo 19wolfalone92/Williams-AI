@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - experiment/real-qwen3-1p7b-gguf-20261023
-      - feature/continual-ai-trader-learning-20261024
 
 permissions:
   contents: read
