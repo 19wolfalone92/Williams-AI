@@ -31,6 +31,7 @@ from .binance_universe import discover_universe, write_universe_snapshot, read_u
 from .causal_paper_lab import frozen_markets
 from .continual_trader import PrivateExperience, learn_from_private_experience
 from .williams_signal_experience import signal_conditioned_outcomes
+from .prequential_skill import causal_incremental_study
 
 SUPPORTED = {"15m":"M15","1h":"H1","4h":"H4","1d":"D1"}
 
@@ -98,6 +99,17 @@ def marathon(
     written=ledger.append(all_cases,knowledge_as_of=observed)
     points=_split_points(all_cases)
     model=None
+    online=None
+    if points is not None:
+        try:
+            online=causal_incremental_study(
+                ledger,train_until=points[0],
+                validation_until=points[1],observe_until=points[2],
+                min_training_decisions=max(10,min_train//2),
+                min_validation_decisions=max(5,min_validation//2))
+        except ValueError as exc:
+            online={"qualification":"ABSTAIN_NO_VALIDATED_PAPER_ADVANTAGE",
+                    "reason":str(exc),"execution_allowed":False}
     if points is not None:
         try:
             model=learn_from_private_experience(
@@ -123,6 +135,8 @@ def marathon(
         "verified_historical_binance_exchange_fills":0,
         "private_persistent_learning":written,
         "learnt_numeric_policy":model,
+        "prequential_research_skill":online,
+        "gguf_weight_updating_performed":False,
         "invalid_or_incomplete_market_streams":no_data,
         "per_market":per_market,
         "source_rule_disclaimer":"WM1 angulation and WM2/WM3 exits are TC2 proxies, not full approved Williams campaigns.",
