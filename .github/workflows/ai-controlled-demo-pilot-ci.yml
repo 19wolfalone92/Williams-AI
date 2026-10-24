@@ -1,0 +1,36 @@
+name: Williams AI one-pair Binance DEMO P0 gate (NO CREDENTIALS NO ORDERS)
+
+on:
+  push:
+    branches:
+      - feature/controlled-demo-pilot-readiness-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  test-demo-safety-not-trading:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Full Williams AI regression
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Auth-less demo P0 failure-injection test suite
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_demo*.py' -v
+      - name: Ensure production endpoint and any real order forbidden
+        run: |
+          python - <<'PY'
+          from williams_ai.demo_futures import DEMO_HOST
+          from williams_ai.demo_pilot_readiness import PAIR,MAX_PREVIEW_NOTIONAL,MAX_PREVIEW_STOP_DISTANCE_RISK
+          assert DEMO_HOST=="demo-fapi.binance.com"
+          assert PAIR=="ETHUSDT"
+          assert float(MAX_PREVIEW_NOTIONAL)<=50
+          assert float(MAX_PREVIEW_STOP_DISTANCE_RISK)<=1
+          print("DEMO_P0_STATIC_APPROVED_ONLY_AS_NO_ORDERS")
+          print("REAL_DEMO_SIGNED_ORDER_AND_STOP_ACK_NOT_VALIDATED")
+          PY
