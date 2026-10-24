@@ -20,6 +20,8 @@ jobs:
           python -m unittest discover -s tests -p 'test_williams_ai_continual_trader.py' -v
           python -m unittest discover -s tests -p 'test_williams_ai_binance_universe.py' -v
           python -m unittest discover -s tests -p 'test_williams_ai_williams_signal_experience.py' -v
+      - name: Verify real historical stress scenario accounting
+        run: python -m unittest discover -s tests -p 'test_williams_ai_ten_million_stress.py' -v
       - name: Entire Williams AI regression suite
         run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
       - name: Real previously-reviewed 15-pair Binance OHLC history signal-conditioned private experience
@@ -49,4 +51,34 @@ jobs:
               print("PAST_TRAIN_COUNT",fit.get("train_count"))
               print("INDEPENDENT_FUTURE_HOLDOUT",fit.get("frozen_test"))
           print("EXECUTION_AUTHORIZATION_DISABLED")
+          PY
+
+      - name: Real 10-million fixed execution-cost stress scenarios from prior resolved Binance OHLC episodes
+        run: |
+          python -m williams_ai.ten_million_stress \
+            --private-journal "${RUNNER_TEMP}/williamsai-private-experiences.sqlite3" \
+            --known-at "2026-10-24T00:00:00+00:00" \
+            --target 10000000 > "${RUNNER_TEMP}/williamsai-tenmillion-friction.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          obj=json.loads((Path(os.environ["RUNNER_TEMP"])/"williamsai-tenmillion-friction.json").read_text())
+          assert obj["mode"]=="REAL_BINANCE_HISTORICAL_TC2_PROXY_EXECUTION_COST_STRESS"
+          assert obj["goal_met"]
+          assert obj["verified_execution_cost_scenario_checks"]==10000000
+          assert obj["ten_million_separate_market_decisions"] is False
+          assert obj["ten_million_distinct_price_graphs"] is False
+          assert obj["actual_gguf_inference_calls"]==0
+          assert obj["execution_allowed"] is False
+          print("EXECUTED_FIXED_COST_STRESS_SCENARIOS",
+                obj["verified_execution_cost_scenario_checks"])
+          print("REAL_WILLIAMS_PROXY_OUTCOMES_UNIQUE",obj["historical_eligible_wm_paper_outcomes"])
+          print("UNIQUE_REAL_BINANCE_PRICE_EPISODES",
+                obj["distinct_historical_asset_timeframe_decisions"])
+          print("HISTORICAL_ASSET_SYMBOLS",len(obj["historical_asset_symbols"]))
+          print("COST_STRESS_POSITIVE_FRACTION",obj["friction_scenario_positive_fraction"])
+          print("SOURCE_GRID_SHA256",obj["source_order_sha256"])
+          print("NOT_10M_INDEPENDENT_AI_TRADES_OR_CHARTS")
+          print("GGUF_CALLS",obj["actual_gguf_inference_calls"])
+          print("NO_EXCHANGE_AUTH_OR_ORDERS")
           PY
