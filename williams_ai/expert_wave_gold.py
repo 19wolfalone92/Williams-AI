@@ -90,6 +90,7 @@ def evaluate_blind_wave_gold(
     predictions=_read_rows(model_predictions,5000)
     groups=defaultdict(list)
     unique_rater=defaultdict(set)
+    snapshot_owners={}
     for row in reviews:
         if not isinstance(row,dict) or set(row)!=_ALLOWED:
             raise ValueError("INVALID_EXPERT_REVIEW_FIELDS")
@@ -116,6 +117,14 @@ def evaluate_blind_wave_gold(
         reviewed=_utc(row["reviewed_at"])
         if reviewed<cutoff:
             raise ValueError("REVIEW_CANNOT_PREDATE_MARKET_OBSERVATION")
+        # Renaming a case (or teaching it under another book edition) must
+        # not multiply the independent market sample. The prefix digest
+        # already binds the visible candle timestamps, including cutoff.
+        snapshot=(row["venue"],row["symbol"],row["timeframe"],
+                  row["visible_prefix_sha256"])
+        owner=snapshot_owners.setdefault(snapshot,case)
+        if owner!=case:
+            raise ValueError("DUPLICATE_MARKET_SNAPSHOT_UNDER_DIFFERENT_CASE_ID")
         if row["reviewer_id"] in unique_rater[case]:
             raise ValueError("DUPLICATE_REVIEWER_FOR_SAME_SNAPSHOT")
         unique_rater[case].add(row["reviewer_id"])
@@ -138,6 +147,7 @@ def evaluate_blind_wave_gold(
         gold[case]=one
     checked=[]
     ids=set()
+    model_ids=set()
     for row in predictions:
         if not isinstance(row,dict) or set(row)!=_REPORT_KEYS:
             raise ValueError("INVALID_SEALED_MODEL_REPORT")
@@ -161,6 +171,9 @@ def evaluate_blind_wave_gold(
         # not inspect the results or future bars by this function contract.
         if not isinstance(row["model_id"],str) or not _RATER.fullmatch(row["model_id"]):
             raise ValueError("MISSING_PINNED_MODEL_IDENTITY")
+        model_ids.add(row["model_id"])
+        if len(model_ids)>1:
+            raise ValueError("MIXED_MODELS_CANNOT_CLAIM_ONE_BLIND_EXAM")
         if case in gold:
             truth=gold[case]["market_structure"]
             correct=(row["predicted_structure"]==truth
@@ -172,16 +185,22 @@ def evaluate_blind_wave_gold(
                 "correct_nonabstention":correct,
                 "abstained":row["predicted_structure"]=="UNDETERMINED",
             })
-    qualified=(len(gold)>=min_agreed_cases
-               and len({_utc(x["cutoff"]).date() for x in gold.values()})>=min_utc_days
+    decidable=[x for x in gold.values() if x["market_structure"]!="UNDETERMINED"]
+    decidable_days={_utc(x["cutoff"]).date() for x in decidable}
+    qualified=(len(decidable)>=min_agreed_cases
+               and len(decidable_days)>=min_utc_days
                and len(checked)==len(gold))
     scored=[x for x in checked if x["truth"]!="UNDETERMINED"]
     voiced=[x for x in scored if not x["abstained"]]
+    label_counts=Counter(x["truth"] for x in scored)
     return {
         "mode":"DOUBLE_EXPERT_REVIEW_CLOSED_MARKET_PREFIX_WAVE_EXAM",
         "submitted_review_rows":len(reviews),
         "reviewed_unique_cases":len(groups),
         "independently_agreed_cases":len(gold),
+        "decidable_agreed_cases":len(decidable),
+        "distinct_utc_days_of_decidable_cases":len(decidable_days),
+        "model_id":next(iter(model_ids)) if model_ids else None,
         "expert_disputed_cases":len(disputed),
         "not_yet_double_reviewed_cases":len(underreview),
         "matched_precommitted_model_predictions":len(checked),
@@ -196,7 +215,11 @@ def evaluate_blind_wave_gold(
             if voiced else None),
         "coverage_on_decidable_cases":(
             round(len(voiced)/len(scored),5) if scored else None),
+        "scored_expert_structure_counts":dict(sorted(label_counts.items())),
+        "descriptive_majority_class_accuracy_not_a_trained_baseline":(
+            round(max(label_counts.values())/len(scored),5) if scored else None),
         "bench_sample_size_and_multi_day_sufficiency":qualified,
+        "prediction_seal_is_not_independent_timestamp_or_blindness_proof":True,
         "human_reviewer_independence_technically_unverifiable":True,
         "disputed_cases_do_not_become_false_gold_labels":True,
         "correct_market_structure_not_proof_of_canonical_elliott_degree":True,

@@ -160,7 +160,8 @@ def evaluate_historical_thought(
             if isinstance(x,dict)
         )[:220]
         studied=recall(study_memory,vocabulary[edition]+" "+observed,
-                       edition=edition,limit=2,model_id=model_id)
+                       edition=edition,limit=2,model_id=model_id,
+                       book_index=book_index)
     if model is not None:
         args={"edition":edition}
         if book_index is not None:
@@ -186,6 +187,8 @@ def evaluate_historical_thought(
         "past_learning_feedback_only_from_previously_resolved_simulations":True,
         "private_prior_mistake_lessons_used":[note["source"] for note in prior],
         "same_model_unverified_book_lessons_used":[x["source"] for x in studied],
+        "book_study_notes_checked_against_current_source":(
+            study_memory is not None and book_index is not None),
         "private_book_passages_exported":False,
         "private_coaching_text_exported":False,
         "top_down_context":evidence.get("higher_timeframe_context",{}),

@@ -3,9 +3,12 @@
 These tests use a fake model; they do not assert GGUF learned the books.
 """
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from williams_ai.book_index import index_pages
 from williams_ai.book_rules import registry
@@ -113,6 +116,19 @@ class FourBookStudyCLITests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             _model_identity(self.root/"missing.gguf")
 
+    def test_research_cli_uses_the_same_real_weight_identity_as_study_cli(self):
+        from williams_ai.research_cli import main
+        from williams_ai.study import recall
+        args=["research_cli","study","--books",str(self.books),
+              "--memory",str(self.study),"--edition","TC2",
+              "--model",str(self.model),"--budget","1"]
+        with patch("sys.argv",args),patch(
+                "williams_ai.local_model.LocalWilliamsModel",return_value=FakeBookStudent()),redirect_stdout(io.StringIO()):
+            main()
+        report=study_report(self.books,self.study,model_id=_model_identity(self.model))
+        tc2=next(x for x in report["books"] if x["edition"]=="TC2")
+        self.assertEqual(tc2["studied_chunks"],1)
+
     def test_cross_edition_and_budget_rejected(self):
         model=FakeBookStudent()
         for kwargs in (
@@ -125,6 +141,38 @@ class FourBookStudyCLITests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     train_private_curriculum(self.books,self.study,model,
                                              model_id="fake-v1",**kwargs)
+
+    def test_focused_source_pages_resume_without_counting_unread_pages(self):
+        model=FakeBookStudent()
+        first=train_private_curriculum(
+            self.books,self.study,model,model_id="focused-model",
+            editions=("NTD",),pdf_pages=(5,),budget_per_book=1,rounds=1)
+        self.assertEqual(model.calls,[("NTD",5)])
+        self.assertEqual(first["new_study_chunks"],1)
+        self.assertEqual(first["focused_pdf_pages"],[5])
+        again=train_private_curriculum(
+            self.books,self.study,model,model_id="focused-model",
+            editions=("NTD",),pdf_pages=(5,),budget_per_book=1,rounds=1)
+        self.assertEqual(again["new_study_chunks"],0)
+        ordinary=train_private_curriculum(
+            self.books,self.study,model,model_id="focused-model",
+            editions=("NTD",),budget_per_book=1,rounds=1)
+        self.assertEqual(ordinary["new_study_chunks"],1)
+        self.assertEqual(model.calls,[("NTD",5),("NTD",4)])
+
+    def test_focused_study_rejects_mixed_edition_and_non_book_pages(self):
+        for args in (
+            {"pdf_pages":(4,)},
+            {"editions":("NTD",),"pdf_pages":()},
+            {"editions":("NTD",),"pdf_pages":(4,4)},
+            {"editions":("NTD",),"pdf_pages":(True,)},
+            {"editions":("NTD",),"pdf_pages":(99999,)},
+        ):
+            model=FakeBookStudent()
+            with self.subTest(args=args),self.assertRaises(ValueError):
+                train_private_curriculum(self.books,self.study,model,
+                                         model_id="focused-model",**args)
+            self.assertEqual(model.calls,[])
 
 
 if __name__=="__main__":

@@ -104,5 +104,58 @@ class ExpertWaveBenchmarkTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"PREDATE_MARKET"):
             evaluate_blind_wave_gold(self.ann,self.pred)
 
+    def test_30_unknown_expert_answers_do_not_satisfy_decidable_sample(self):
+        a,p=self.base()
+        for row in a:
+            row["market_structure"]="UNDETERMINED"
+        self.save(a,p)
+        out=evaluate_blind_wave_gold(self.ann,self.pred)
+        self.assertEqual(out["independently_agreed_cases"],30)
+        self.assertEqual(out["decidable_agreed_cases"],0)
+        self.assertFalse(out["bench_sample_size_and_multi_day_sufficiency"])
+        self.assertIsNone(out["nonabstained_structure_accuracy"])
+
+    def test_missing_decidable_days_not_hidden_by_many_unknown_days(self):
+        a,p=self.base()
+        for row in a:
+            if row["cutoff"]!=iso(0):
+                row["market_structure"]="UNDETERMINED"
+        self.save(a,p)
+        out=evaluate_blind_wave_gold(self.ann,self.pred,
+                                     min_agreed_cases=1,min_utc_days=8)
+        self.assertEqual(out["distinct_utc_days_of_agreed_cases"],30)
+        self.assertEqual(out["distinct_utc_days_of_decidable_cases"],1)
+        self.assertFalse(out["bench_sample_size_and_multi_day_sufficiency"])
+
+    def test_each_model_must_take_its_own_complete_exam(self):
+        a,p=self.base()
+        p[-1]["model_id"]="another-real-model"
+        p[-1]["precommitted_prediction_sha256"]=prediction_commitment(p[-1])
+        self.save(a,p)
+        with self.assertRaisesRegex(ValueError,"MIXED_MODELS"):
+            evaluate_blind_wave_gold(self.ann,self.pred)
+
+    def test_relabelled_identical_market_case_cannot_inflate_sample(self):
+        a,p=self.base()
+        for person in ("reviewer-001","reviewer-002"):
+            duplicate=reviewer(0,person)
+            duplicate["case_id"]="same-chart-different-name"
+            duplicate["edition"]="TC2"
+            duplicate["source_page"]=122
+            a.append(duplicate)
+        self.save(a,p)
+        with self.assertRaisesRegex(ValueError,"DUPLICATE_MARKET_SNAPSHOT"):
+            evaluate_blind_wave_gold(self.ann,self.pred)
+
+    def test_single_class_perfect_score_exposes_trivial_constant_baseline(self):
+        a,p=self.base();self.save(a,p)
+        out=evaluate_blind_wave_gold(self.ann,self.pred)
+        self.assertEqual(out["model_id"],"pinned-model-001")
+        self.assertEqual(out["scored_expert_structure_counts"],{"CORRECTION":30})
+        self.assertEqual(out[
+            "descriptive_majority_class_accuracy_not_a_trained_baseline"],1.0)
+        self.assertTrue(out[
+            "prediction_seal_is_not_independent_timestamp_or_blindness_proof"])
+
 if __name__=="__main__":
     unittest.main()

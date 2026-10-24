@@ -5,9 +5,12 @@ source status can be reused. Tests never run a real local neural network and
 never claim full reading, profitable trades or exact Elliott annotation.
 """
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from williams_ai.book_index import index_pages
 from williams_ai.book_rules import registry
@@ -98,6 +101,60 @@ class BookToChartLearningTests(unittest.TestCase):
                 bar_index=299,edition="TC2",proposal={
                     "symbol":"BTCUSDT","as_of":"2025-01-01T00:00:00+00:00"},
                 model_id="gguf-alpha",study_memory=self.memory)
+
+    def test_ocr_correction_invalidates_old_notes_in_actual_reasoning_prompt(self):
+        ed=next(x for x in registry()["books"] if x["id"]=="TC2")
+        pages=[""]*ed["pages"]
+        pages[122]="Исправленный текст про Мудрец фрактал ангуляция и порядок закрытых баров."
+        index_pages(self.book,"TC2",ed["sha256"],pages,
+                    declared_pages=ed["pages"])
+        # Same source PDF bytes and same student, different OCR passage.
+        self.assertEqual(recall(self.memory,"Мудрец фрактал ангуляция",
+                                model_id="gguf-alpha",edition="TC2",
+                                book_index=self.book),[])
+        market=frozen_markets()["BTCUSDT"]
+        spy=InspectingStudent()
+        result=evaluate_historical_thought(
+            "BTCUSDT",market["bars"],tick_size=market["tick_size"],
+            bar_index=299,edition="TC2",model=spy,book_index=self.book,
+            model_id="gguf-alpha",study_memory=self.memory)
+        self.assertEqual(spy.kwargs["study_lessons"],[])
+        self.assertTrue(result["book_study_notes_checked_against_current_source"])
+        # A fresh real study operation can restore only the new passage.
+        study_batch(self.book,self.memory,"TC2",ReadingStudent(),
+                    model_id="gguf-alpha",budget=1)
+        fresh=recall(self.memory,"Мудрец фрактал ангуляция",
+                     model_id="gguf-alpha",edition="TC2",book_index=self.book)
+        self.assertEqual(len(fresh),1)
+
+    def test_chart_cli_does_not_borrow_another_models_book_memory(self):
+        from williams_ai.chart_cli import main
+        from williams_ai.study_cli import _model_identity
+        weights=self.root/"selected.gguf";weights.write_bytes(b"SELECTED_TEST_MODEL")
+        market=frozen_markets()["BTCUSDT"]
+        bars=market["bars"][:350]
+        path=self.root/"chart.json"
+        path.write_text(json.dumps({"symbol":"BTCUSDT","tick_size":market["tick_size"],
+                                    "as_of":bars[-1]["close_time"],
+                                    "timeframes":{"H1":{"bars":bars}}}))
+        calls=[]
+        class Explainer:
+            def answer(self,question,report,*,notes):
+                calls.append(notes)
+                return "Read-only mock explanation"
+        argv=["chart_cli",str(path),"--question","Мудрец фрактал ангуляция",
+              "--edition","TC2","--local-model",str(weights),
+              "--study-memory",str(self.memory)]
+        with patch("sys.argv",argv),patch(
+                "williams_ai.local_model.LocalWilliamsModel",return_value=Explainer()),redirect_stdout(io.StringIO()):
+            main()
+        self.assertFalse(any(x["source"].startswith("STUDY:") for x in calls[-1]))
+        study_batch(self.book,self.memory,"TC2",ReadingStudent(),
+                    model_id=_model_identity(weights),budget=1)
+        with patch("sys.argv",argv),patch(
+                "williams_ai.local_model.LocalWilliamsModel",return_value=Explainer()),redirect_stdout(io.StringIO()):
+            main()
+        self.assertTrue(any(x["source"].startswith("STUDY:") for x in calls[-1]))
 
     def test_gguf_prompt_has_model_specific_notes_but_cannot_upgrade_book_rule(self):
         class Runtime:

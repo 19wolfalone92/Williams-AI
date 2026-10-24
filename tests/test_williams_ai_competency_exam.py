@@ -50,7 +50,10 @@ class BookKnowledgeExamTests(unittest.TestCase):
             answer=model.answer_exam_case(safe)
             self.assertEqual(answer["choice"],"B")
             call=model._model.calls[0]
-            self.assertEqual(call["response_format"],{"type":"json_object"})
+            self.assertEqual(call["response_format"]["type"],"json_object")
+            self.assertEqual(set(call["response_format"]["schema"]["required"]),
+                             {"choice","reason"})
+            self.assertFalse(call["response_format"]["schema"]["additionalProperties"])
             self.assertEqual(call["temperature"],0)
             self.assertNotIn("tools",call)
             prompt=json.loads(call["messages"][1]["content"])

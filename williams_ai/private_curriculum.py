@@ -80,6 +80,7 @@ def complete_private_readthrough(
         "readthrough_protocol_sha256":sha256(manifest.encode()).hexdigest(),
         "newly_studied_chunks":run["new_study_chunks"],
         "failed_chunk_attempts":run["failed_or_retry_chunks"],
+        "failure_codes":run["failure_codes"],
         "chunks_needing_retry_or_review":progress["chunks_needing_retry_or_review"],
         "total_original_pdf_pages":sum(x["total_pdf_pages"] for x in lines),
         "source_text_pages_missing":source_gaps,

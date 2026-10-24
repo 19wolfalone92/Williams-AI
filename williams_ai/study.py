@@ -6,6 +6,7 @@ supporting spans are recorded; no model can certify its own interpretation.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from collections import Counter
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -99,18 +100,51 @@ def validate_lesson(raw: str, passage: str) -> dict[str, Any]:
     return {**obj, "status": "SOURCE_DERIVED_UNVERIFIED", "trade_action": None}
 
 
+def _lesson_error_code(error: Exception) -> str:
+    """Keep actionable diagnostics without logging book text or model output."""
+    if isinstance(error, json.JSONDecodeError):
+        return "LESSON_INVALID_JSON"
+    codes = {
+        "Oversized lesson": "LESSON_OVERSIZED",
+        "Invalid lesson fields": "LESSON_INVALID_FIELDS",
+        "Invalid summary": "LESSON_INVALID_SUMMARY",
+        "Too many claims": "LESSON_INVALID_CLAIM_COUNT",
+        "Invalid claim": "LESSON_INVALID_CLAIM",
+        "Invalid statement": "LESSON_INVALID_STATEMENT",
+        "Invalid support span": "LESSON_INVALID_SUPPORT_SPAN",
+        "Invented supporting span": "LESSON_SUPPORT_NOT_IN_SOURCE",
+        "Invalid questions": "LESSON_INVALID_QUESTIONS",
+        "LOCAL_STUDY_OUTPUT_TRUNCATED": "LOCAL_STUDY_OUTPUT_TRUNCATED",
+    }
+    return codes.get(str(error), type(error).__name__)
+
+
 def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
-                model: Any, *, model_id: str, budget: int = 4) -> dict[str, Any]:
+                model: Any, *, model_id: str, budget: int = 4,
+                pdf_pages: tuple[int, ...] | None = None) -> dict[str, Any]:
     """Study unseen source chunks, checkpointing each success; bounded retry on failure."""
     if not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}", model_id) or not 1 <= budget <= 100:
         raise ValueError("Invalid model version or batch budget")
     if _private_database(book_db) == _private_database(memory_db):
         raise ValueError("Books and study memory must be separate files")
+    known = _known_book(edition)
+    if pdf_pages is not None and (
+            not isinstance(pdf_pages, tuple) or not 1 <= len(pdf_pages) <= 32
+            or any(isinstance(p, bool) or not isinstance(p, int)
+                   or not 1 <= p <= known["pages"] for p in pdf_pages)
+            or len(set(pdf_pages)) != len(pdf_pages)):
+        raise ValueError("Invalid source PDF page selection")
     source = _source(book_db, edition)
     done = failed = 0
+    failure_codes: Counter[str] = Counter()
     try:
         with memory(memory_db) as dest:
-            rows = source.execute("SELECT pdf_page,content FROM excerpts WHERE book=? ORDER BY CAST(pdf_page AS INTEGER),rowid", (edition,))
+            query = "SELECT pdf_page,content FROM excerpts WHERE book=?"
+            args: list[Any] = [edition]
+            if pdf_pages is not None:
+                query += " AND CAST(pdf_page AS INTEGER) IN (" + ",".join("?" for _ in pdf_pages) + ")"
+                args.extend(pdf_pages)
+            rows = source.execute(query + " ORDER BY CAST(pdf_page AS INTEGER),rowid", args)
             for page, text in rows:
                 sha = fingerprint(text)
                 key = (edition, _known_book(edition)["sha256"], int(page), sha, model_id)
@@ -137,17 +171,21 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
                         key)
                     done += 1
                 except (ValueError, RuntimeError, TypeError, KeyError) as exc:
-                    # Store error class only: model exception text can contain private passages.
+                    # Store only allowlisted codes: arbitrary exception text
+                    # can contain private book passages or local paths.
+                    code = _lesson_error_code(exc)
                     dest.execute(
                         "INSERT INTO scoped_study_errors VALUES (?,?,?,?,?,1,?) "
                         "ON CONFLICT(edition,source_sha,page,chunk_sha,model_id) "
                         "DO UPDATE SET attempts=attempts+1,error_type=excluded.error_type",
-                        (*key,type(exc).__name__))
+                        (*key,code))
                     failed += 1
+                    failure_codes[code] += 1
                 dest.commit()
     finally:
         source.close()
     return {"edition": edition, "studied_chunks": done, "failed_chunks": failed,
+            "failure_codes": dict(sorted(failure_codes.items())),
             "model_id": model_id, "status": "RESEARCH_ONLY", "trade_action": None}
 
 
@@ -250,12 +288,15 @@ def study_report(book_db: str | Path, memory_db: str | Path,
 
 
 def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
-           limit: int = 3, model_id: str | None = None) -> list[dict[str, str]]:
+           limit: int = 3, model_id: str | None = None,
+           book_index: str | Path | None = None) -> list[dict[str, str]]:
     """Recall model-scoped, source-identified study notes as UNVERIFIED hints.
 
     For decisions involving a specific GGUF, model_id is mandatory at the
     caller: unrelated students must never lend each other apparent mastery.
     An LLM-written summary is not a canonical trading rule.
+    With a current source index, an OCR-corrected or removed passage must
+    invalidate its old lesson at inference time as well as in progress reports.
     """
     if not isinstance(question,str) or len(question)>1500 or not 1<=limit<=5:
         raise ValueError("Invalid memory query")
@@ -263,10 +304,26 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
         _known_book(edition)
     if model_id is not None and not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}",model_id):
         raise ValueError("Invalid GGUF model fingerprint")
+    current = None
+    if book_index is not None:
+        if _private_database(book_index) == _private_database(memory_db):
+            raise ValueError("Books and study memory must be separate files")
+        from .book_rules import registry
+        current = set()
+        editions = [edition] if edition else [b["id"] for b in registry()["books"]]
+        for book in editions:
+            source = _source(book_index, book)
+            try:
+                current.update((book, int(page), fingerprint(text))
+                               for page, text in source.execute(
+                                   "SELECT pdf_page,content FROM excerpts WHERE book=?",
+                                   (book,)))
+            finally:
+                source.close()
     terms=set(re.findall(r"[^\W_]{3,}",question.casefold()))
     ranked=[]
     with memory(memory_db) as db:
-        query="SELECT edition,page,result,model_id,source_sha FROM study_notes"
+        query="SELECT edition,page,result,model_id,source_sha,chunk_sha FROM study_notes"
         conditions=[]
         args=[]
         if edition:
@@ -277,9 +334,11 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
             args.append(model_id)
         if conditions:
             query+=" WHERE "+" AND ".join(conditions)
-        for book,page,content,student,source_sha in db.execute(query,args):
+        for book,page,content,student,source_sha,chunk_sha in db.execute(query,args):
             # Reject retained notes referring to superseded source editions.
             if source_sha!=_known_book(book)["sha256"]:
+                continue
+            if current is not None and (book, int(page), chunk_sha) not in current:
                 continue
             obj=json.loads(content)
             if not isinstance(obj,dict) or obj.get("status")!="SOURCE_DERIVED_UNVERIFIED":

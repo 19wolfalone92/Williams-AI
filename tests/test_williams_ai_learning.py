@@ -124,7 +124,10 @@ class StudyTests(unittest.TestCase):
         model = LocalWilliamsModel(path, loader=lambda **kwargs: engine)
         self.assertEqual(model.study_passage(PASSAGE, edition="TC2", page=122, rule_cards=[]), '{}')
         args = engine.create_chat_completion.call_args.kwargs
-        self.assertEqual(args["response_format"], {"type": "json_object"})
+        self.assertEqual(args["response_format"]["type"], "json_object")
+        schema=args["response_format"]["schema"]
+        self.assertEqual(set(schema["required"]),{"summary","claims","questions"})
+        self.assertFalse(schema["additionalProperties"])
         self.assertNotIn("tools", args)
         self.assertIn("не", args["messages"][0]["content"].lower())
 
