@@ -212,7 +212,10 @@ def train_private_lora(
     # A validation-only improvement is not evidence of new-market profit.
     improved=trained<baseline
     if improved:
-        target.mkdir(parents=True,exist_ok=False,mode=0o700)
+        # Trainer may have created output_dir for state/logs already.
+        # The path was required NOT to exist before this invocation.
+        target.mkdir(parents=True,exist_ok=True,mode=0o700)
+        target.chmod(0o700)
         model.save_pretrained(str(target),safe_serialization=True)
         tokenizer.save_pretrained(str(target))
         (target/"research_manifest.json").write_text(
