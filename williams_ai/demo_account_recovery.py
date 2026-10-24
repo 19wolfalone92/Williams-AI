@@ -56,6 +56,12 @@ def inspect_demo_after_restart(client: Any, journal: OneCampaignReservation) -> 
     expected = _position_decimal(row.get("quantity"))
     if expected <= 0:
         raise DemoSafetyError("PILOT_JOURNAL_INVALID_QUANTITY")
+    # The current supervised CLI atomically seals deterministic stop + entry
+    # client IDs before submitting any POST. Legacy rows have no IDs and
+    # cannot prove that a merely similar stop belongs to our attempt.
+    bound = journal.bound_client_ids()
+    expected_stop_price = (_position_decimal(bound["expected_stop_price"])
+                           if bound is not None else None)
     # Neither the LLM nor any untrusted snapshot can supply alternate API
     # paths, symbols, keys, account identities or exchange host.
     side_mode = client.request("GET", "/fapi/v1/positionSide/dual", signed=True)
@@ -77,17 +83,29 @@ def inspect_demo_after_restart(client: Any, journal: OneCampaignReservation) -> 
         raise DemoSafetyError("DEMO_OPEN_ALGO_ORDER_LIST_UNTRUSTED")
     protective_side = "SELL" if row["side"] == "BUY" else "BUY"
     candidates = 0
+    bound_matches = 0
     for algo in open_algos:
         if not isinstance(algo, dict) or algo.get("symbol") != PAIR:
             raise DemoSafetyError("DEMO_ALGO_ORDER_IDENTITY_UNVERIFIED")
-        if (algo.get("side") == protective_side
-                and algo.get("orderType") == "STOP_MARKET"
-                and algo.get("positionSide") == "BOTH"
-                and algo.get("closePosition") is True
-                and algo.get("workingType") == "MARK_PRICE"
-                and algo.get("algoStatus") == "NEW"
-                and _position_decimal(algo.get("triggerPrice")) > 0):
+        same_id = (bound is not None and
+                   algo.get("clientAlgoId") == bound["stop_client_algo_id"])
+        valid = (algo.get("side") == protective_side
+                 and algo.get("orderType") == "STOP_MARKET"
+                 and algo.get("positionSide") == "BOTH"
+                 and algo.get("closePosition") is True
+                 and algo.get("workingType") == "MARK_PRICE"
+                 and algo.get("algoStatus") == "NEW")
+        # An identical clientAlgoId with unexpected stop/side/status is a
+        # critical conflict: do not "select" another order as protection.
+        if same_id:
+            if (not valid or _position_decimal(algo.get("triggerPrice"))
+                    != expected_stop_price):
+                raise DemoSafetyError("BOUND_DEMO_STOP_ID_HAS_WRONG_PARAMETERS")
+            bound_matches += 1
+        if valid and _position_decimal(algo.get("triggerPrice")) > 0:
             candidates += 1
+    if bound_matches > 1:
+        raise DemoSafetyError("DUPLICATE_BOUND_DEMO_STOP_ID")
     if amount == 0:
         status = ("FLAT_WITH_OPEN_STOP_CANDIDATE_MANUAL_REVIEW" if candidates
                   else "FLAT_BUT_PILOT_JOURNAL_LOCKED")
@@ -95,12 +113,19 @@ def inspect_demo_after_restart(client: Any, journal: OneCampaignReservation) -> 
         status = "EXCHANGE_POSITION_DIRECTION_CONFLICT"
     elif abs(amount) != expected:
         status = "EXCHANGE_POSITION_SIZE_MISMATCH"
-    elif candidates == 1:
+    elif bound is not None and bound_matches == 1:
+        status = "POSITION_WITH_SIGNED_MATCHING_BOUND_STOP_NEEDS_FILL_AUDIT"
+    elif candidates == 1 and bound is None:
         status = "POSITION_WITH_POSSIBLE_STOP_OWNERSHIP_NOT_PROVEN"
     else:
         status = "POSITION_WITH_UNVERIFIED_PROTECTION"
+    confirmed = bool(amount != 0 and bound is not None and bound_matches == 1
+                     and status == "POSITION_WITH_SIGNED_MATCHING_BOUND_STOP_NEEDS_FILL_AUDIT")
     return {**result, "status": status, "authenticated_checks_performed": True,
             "signed_position_amount": str(amount),
             "possible_protective_stops": candidates,
-            "stop_belongs_to_pilot_unverified": True,
+            "bound_exchange_stop_identity_matched":bool(bound_matches==1),
+            "stop_acknowledged":confirmed,
+            "stop_belongs_to_pilot_unverified":not confirmed,
+            "entry_exchange_fill_not_independently_reconciled":True,
             "no_orders_or_cancellations_submitted": True}
