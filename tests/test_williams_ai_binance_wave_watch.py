@@ -53,6 +53,44 @@ class NativeBinanceWatchTests(unittest.TestCase):
             self.assertNotIn("wave_study",outcome["per_symbol"][0])
             self.assertEqual(outcome["per_symbol"][0]["timeframes_checked"],1)
 
+    def test_15_pairs_allowed_but_global_binance_page_budget_enforced(self):
+        pairs=tuple("TEST%02dUSDT"%i for i in range(15))
+        def fetch(venue,path,params):
+            self.assertEqual(venue,"PUBLIC_USDM")
+            if path=="/fapi/v1/time":
+                return {"serverTime":NOW}
+            if path=="/fapi/v1/exchangeInfo":
+                return {"symbols":[{"symbol":params["symbol"],
+                    "status":"TRADING","filters":[
+                        {"filterType":"PRICE_FILTER","tickSize":"0.01"}]}]}
+            if path=="/fapi/v1/klines":
+                return []
+            raise AssertionError("No account calls")
+        with tempfile.TemporaryDirectory() as d:
+            db=DurableWaveHistory(Path(d)/"all15.db")
+            with self.assertRaisesRegex(ValueError,"WEIGHT_LIMIT"):
+                one_watch_cycle(
+                    db,venue="PUBLIC_USDM",symbols=pairs,
+                    intervals=("1m","5m","15m","1h","4h","1d","1M"),
+                    max_pages=20,fetch=fetch,now_ms=NOW,
+                )
+            # 15 independent symbols pass validation, then fail at a
+            # real public market-data absence; never a fake LIVE/READY.
+            result=one_watch_cycle(
+                db,venue="PUBLIC_USDM",symbols=pairs,
+                intervals=("1h",),max_pages=1,
+                fetch=fetch,now_ms=NOW,
+                archive_checkpoints_per_tf=0,
+            )
+            self.assertEqual(result["symbols_checked"],15)
+            self.assertFalse(result["all_caught_up"])
+            self.assertFalse(result["execution_allowed"])
+            self.assertTrue(all(
+                x["sources"][0]["sync_state"]=="FAILED_UNVERIFIED_DATA"
+                for x in result["per_symbol"]))
+            self.assertTrue(all("wave_study" not in x
+                                for x in result["per_symbol"]))
+
     def test_duplicate_sources_and_unknown_symbol_invalid(self):
         with tempfile.TemporaryDirectory() as d:
             db=DurableWaveHistory(Path(d)/"w.db")
