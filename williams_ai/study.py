@@ -231,7 +231,7 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
         _known_book(edition)
     if model_id is not None and not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}",model_id):
         raise ValueError("Invalid GGUF model fingerprint")
-    terms=set(re.findall(r"[^\\W_]{3,}",question.casefold()))
+    terms=set(re.findall(r"[^\W_]{3,}",question.casefold()))
     ranked=[]
     with memory(memory_db) as db:
         query="SELECT edition,page,result,model_id,source_sha FROM study_notes"
@@ -255,7 +255,7 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
             summary=obj.get("summary")
             if not isinstance(summary,str):
                 continue
-            score=len(terms & set(re.findall(r"[^\\W_]{3,}",summary.casefold())))
+            score=len(terms & set(re.findall(r"[^\W_]{3,}",summary.casefold())))
             if score:
                 ranked.append((score,{"source":f"STUDY:{book}: PDF {page}",
                                       "excerpt":"Непроверенный учебный вывод: "+summary[:430],
