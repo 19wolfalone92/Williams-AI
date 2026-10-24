@@ -11,6 +11,15 @@ class BookSafetyContracts(unittest.TestCase):
             self.assertRegex(book["sha256"],r"^[a-f0-9]{64}$")
             self.assertIsNone(coverage()[book["id"]]["accuracy_percent"])
 
+    def test_original_course_scanned_nested_wave_diagram_has_separate_source_card(self):
+        notes=[card for card in registry()["rule_cards"]
+               if card["id"]=="COURSE.VISUAL.NESTED_ABC"]
+        self.assertEqual(len(notes),1)
+        self.assertEqual(notes[0]["pdf_pages"],[56])
+        self.assertEqual(notes[0]["source"],"COURSE")
+        self.assertIn("не доказывает вход",notes[0]["summary"])
+        self.assertNotIn("100%",notes[0]["summary"])
+
     def test_public_git_has_no_full_book_pdf(self):
         for folder in ("knowledge","williams_ai"):
             self.assertFalse(list((ROOT/folder).glob("*.pdf")))
