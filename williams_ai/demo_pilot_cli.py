@@ -20,7 +20,7 @@ from pathlib import Path
 import sys
 
 from .demo_futures import DemoFutures,DemoHttp,DemoSafetyError
-from .demo_account_recovery import inspect_demo_after_restart
+from .demo_account_recovery import inspect_demo_after_restart,inspect_demo_account_before_first_order
 from .demo_pilot_readiness import (
     PAIR,OneCampaignReservation,check_public_demo,validate_small_pilot,
     verify_requoted_manual_pilot,
@@ -34,17 +34,30 @@ def main()->None:
     send=sub.add_parser("supervised-send",help="Only with DEMO keys, TTY, two approvals and permanent SQLite lock")
     status=sub.add_parser("status",help="Show private one-campaign lock state, no trading")
     recovery=sub.add_parser("reconcile-readonly",help="Signed DEMO GET checks after uncertain fill, NEVER send orders")
+    signed=sub.add_parser("signed-check",help="Signed READ-ONLY all-account flat/ETH order/One-way DEMO preflight")
     for cmd in (check,send):
         cmd.add_argument("--side",required=True,choices=("BUY","SELL"))
         cmd.add_argument("--quantity",required=True)
         cmd.add_argument("--stop",required=True)
         cmd.add_argument("--symbol",default=PAIR,choices=(PAIR,))
-    for cmd in (send,status,recovery):
+    for cmd in (send,status,recovery,signed):
         cmd.add_argument("--journal",type=Path,required=True)
     args=p.parse_args()
     if args.mode=="status":
         print(json.dumps(OneCampaignReservation(args.journal).status(),
                          ensure_ascii=False,indent=2))
+        return
+    if args.mode=="signed-check":
+        if not sys.stdin.isatty():
+            p.error("TTY required for dedicated DEMO-only signed inspection")
+        journal=OneCampaignReservation(args.journal)
+        if journal.status()["reservations"]:
+            raise DemoSafetyError("SIGNED_PREFLIGHT_PERMANENT_PILOT_LOCK_EXISTS")
+        print("DEMO signed GETs only. No entry, stop, cancel or reservation.")
+        key=getpass("Separate Binance Futures DEMO API key (hidden): ")
+        secret=getpass("Separate Binance Futures DEMO API secret (hidden): ")
+        print(json.dumps(inspect_demo_account_before_first_order(
+            DemoHttp(key,secret),journal),ensure_ascii=False,indent=2))
         return
     if args.mode=="reconcile-readonly":
         if not sys.stdin.isatty():
