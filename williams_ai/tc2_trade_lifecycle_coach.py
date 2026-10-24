@@ -16,7 +16,7 @@ from typing import Any
 
 from .book_rules import registry
 from .campaign_audit import audit_campaign
-from .chart_reader import validate_closed_bars
+from .chart_reader import validate_closed_bars, analyze_chart
 
 
 RULE_IDS = ("TC2.WM1.BAR", "TC2.WM1.ANG", "TC2.WM1.TRIGGER",
@@ -77,6 +77,15 @@ def teach_tc2_trade_lifecycle(
             not isinstance(symbol, str) or not symbol.endswith("USDT")):
         raise ValueError("CHART_CUTOFF_OR_PRICE_HISTORY_UNVERIFIED")
     tick = _decimal(tick_size)
+    # Reject invented signal candidates and indicator context. The tutor must
+    # not simply believe a pasted GGUF/chart JSON: recompute the exact
+    # cutoff with the same causal, displaced-Alligator engine.
+    rechecked = analyze_chart(symbol, timeframe, bars, as_of=as_of,
+                              tick_size=float(tick))
+    if (rechecked["gaps"] or
+            observation.get("candidates") != rechecked["candidates"] or
+            observation.get("evidence") != rechecked["evidence"]):
+        raise ValueError("TC2_LIFECYCLE_CANDIDATES_NOT_INDEPENDENTLY_REPRODUCED")
     known = {card["id"]:card for card in registry()["rule_cards"]
              if card["source"] == "TC2" and card["status"] == "REVIEWED_PAGES"}
     if any(rule not in known for rule in RULE_IDS):
