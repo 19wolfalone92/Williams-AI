@@ -1,5 +1,6 @@
 """Qwen's real forward market snapshot yields unlabelled, non-leaking review tasks."""
 import copy
+from datetime import datetime, timedelta, timezone
 import unittest
 
 from williams_ai.causal_paper_lab import frozen_markets
@@ -50,6 +51,47 @@ class WaveReviewTaskContracts(unittest.TestCase):
             self.assertNotIn("confidence",task)
             self.assertNotIn("observed_future",task)
             self.assertNotIn("market_structure",task)
+
+    def _reseal_market_and_cohort(self, cohort):
+        # An attacker can recompute both local digests. This must not turn
+        # invalid or future bars into a valid expert-review market prefix.
+        for trial in cohort["trials"]:
+            trial["sealed_forecast"]["history_sha256"] = _fingerprint(
+                trial["market_prefix"]["bars"])
+        cohort["manifest_sha256"] = _fingerprint({
+            k: v for k, v in cohort.items() if k != "manifest_sha256"})
+        return cohort
+
+    def test_rehashed_duplicate_hour_is_not_a_closed_h1_history(self):
+        cohort = sealed_public_cohort()
+        bars = cohort["trials"][0]["market_prefix"]["bars"]
+        bars[30]["close_time"] = bars[29]["close_time"]
+        self._reseal_market_and_cohort(cohort)
+        with self.assertRaisesRegex(ValueError, "UNSEALED_FUTURE_OR_INCONSISTENT"):
+            prepare_wave_review_tasks(cohort)
+
+    def test_rehashed_invalid_ohlc_is_not_expert_chart(self):
+        cohort = sealed_public_cohort()
+        bar = cohort["trials"][0]["market_prefix"]["bars"][29]
+        bar["low"] = bar["high"] + 1
+        self._reseal_market_and_cohort(cohort)
+        with self.assertRaisesRegex(ValueError, "UNSEALED_FUTURE_OR_INCONSISTENT"):
+            prepare_wave_review_tasks(cohort)
+
+    def test_future_candle_disguised_as_earlier_timezone_fails(self):
+        cohort = sealed_public_cohort()
+        trial = cohort["trials"][0]
+        cutoff = datetime.fromisoformat(
+            trial["source"]["as_of"].replace("Z", "+00:00"))
+        apparent_past = (cutoff + timedelta(hours=1)).astimezone(
+            timezone(timedelta(hours=-12))).isoformat()
+        # The old lexical comparison considered this an earlier string,
+        # although its actual UTC timestamp is AFTER the sealed cutoff.
+        self.assertLess(apparent_past, trial["source"]["as_of"])
+        trial["market_prefix"]["bars"][-2]["close_time"] = apparent_past
+        self._reseal_market_and_cohort(cohort)
+        with self.assertRaisesRegex(ValueError, "UNSEALED_FUTURE_OR_INCONSISTENT"):
+            prepare_wave_review_tasks(cohort)
 
     def test_source_changed_after_commitment_fails(self):
         cohort=sealed_public_cohort()
