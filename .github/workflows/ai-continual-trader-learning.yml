@@ -1,0 +1,104 @@
+name: Williams AI adaptive trader historical learning (no orders)
+on:
+  push:
+    branches:
+      - feature/continual-ai-trader-learning-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adaptive-chronological-trader-lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Private immutable outcome and no-lookahead learning tests
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_continual_trader.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_binance_universe.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_prequential_skill.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_williams_signal_experience.py' -v
+      - name: Verify real historical stress scenario accounting
+        run: python -m unittest discover -s tests -p 'test_williams_ai_ten_million_stress.py' -v
+      - name: Entire Williams AI regression suite
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Real previously-reviewed 15-pair Binance OHLC history signal-conditioned private experience
+        run: |
+          python -m williams_ai.trader_marathon --frozen-fixture \
+            --private-journal "${RUNNER_TEMP}/williamsai-private-experiences.sqlite3" \
+            --goal 10000000 > "${RUNNER_TEMP}/williamsai-learning-result.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["RUNNER_TEMP"])/"williamsai-learning-result.json").read_text())
+          assert data["mode"]=="WILLIAMS_AI_CLOSED_MARKET_CONTINUAL_LEARNING"
+          assert data["distinct_crypto_symbols"]==15
+          assert data["execution_allowed"] is False and data["trade_action"] is None
+          assert data["ten_million_independent_trades_claimed"] is False
+          print("ACTUAL_SYMBOLS",data["distinct_crypto_symbols"])
+          print("ACTUAL_CAUSAL_WM_SIGNAL_CHECKS",data["book_signal_proxy_checks_completed"])
+          print("ACTUAL_SETTLED_WM_NEXT_BAR_COUNTERFACTUALS",
+                data["resolved_book_signal_proxy_entry_examples"])
+          print("ACTUAL_PRIVATE_OUTCOME_MEMORY",data["private_persistent_learning"])
+          print("10M_GOAL_COMPLETED",data["goal_verified_as_completed"])
+          print("10M_GOAL_ADDITIONAL_SCENARIOS_NEEDED",
+                data["additional_candidate_checks_needed_to_goal"])
+          fit=data.get("learnt_numeric_policy")
+          if fit:
+              print("TRAINABLE_MODEL_STATUS",fit.get("validation_state",fit.get("state")))
+              print("PAST_TRAIN_COUNT",fit.get("train_count"))
+              print("INDEPENDENT_FUTURE_HOLDOUT",fit.get("frozen_test"))
+          online=data.get("prequential_research_skill")
+          assert online and online["execution_allowed"] is False
+          print("ACTUAL_RESOLUTION_DELAYED_ONLINE_LEARNING",online.get("training_updates_after_settlement"))
+          print("FROZEN_VALIDATION_AND_TEST",online.get("validation_frozen"),online.get("test_frozen"))
+          print("PREQUENTIALLY_LEARNED_SKILL_QUALIFICATION",online.get("qualification"))
+          edge=data.get("profit_quality_frozen_research_only")
+          assert edge and edge.get("execution_allowed") is False
+          assert edge.get("no_test_selection_or_weight_training") is True
+          print("FROZEN_PAPER_EXPECTANCY_RESEARCH",edge.get("training_only_cohort_gates"))
+          print("FROZEN_PAPER_EXPECTANCY_VALIDATION",edge.get("validation_frozen"))
+          print("FROZEN_PAPER_EXPECTANCY_TEST",edge.get("test_frozen"))
+          payoff=data.get("online_expected_net_research_only")
+          assert payoff and payoff.get("execution_allowed") is False
+          assert payoff.get("validation_and_test_never_update_model_weights") is True
+          print("TRAINED_CAUSAL_EXPECTED_NET_UPDATES",payoff.get("trained_after_prior_settlement"))
+          print("EXPECTED_NET_VALIDATION_QUALIFICATION",payoff.get("qualification"))
+          print("EXPECTED_NET_VALIDATION",payoff.get("validation_frozen"))
+          print("EXPECTED_NET_HOLDOUT",payoff.get("test_frozen"))
+          print("GGUF_WEIGHTS_CHANGED",data.get("gguf_weight_updating_performed"))
+          print("EXECUTION_AUTHORIZATION_DISABLED")
+          PY
+
+      - name: Real 10-million fixed execution-cost stress scenarios from prior resolved Binance OHLC episodes
+        run: |
+          python -m williams_ai.ten_million_stress \
+            --private-journal "${RUNNER_TEMP}/williamsai-private-experiences.sqlite3" \
+            --known-at "2026-10-24T00:00:00+00:00" \
+            --target 10000000 > "${RUNNER_TEMP}/williamsai-tenmillion-friction.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          obj=json.loads((Path(os.environ["RUNNER_TEMP"])/"williamsai-tenmillion-friction.json").read_text())
+          assert obj["mode"]=="REAL_BINANCE_HISTORICAL_TC2_PROXY_EXECUTION_COST_STRESS"
+          assert obj["goal_met"]
+          assert obj["verified_execution_cost_scenario_checks"]==10000000
+          assert obj["ten_million_separate_market_decisions"] is False
+          assert obj["ten_million_distinct_price_graphs"] is False
+          assert obj["actual_gguf_inference_calls"]==0
+          assert obj["execution_allowed"] is False
+          print("EXECUTED_FIXED_COST_STRESS_SCENARIOS",
+                obj["verified_execution_cost_scenario_checks"])
+          print("REAL_WILLIAMS_PROXY_OUTCOMES_UNIQUE",obj["historical_eligible_wm_paper_outcomes"])
+          print("UNIQUE_REAL_BINANCE_PRICE_EPISODES",
+                obj["distinct_historical_asset_timeframe_decisions"])
+          print("HISTORICAL_ASSET_SYMBOLS",len(obj["historical_asset_symbols"]))
+          print("COST_STRESS_POSITIVE_FRACTION",obj["friction_scenario_positive_fraction"])
+          print("SOURCE_GRID_SHA256",obj["source_order_sha256"])
+          print("NOT_10M_INDEPENDENT_AI_TRADES_OR_CHARTS")
+          print("GGUF_CALLS",obj["actual_gguf_inference_calls"])
+          print("NO_EXCHANGE_AUTH_OR_ORDERS")
+          PY

@@ -1,0 +1,71 @@
+name: Williams AI ACTUAL public GGUF offline competency smoke
+
+on:
+  push:
+    branches:
+      - experiment/real-qwen3-gguf-reasoning-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  actual-small-gguf-inference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HOME: /tmp/williams_hf_cache
+      MODEL_FILE: Qwen3-0.6B-Q4_K_M.gguf
+      MODEL_SHA256: ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Preserve offline contract tests
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Install public-model CPU runtime (no trading libraries or keys)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Obtain publicly licensed Qwen3 0.6B GGUF by pinned SHA256
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          root=Path("/tmp/williams_ai_public_weights")
+          root.mkdir(parents=True,exist_ok=True)
+          path=hf_hub_download(repo_id="unsloth/Qwen3-0.6B-GGUF",
+                               filename=os.environ["MODEL_FILE"],
+                               local_dir=str(root))
+          print("DOWNLOADED_MODEL_PATH",path)
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          model=Path('/tmp/williams_ai_public_weights')/os.environ['MODEL_FILE']
+          print('REAL_GGUF_WEIGHT_VERIFIED',actual_gguf_sha256(model,
+                os.environ['MODEL_SHA256']))
+          PY
+      - name: REAL GGUF inference on 10 curated questions and 2 closed-chart cases
+        run: |
+          set -o pipefail
+          python -m williams_ai.real_gguf_acceptance \
+            --local-model "/tmp/williams_ai_public_weights/${MODEL_FILE}" \
+            --expected-sha256 "${MODEL_SHA256}" \
+            --max-questions 10 \
+            --history-cases 2 \
+            --require-public-smoke-pass \
+            --ctx 8192 | tee /tmp/williams_real_gguf_exam.log
+      - name: Save ONLY public-model evaluation JSON, never model or private books
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen3-0p6b-public-real-gguf-report
+          path: /tmp/williams_real_gguf_exam.log
+          if-no-files-found: ignore
+          retention-days: 5

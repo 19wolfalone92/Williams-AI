@@ -1,0 +1,36 @@
+name: Williams AI native 15 Binance Futures timeframes and durable wave-history CI
+
+on:
+  push:
+    branches:
+      - feature/binance-all-timeframes-durable-wave-history-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  all-native-market-timeframes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: All Williams AI read-only regressions including 15 native Futures TF
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Isolated native Binance market+durable cache tests
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_binance_wave_*.py' -v
+      - name: Print exact source and read-only trading invariants
+        run: |
+          python - <<'PY'
+          from williams_ai.binance_wave_history import INTERVAL_MS,VENUES,ANALYSIS_TFS
+          from williams_ai.chart_reader import TF_SECONDS
+          assert len(INTERVAL_MS)==len(ANALYSIS_TFS)==15
+          assert all(x in TF_SECONDS for x in ANALYSIS_TFS.values())
+          assert set(VENUES)=={"PUBLIC_USDM","DEMO_USDM"}
+          print("NATIVE_15TF_BINANCE_FUTURES_HISTORY_SCHEMA_VALID")
+          print("NO_BINANCE_DEMO_LIVE_HISTORY_PULL_FROM_GITHUB_NOT_YET_VERIFIED_HTTP_451")
+          print("NO_ACCOUNT_KEYS_NO_AUTH_NO_TRADES")
+          PY

@@ -1,0 +1,121 @@
+name: Williams AI research and DEMO safety
+
+on:
+  push:
+    branches: [feature/web-search-demo-futures, feature/book-grounded-chart-reader]
+  pull_request:
+    paths:
+      - "williams_ai/**"
+      - "tests/test_williams_ai_*.py"
+      - "mobile/**"
+      - "knowledge/**"
+      - "examples/ai_chart_example.json"
+      - ".github/workflows/ai-web-demo-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: All AI tests (no demo keys, no outbound requests)
+        run: python -m unittest discover -s tests -p "test_williams_ai_*.py" -v
+      - name: Compile Python
+        run: python -m compileall -q williams_ai
+      - name: Verify no book extracts committed
+        run: |
+          test -z "$(find knowledge williams_ai -type f \( -name '*.pdf' -o -name '*.sqlite3' -o -name '*.db' \))"
+      - name: CLI offline smoke
+        run: |
+          python -m williams_ai.cli examples/ai_market_snapshot.json
+          python -m williams_ai.chart_cli examples/ai_chart_example.json > /tmp/chart-evidence.json
+          python -m williams_ai.book_cli --db /tmp/empty_williams.db report
+      - name: Frozen 15-pair walk-forward evaluation (no internet, no trades)
+        run: |
+          python - <<'PY'
+          from williams_ai.causal_paper_lab import run_15
+          report=run_15()
+          print("AGGREGATE",report["aggregate"])
+          print("WM3_BENCHMARK_PER_PAIR: SYMBOL CLOSED WINS REALIZED_PCT BUY_HOLD_PCT OPEN")
+          for x in report["results"]:
+              if x["mode"]=="WM3":
+                  print(x["symbol"],x["closed"],x["wins"],x["realized_return_pct"],x["benchmark_buy_and_hold_pct"],bool(x["open_position"]))
+          PY
+
+      - name: Fifteen independent past-only learning experiments
+        run: |
+          python - <<'PY'
+          from williams_ai.experience_journal import study_15
+          result=study_15()
+          print("LEARNING_15_SUMMARY",result["trained_models"],result["outperformed_constant_baseline_test_count"])
+          print("PAIR TRAIN_COUNT TEST_BRIER PRIOR_BRIER TEST_DELTA")
+          for x in result["reports"]:
+              print(x["symbol"],x["train_count"],x["test_brier"],x["test_constant_prior_brier"],x["test_delta_lower_is_better"])
+          PY
+
+
+      - name: Locked out-of-period 15-pair paper cohort (without tuning)
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from williams_ai.causal_paper_lab import run_15
+          frozen=Path("examples/ai_binance_15pair_h1_prior_holdout_20260902.json")
+          result=run_15(frozen)
+          print("LOCKED_PRIOR_COHORT_15",result["aggregate"])
+          print("CLOSED_WIN_MTM_RETURNS_BY_PAIR_FOR_WM3")
+          for x in result["results"]:
+              if x["mode"]=="WM3":
+                  print(x["symbol"],x["closed"],x["wins"],
+                        x["mark_to_market_total_return_pct"],x["realized_return_pct"])
+          PY
+
+      - name: Offline CLI passport integration (H1 closed through H4/D1)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from williams_ai.causal_paper_lab import frozen_markets
+          market=frozen_markets()["BTCUSDT"]
+          chart={"symbol":"BTCUSDT","tick_size":market["tick_size"],
+                 "as_of":market["bars"][-1]["close_time"],
+                 "timeframes":{"H1":{"bars":market["bars"]}}}
+          Path("/tmp/closed_chart.json").write_text(json.dumps(chart))
+          PY
+          python -m williams_ai.chart_cli /tmp/closed_chart.json --causal-top-down > /tmp/closed_passport.json
+          grep -q "UNCONFIRMED_NESTED_DEGREES" /tmp/closed_passport.json
+
+      - name: Causal local GGUF decision-audit CLI without credentials
+        run: |
+          python - <<'PY'
+          from williams_ai.causal_paper_lab import frozen_markets
+          import json
+          from pathlib import Path
+          bars=frozen_markets()["ETHUSDT"]["bars"]
+          proposal={"symbol":"ETHUSDT","as_of":bars[300]["close_time"],
+                    "edition":"TC2","setup":"NO_SETUP","side":"NONE",
+                    "entry_state":"NO_SETUP","exit_basis":"NONE",
+                    "rule_ids":[],"trade_action":None,"execution_allowed":False}
+          Path("/tmp/no_trade_proposal.json").write_text(json.dumps(proposal))
+          PY
+          python -m williams_ai.reasoning_trial --symbol ETHUSDT --bar-index 300 \
+            --edition TC2 --proposal-file /tmp/no_trade_proposal.json > /tmp/ai_reasoning_report.json
+          grep -q "PROVISIONAL_REASONING_ONLY" /tmp/ai_reasoning_report.json
+          grep -q "INSUFFICIENT_CLOSED_HISTORY" /tmp/ai_reasoning_report.json
+          python - <<'PY'
+          from williams_ai.book_rules import coverage
+          print("FOUR_EDITION_RULE_CARDS",coverage())
+          PY
+
+      - name: Five Magic Bullets across 15 symbols and H1 H4 D1, no synthetic tick volume
+        run: |
+          python -m williams_ai.five_bullets_cli --summary
+
+      - name: Blind chronological comprehension vs naive H1 momentum, 15 pairs
+        run: |
+          python -m williams_ai.historical_comprehension --summary

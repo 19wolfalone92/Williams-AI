@@ -1,0 +1,70 @@
+name: Williams AI historical real-GGUF eight-case exam
+
+on:
+  push:
+    branches:
+      - experiment/causal-historical-comprehension-20261023
+      - fix/gguf-context-and-calibrated-historical-20261023
+      - experiment/williams-ai-evidence-guided-retry-20261023
+      - feature/unified-williams-ai-proof-and-guard-20261023
+      - feature/portfolio-risk-research-gate-20261023
+      - feature/prospective-falsifiable-qualification-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  real-eight-historical-chart-reasoning:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HOME: /tmp/williams_ai_hf
+      GGUF_FILE: Qwen3-1.7B-Q4_K_M.gguf
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: All causal algorithm tests first
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: 150 historical H1 thought checkpoints and 90 TF evidence points
+        run: python -m williams_ai.historical_comprehension --summary
+      - name: Install actual real-GGUF inference runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download and verify exact public 1.7B model weights
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          import os
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          p=Path(hf_hub_download(
+              repo_id="unsloth/Qwen3-1.7B-GGUF",
+              revision="b2d17796e6fd93c353a0415a3abd8b7f801701de",
+              filename=os.environ["GGUF_FILE"],
+              local_dir="/tmp/williams_ai_weights_historical",
+          ))
+          print("HISTORICAL_GGUF_WEIGHTS",
+                actual_gguf_sha256(p,os.environ["GGUF_SHA256"]))
+          PY
+      - name: Eight ACTUAL historical GGUF reasoning cases
+        run: |
+          set -o pipefail
+          python -m williams_ai.real_gguf_history_exam \
+            --model "/tmp/williams_ai_weights_historical/${GGUF_FILE}" \
+            --expected-sha256 "${GGUF_SHA256}" --ctx 8192 \
+            --guided-correction --fail-on-unsafe | tee /tmp/williams_historical_real_model_report.log
+      - name: Upload public REDACTED inference evaluation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-8-case-historical-reasoning
+          path: /tmp/williams_historical_real_model_report.log
+          if-no-files-found: ignore
+          retention-days: 4

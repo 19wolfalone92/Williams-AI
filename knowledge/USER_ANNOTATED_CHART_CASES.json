@@ -1,0 +1,57 @@
+{
+  "schema": "WILLIAMS_USER_ANNOTATED_CHART_CASES_V1",
+  "note": "User-supplied annotated examples and old human summaries are research hypotheses, not verified historical OHLC labels or literal book signals. Not training weights.",
+  "cases": [
+    {
+      "id": "NESTED_3_IN_HIGHER_IMPULSE",
+      "source": "Library screenshot 1000127825.jpg",
+      "kind": "hand_drawn_schematic",
+      "title": "Синяя третья внутри красного импульса 1–5",
+      "description": "Главные красные 0–1–2–3–4–5, вложенные синие 1(3)…4(3) внутри старшей W3; после возможной W5 отмечены альтернативные A–B–C. Нанесённые 50% — приблизительные подсказки без точных ценовых якорей.",
+      "tests": [
+        "PARENT_CHILD_DEGREE_DIFFERENT",
+        "ABC_IS_FUTURE_PROJECTION",
+        "FIB_50_NOT_HARD_TRIGGER"
+      ],
+      "certainty": "ANNOTATED_NOT_MARKET_CONFIRMED",
+      "page_reference": "Visual evidence docs 2026-10-16"
+    },
+    {
+      "id": "NQ100_M15_NESTED_BEAR",
+      "source": "docs/visual_wave_evidence_ru.md : image 1",
+      "kind": "prior_visual_audit",
+      "title": "Медвежий импульс и возможное истощение W5",
+      "description": "Вложенные нисходящие 1–5 и AO: наиболее отрицательная область может сопровождать W3, более слабая в W5 — кандидат дивергенции, а не приказ LONG.",
+      "tests": [
+        "AO_LEG_EXTREMA_NOT_PIVOT_ONLY",
+        "DIVERGENCE_WARNING_NOT_ENTRY"
+      ],
+      "certainty": "NOT_NUMERICALLY_VERIFIED"
+    },
+    {
+      "id": "USD_CAD_AO_DIVERGENCE",
+      "source": "docs/visual_wave_evidence_ru.md : image 5",
+      "kind": "prior_visual_audit",
+      "title": "Возможная медвежья дивергенция AO на M15",
+      "description": "Второй ценовой максимум около или выше первого при более слабом положительном горбе AO; сравнивать подтверждённые участки, а не один столбец. В исходном примере упоминается убыточный SHORT без полного контекста.",
+      "tests": [
+        "CHECK_CLOSED_AO_LEGS",
+        "NO_AUTO_SHORT",
+        "CONTEXT_REQUIRED"
+      ],
+      "certainty": "NOT_NUMERICALLY_VERIFIED"
+    },
+    {
+      "id": "ABC_PROJECTION_NOT_FUTURE",
+      "source": "docs/visual_wave_evidence_ru.md : images 3-4",
+      "kind": "prior_visual_audit",
+      "title": "Проекция ABC против закрытой цены",
+      "description": "Справа нарисованы предполагаемые пути коррекции и уровни. Нельзя превращать рисунок на будущей части графика в якобы закрытую свечу или доказанный трейд.",
+      "tests": [
+        "NO_LOOKAHEAD",
+        "PROJECTED_C_NOT_OBSERVED"
+      ],
+      "certainty": "ANNOTATION_ONLY"
+    }
+  ]
+}

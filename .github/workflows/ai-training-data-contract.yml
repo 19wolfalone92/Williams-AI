@@ -1,0 +1,71 @@
+name: Williams AI reviewed market training and real Qwen tokenizer
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/private_lora.py'
+      - 'williams_ai/chart_supervision.py'
+      - 'williams_ai/market_review_queue.py'
+      - '.github/workflows/ai-training-data-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-qwen4b-tokenizer-no-training:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Supervision leakage and approval contracts
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Tokenizer runtime only, NO torch or weights or GPU
+        run: python -m pip install 'transformers==4.57.1' 'jinja2>=3.1.6,<4'
+      - name: Verify actual Qwen3-4B training conversation and loss masks
+        run: |
+          python - <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          from huggingface_hub import HfApi, snapshot_download
+          from transformers import AutoTokenizer
+          from williams_ai.private_lora import _tokenized
+          sys.path.insert(0, 'tests')
+          from test_williams_ai_private_lora import candidates
+          from test_williams_ai_chart_supervision import chart_case
+
+          repo='Qwen/Qwen3-4B'
+          revision=HfApi().model_info(repo).sha
+          root=Path(snapshot_download(repo, revision=revision,
+              allow_patterns=['tokenizer.json','tokenizer_config.json','vocab.json',
+                              'merges.txt','config.json'],
+              local_dir='/tmp/williams_qwen_tokenizer_only'))
+          tokenizer=AutoTokenizer.from_pretrained(root, local_files_only=True,
+                                                   trust_remote_code=False)
+          rows=[candidates()[0], chart_case()]
+          encoded=_tokenized(rows, tokenizer, max_tokens=4096)
+          for case,tokens in zip(rows,encoded):
+              supervised=[x for x in tokens['labels'] if x!=-100]
+              assert supervised and tokens['labels'][0]==-100
+              assert case['answer'] in tokenizer.decode(supervised)
+              assert len(tokens['input_ids'])==len(tokens['labels'])
+          report={'model_tokenizer_repo':repo,'resolved_revision':revision,
+              'downloaded_weights':False,'trained_model':False,
+              'source_and_chart_template_cases':len(encoded),
+              'context_lengths':[len(x['input_ids']) for x in encoded],
+              'files_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in root.iterdir() if p.is_file()},
+              'execution_allowed':False,'trade_action':None}
+          Path('/tmp/qwen4b_tokenizer_contract.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen4b-real-tokenizer-contract-no-weight-training
+          path: /tmp/qwen4b_tokenizer_contract.json
+          if-no-files-found: error

@@ -1,0 +1,73 @@
+name: Williams AI offline Android APK
+
+on:
+  push:
+    branches: [feature/read-only-ai-analyst, feature/web-search-demo-futures, feature/book-grounded-chart-reader, feature/android-native-binance-waves-20261024, feature/continual-ai-trader-learning-20261024, fix/ai-blind-wave-review-candle-integrity-20261024]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ai-android-apk.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ai-android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-ai-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout independent Williams AI
+        uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      - name: Install Android 36, NDK 29, CMake 3.31.6
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" \
+            "ndk;29.0.13113456" "cmake;3.31.6"
+      - name: Build standalone native GGUF APK
+        shell: bash
+        run: bash mobile/build_offline_android.sh
+      - name: Enable KVM for Android runtime checks
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android SQLite rollback and actual process restart (no keys or orders)
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash mobile/run_android_runtime_checks.sh
+      - name: Upload Android test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WilliamsAI-Android-test-results
+          path: |
+            mobile/.build/llama.cpp/examples/llama.android/app/build/test-results/
+            mobile/.build/llama.cpp/examples/llama.android/app/build/outputs/androidTest-results/
+          if-no-files-found: warn
+      - name: Upload debug APK and SHA-256
+        uses: actions/upload-artifact@v4
+        with:
+          name: WilliamsAI-offline-debug
+          path: |
+            mobile/out/WilliamsAI-offline-debug.apk
+            mobile/out/WilliamsAI-offline-debug.sha256
+          retention-days: 14
+          if-no-files-found: error
