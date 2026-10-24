@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var marketStart: Button
     private lateinit var marketStop: Button
     private lateinit var marketRefresh: Button
+    private lateinit var marketAuto: CheckBox
     private var inference: InferenceEngine? = null
     private var generation: Job? = null
     private var modelReady = false
@@ -78,6 +79,20 @@ class MainActivity : AppCompatActivity() {
         marketStart = findViewById(R.id.market_start)
         marketStop = findViewById(R.id.market_stop)
         marketRefresh = findViewById(R.id.market_refresh)
+        marketAuto = findViewById(R.id.market_auto_update)
+        marketAuto.isChecked = NativeWaveScheduledJob.enabled(this)
+        marketAuto.setOnCheckedChangeListener { _, checked ->
+            try {
+                check(NativeWaveScheduledJob.setEnabled(this, checked)) {
+                    "Планировщик Android не разрешил обновления"
+                }
+                refreshWaveState()
+            } catch (e: Exception) {
+                marketStatus.text = "Автозагрузка не включена: " +
+                    e.javaClass.simpleName + ". Сделки и API-ключи отключены."
+                if (marketAuto.isChecked) marketAuto.isChecked = false
+            }
+        }
         marketStart.setOnClickListener {
             try {
                 // Android 8+ foreground service START happens because the
@@ -497,9 +512,13 @@ class MainActivity : AppCompatActivity() {
         val pref=getSharedPreferences("native_market_public",MODE_PRIVATE)
         val saved=pref.getString("summary",null)
         val running=pref.getBoolean("running",false)
-        marketStatus.text=(if(running)"Загрузка активна. " else "Загрузка неактивна. ") +
+        val scheduled = pref.getString("scheduled_status", null)
+        val autoEnabled = NativeWaveScheduledJob.enabled(this)
+        marketStatus.text=(if(running)"Загрузка активна. " else "Ручная загрузка неактивна. ") +
             (saved ?: "Истории Binance ещё нет. Нажмите «Загрузить 15 ТФ».") +
-            " Публичный Futures; без API-ключей и ордеров."
+            "\nАвтообновление: " + (if(autoEnabled) "включено (Android может отложить)" else "выключено") +
+            (if(scheduled != null) "\n" + scheduled else "") +
+            "\nПубличный Futures; без API-ключей и ордеров."
     }
     override fun onResume() {
         super.onResume()
