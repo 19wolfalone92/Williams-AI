@@ -133,22 +133,74 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
             "model_id": model_id, "status": "RESEARCH_ONLY", "trade_action": None}
 
 
-def study_report(book_db: str | Path, memory_db: str | Path) -> dict[str, Any]:
+def study_report(book_db: str | Path, memory_db: str | Path,
+                 *, model_id: str | None = None) -> dict[str, Any]:
+    """Per-model page-by-page progress, not aggregated across unrelated GGUFs.
+
+    A full indexed PDF is not the same as a model having actually processed
+    its text; a processed chunk is NOT proof the student understood it.
+    Previously counting DISTINCT chunk hashes across all model IDs falsely
+    represented multiple partly trained students as one fully trained one.
+    """
+    if model_id is not None and not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}", model_id):
+        raise ValueError("Invalid model ID for book-progress attribution")
     path = _private_database(book_db)
     source = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
     try:
         with memory(memory_db) as dest:
+            learners = [row[0] for row in dest.execute(
+                "SELECT DISTINCT model_id FROM study_notes ORDER BY model_id")]
             books = []
-            for edition, sha, total, extracted, missing in source.execute("SELECT book,sha256,total_pages,extracted_pages,missing_pages FROM volumes ORDER BY book"):
-                chunks = source.execute("SELECT count(*) FROM excerpts WHERE book=?", (edition,)).fetchone()[0]
-                studied, pages = dest.execute("SELECT count(DISTINCT chunk_sha),count(DISTINCT page) FROM study_notes WHERE edition=? AND source_sha=?", (edition, sha)).fetchone()
-                books.append({"edition": edition, "total_pages": total, "pages_with_text": extracted,
-                              "pages_without_text": missing, "source_chunks": chunks,
-                              "studied_chunks": studied, "pages_started": pages})
-            errors = dest.execute("SELECT count(*) FROM study_errors").fetchone()[0]
-        return {"books": books, "chunks_needing_retry_or_review": errors,
-                "book_comprehension_percent": None, "weights_retrained": False,
-                "status": "RESEARCH_ONLY", "trade_action": None}
+            for edition, sha, total, extracted, missing in source.execute(
+                    "SELECT book,sha256,total_pages,extracted_pages,missing_pages "
+                    "FROM volumes ORDER BY book"):
+                chunks = source.execute(
+                    "SELECT count(*) FROM excerpts WHERE book=?", (edition,)
+                ).fetchone()[0]
+                def student_count(student: str) -> dict[str, Any]:
+                    n,pages=dest.execute(
+                        "SELECT COUNT(*),COUNT(DISTINCT page) FROM study_notes "
+                        "WHERE edition=? AND source_sha=? AND model_id=?",
+                        (edition,sha,student)).fetchone()
+                    return {"studied_chunks":int(n),
+                            "pages_started":int(pages),
+                            "indexed_text_chunks_remaining":max(0,chunks-int(n)),
+                            "all_pdf_pages_have_examined_text":(
+                                n==chunks and pages==total and missing==0
+                            )}
+                per_model={student:student_count(student) for student in learners}
+                selected=student_count(model_id) if model_id else None
+                books.append({
+                    "edition":edition,"total_pages":total,
+                    "pages_with_text":extracted,"pages_without_text":missing,
+                    "source_chunks":chunks,
+                    "studied_chunks":selected["studied_chunks"] if selected else None,
+                    "pages_started":selected["pages_started"] if selected else None,
+                    "indexed_text_chunks_remaining":(
+                        selected["indexed_text_chunks_remaining"] if selected else None),
+                    "per_model_progress":per_model if model_id is None else None,
+                    "model_has_reviewed_all_pdf_page_text":(
+                        selected["all_pdf_pages_have_examined_text"] if selected else False
+                    ),
+                    "book_mastery_verified":False,
+                })
+            if model_id:
+                errors=dest.execute(
+                    "SELECT count(*) FROM study_errors WHERE model_id=?",
+                    (model_id,)).fetchone()[0]
+            else:
+                errors=dest.execute("SELECT count(*) FROM study_errors").fetchone()[0]
+        return {
+            "books":books,
+            "model_id":model_id,
+            "tracked_model_ids":learners if model_id is None else [model_id],
+            "unscoped_progress_not_summed_across_models":True,
+            "chunks_needing_retry_or_review":errors,
+            "book_comprehension_percent":None,
+            "weights_retrained":False,
+            "status":"SOURCE_GROUNDED_READ_ONLY_UNVERIFIED", "trade_action":None,
+            "execution_allowed":False,
+        }
     finally:
         source.close()
 
