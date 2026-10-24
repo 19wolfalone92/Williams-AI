@@ -102,7 +102,7 @@ def main()->None:
         return
     # PERMANENT SQLite BEGIN IMMEDIATE reservation is committed BEFORE ANY
     # order submission. Another process/restart cannot reset unknown effects.
-    journal.reserve_once(preview)
+    journal.reserve_once(preview,ticket=proposed.ticket)
     try:
         confirmation=engine.execute(proposed.ticket,confirmation=second)
         print(json.dumps(confirmation,ensure_ascii=False,indent=2))
