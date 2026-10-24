@@ -154,17 +154,31 @@ def study_report(book_db: str | Path, memory_db: str | Path,
             for edition, sha, total, extracted, missing in source.execute(
                     "SELECT book,sha256,total_pages,extracted_pages,missing_pages "
                     "FROM volumes ORDER BY book"):
-                chunks = source.execute(
-                    "SELECT count(*) FROM excerpts WHERE book=?", (edition,)
-                ).fetchone()[0]
+                # An OCR correction or page re-index can replace passages
+                # WITHOUT changing the original PDF SHA. Only count notes
+                # matching the *current* page+chunk digest; stale knowledge
+                # must never masquerade as full model reading.
+                current={
+                    (int(page),fingerprint(chunk))
+                    for page,chunk in source.execute(
+                        "SELECT pdf_page,content FROM excerpts WHERE book=?",
+                        (edition,))
+                }
+                chunks=len(current)
                 def student_count(student: str) -> dict[str, Any]:
-                    n,pages=dest.execute(
-                        "SELECT COUNT(*),COUNT(DISTINCT page) FROM study_notes "
-                        "WHERE edition=? AND source_sha=? AND model_id=?",
-                        (edition,sha,student)).fetchone()
-                    return {"studied_chunks":int(n),
-                            "pages_started":int(pages),
-                            "indexed_text_chunks_remaining":max(0,chunks-int(n)),
+                    historical={
+                        (int(page),chunk_sha) for page,chunk_sha in dest.execute(
+                            "SELECT page,chunk_sha FROM study_notes "
+                            "WHERE edition=? AND source_sha=? AND model_id=?",
+                            (edition,sha,student))
+                    }
+                    valid=current & historical
+                    n=len(valid)
+                    pages=len({page for page,_ in valid})
+                    return {"studied_chunks":n,
+                            "pages_started":pages,
+                            "indexed_text_chunks_remaining":chunks-n,
+                            "stale_or_superseded_chunks_ignored":len(historical-valid),
                             "all_pdf_pages_have_examined_text":(
                                 n==chunks and pages==total and missing==0
                             )}
