@@ -76,12 +76,22 @@ def prepare_wave_review_tasks(cohort:dict[str,Any])->dict[str,Any]:
         seen.add(symbol)
         edition,page=pages[i%len(pages)]
         case_id=f"{symbol}-H1-{seal['history_sha256'][:20]}"
+        # Reviewers must see the exact closed OHLCV observations, rather
+        # than just a digest that cannot be inspected as a market chart.
+        # Explicit allowlist avoids disclosing the model's forecasts,
+        # future PnL, portfolio positions or unrelated capture metadata.
+        view_keys=("close_time","open","high","low","close","volume","closed")
+        visible_bars=[{k:bar[k] for k in view_keys} for bar in bars]
         rows.append({
             "case_id":case_id,
             "symbol":symbol,"timeframe":"H1","venue":venue,
             "cutoff":src["as_of"],"visible_prefix_sha256":seal["history_sha256"],
             "edition":edition,"source_page":page,
             "fully_closed_bar_count":len(bars),
+            "review_visible_market_prefix":{
+                "symbol":symbol,"timeframe":"H1","bars":visible_bars,
+                "review_view_sha256":_fingerprint(visible_bars),
+            },
             "review_status":"UNLABELLED_REQUIRES_TWO_INDEPENDENT_EXPERTS",
             "expert_instructions":(
                 "Without seeing the model answer, identify observable market "
