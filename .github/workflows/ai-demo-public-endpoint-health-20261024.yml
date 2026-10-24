@@ -1,0 +1,36 @@
+name: Williams AI DEMO public-API smoke (read-only; NO KEYS)
+
+on:
+  push:
+    branches:
+      - feature/controlled-demo-pilot-readiness-20261024
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-api-demo-health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Attempt real DEMO market REST read; NO credentials and NO order
+        run: |
+          python - <<'PY'
+          from williams_ai.demo_pilot_readiness import check_public_demo
+          try:
+              view=check_public_demo()
+          except Exception as exc:
+              print("DEMO_PUBLIC_API_NOT_VERIFIED_FROM_GITHUB_RUNNER")
+              print("FAIL_CLOSED",type(exc).__name__)
+              print("NO_KEYS_NO_ORDERS_NO_AUTONOMOUS_TRADING")
+              raise
+          print("DEMO_PUBLIC_MARKET_API_REACHABLE",view.venue,view.symbol)
+          print("UTC_AND_MARK_AND_FILTERS_CHECKED",view.checked_server_ms)
+          print("PUBLIC_ONLY_NO_CREDENTIALS_NO_ORDERS")
+          print("PRIVATE_DEMO_ACCOUNT_STOP_ACK_AND_FILL_STILL_NOT_TESTED")
+          PY
