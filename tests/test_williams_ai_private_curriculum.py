@@ -74,7 +74,7 @@ class ReadThroughTests(unittest.TestCase):
     def test_missing_edition_wrong_db_and_bad_budget_fail_closed(self):
         with TemporaryDirectory() as d:
             p=Path(d)/"missing.db"
-            with self.assertRaisesRegex(ValueError,"ALL_FOUR"):
+            with self.assertRaisesRegex(ValueError,"INVALID_LOCAL"):
                 complete_private_readthrough(
                     self.bookdb,self.notes,Reader(),model_id="model-x",
                     rounds=1,batch_budget=0)
