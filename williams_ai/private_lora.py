@@ -214,7 +214,7 @@ def checked_local_qwen_config(base: Path) -> dict[str,str]:
 
 def train_private_lora(
     *, data:Path, model_dir:Path, output_dir:Path,
-    max_steps:int=100,max_tokens:int=1024,
+    max_steps:int=100,max_tokens:int=4096,
     source_only_research:bool=False,
 )->dict[str,Any]:
     """Execute actual LoRA updates ONLY on private GPU with reviewed cases."""
@@ -334,7 +334,7 @@ def main()->None:
     p.add_argument("--local-hf-model",type=Path,required=True)
     p.add_argument("--private-adapter-output",type=Path,required=True)
     p.add_argument("--steps",type=int,default=100)
-    p.add_argument("--max-tokens",type=int,default=1024)
+    p.add_argument("--max-tokens",type=int,default=4096)
     p.add_argument("--audit-only",action="store_true")
     p.add_argument("--source-only-research",action="store_true",
                    help="Explicit text-only experiment; cannot claim market training")
