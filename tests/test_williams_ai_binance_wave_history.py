@@ -64,7 +64,7 @@ class WaveHistoryTests(unittest.TestCase):
         self.assertEqual(len(ANALYSIS_TFS),15)
         self.assertEqual(set(VENUES),{"DEMO_USDM","PUBLIC_USDM"})
         self.assertEqual(next_open_ms(floor_open_ms(1_730_000_000_000,"1M"),"1M"),
-                         1_732_147_200_000)
+                         1_730_419_200_000)
         # Monday anchor for UTC Binance 1w.
         monday=floor_open_ms(1_730_000_000_000,"1w")
         self.assertEqual(datetime.fromtimestamp(monday/1000,timezone.utc).weekday(),0)
