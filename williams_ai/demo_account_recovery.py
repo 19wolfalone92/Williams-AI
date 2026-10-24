@@ -113,8 +113,11 @@ def inspect_demo_after_restart(client: Any, journal: OneCampaignReservation) -> 
         status = "EXCHANGE_POSITION_DIRECTION_CONFLICT"
     elif abs(amount) != expected:
         status = "EXCHANGE_POSITION_SIZE_MISMATCH"
-    elif bound is not None and bound_matches == 1:
+    elif bound_matches == 1 and candidates == 1:
         status = "POSITION_WITH_SIGNED_MATCHING_BOUND_STOP_NEEDS_FILL_AUDIT"
+    elif bound_matches == 1 and candidates > 1:
+        # Other conditional stops may trigger too; require manual review.
+        status = "POSITION_WITH_EXTRA_OPEN_STOP_CANDIDATES_REVIEW"
     elif candidates == 1 and bound is None:
         status = "POSITION_WITH_POSSIBLE_STOP_OWNERSHIP_NOT_PROVEN"
     else:
