@@ -37,7 +37,18 @@ class AndroidOfflineContract(unittest.TestCase):
         self.assertIn('"android.permission.INTERNET",', script)
         self.assertIn('"android.permission.FOREGROUND_SERVICE",', script)
         self.assertIn('"android.permission.FOREGROUND_SERVICE_DATA_SYNC",', script)
-        self.assertNotIn('"android.permission.BIND_JOB_SERVICE"', script)
+        # BIND_JOB_SERVICE is a permission REQUIRED OF THE SYSTEM CALLER
+        # on one exported service, not a permission requested by the app.
+        import xml.etree.ElementTree as ET
+        root = ET.parse(MOBILE / "overlay/app/src/main/AndroidManifest.xml").getroot()
+        ns = "{http://schemas.android.com/apk/res/android}"
+        requested = [node.get(ns + "name") for node in root.findall("uses-permission")]
+        self.assertNotIn("android.permission.BIND_JOB_SERVICE", requested)
+        self.assertIn("android.permission.RECEIVE_BOOT_COMPLETED", requested)
+        service = next(s for s in root.findall("application/service") if
+                       s.get(ns + "name") == "com.example.llama.NativeWaveScheduledJob")
+        self.assertEqual(service.get(ns + "permission"),
+                         "android.permission.BIND_JOB_SERVICE")
         layout = (MOBILE / "overlay/app/src/main/res/layout/activity_main.xml").read_text(encoding="utf-8")
         self.assertIn('android:id="@+id/web_enabled"', layout)
         self.assertIn('android:id="@+id/book_button"', layout)
