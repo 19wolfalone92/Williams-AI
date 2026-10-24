@@ -20,8 +20,10 @@ from pathlib import Path
 import sys
 
 from .demo_futures import DemoFutures,DemoHttp,DemoSafetyError
+from .demo_account_recovery import inspect_demo_after_restart
 from .demo_pilot_readiness import (
     PAIR,OneCampaignReservation,check_public_demo,validate_small_pilot,
+    verify_requoted_manual_pilot,
 )
 
 
@@ -31,17 +33,32 @@ def main()->None:
     check=sub.add_parser("check",help="PUBLIC-DEMO read-only + strict limits, no API keys")
     send=sub.add_parser("supervised-send",help="Only with DEMO keys, TTY, two approvals and permanent SQLite lock")
     status=sub.add_parser("status",help="Show private one-campaign lock state, no trading")
+    recovery=sub.add_parser("reconcile-readonly",help="Signed DEMO GET checks after uncertain fill, NEVER send orders")
     for cmd in (check,send):
         cmd.add_argument("--side",required=True,choices=("BUY","SELL"))
         cmd.add_argument("--quantity",required=True)
         cmd.add_argument("--stop",required=True)
         cmd.add_argument("--symbol",default=PAIR,choices=(PAIR,))
-    for cmd in (send,status):
+    for cmd in (send,status,recovery):
         cmd.add_argument("--journal",type=Path,required=True)
     args=p.parse_args()
     if args.mode=="status":
         print(json.dumps(OneCampaignReservation(args.journal).status(),
                          ensure_ascii=False,indent=2))
+        return
+    if args.mode=="reconcile-readonly":
+        if not sys.stdin.isatty():
+            p.error("TTY required for DEMO-only read-only account inspection")
+        journal=OneCampaignReservation(args.journal)
+        if not journal.status()["reservations"]:
+            print(json.dumps(inspect_demo_after_restart(None,journal),ensure_ascii=False,indent=2))
+            return
+        print("SIGNED DEMO READ-ONLY: no entry, close, stop mutation or unlock.")
+        key=getpass("Separate DEMO API key (hidden): ")
+        secret=getpass("Separate DEMO API secret (hidden): ")
+        print(json.dumps(inspect_demo_after_restart(DemoHttp(key,secret),journal),
+                         ensure_ascii=False,indent=2))
+        print("PILOT_LOCK_REMAINS: review exchange positions, stops and order IDs manually.")
         return
     if args.mode=="supervised-send" and not sys.stdin.isatty():
         p.error("TTY required for operator DEMO-only credentials and approvals")
@@ -71,11 +88,7 @@ def main()->None:
     # The exchange-side preconditions and reference mark are read again.
     # No order can arise from propose(). Model output has no authority.
     proposed=engine.propose(args.symbol,args.side,args.quantity,args.stop)
-    if (proposed.quantity!=preview["quantity"] or
-        proposed.stop_price!=preview["stop"] or
-        proposed.notional_usdt!=preview["estimated_notional_demo_usdt"]
-            and float(proposed.notional_usdt)>50):
-        raise DemoSafetyError("MARKET_MOVED_AFTER_PREFLIGHT")
+    verify_requoted_manual_pilot(preview,proposed)
     print(json.dumps({
         "ticket_expires_at":proposed.expires_at,
         "risk_demo_usdt":proposed.risk_usdt,
