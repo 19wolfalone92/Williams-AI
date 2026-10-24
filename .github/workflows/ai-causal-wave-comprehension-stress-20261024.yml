@@ -1,0 +1,23 @@
+name: Williams AI 45-case adversarial causal wave and book-proof stress
+
+on:
+  push:
+    branches:
+      - feature/causal-wave-comprehension-stress-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  stress-known-public-h1-invariants:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run all Williams AI tests on exact HEAD
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Independently recreate 45 H1-H4-D1 historical views and reject false model certainty
+        run: python -m williams_ai.causal_market_stress --summary
