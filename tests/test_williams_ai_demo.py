@@ -21,6 +21,9 @@ class FakeVenue:
         self.entry_client_id = None
         self.forge_stop_id = False
         self.forge_entry_id = False
+        self.other_symbol_position = "0"
+        self.open_orders = []
+        self.open_algo_orders = []
 
     def __call__(self, method, path, body, headers):
         self.calls.append((method, path, parse_qs(body), headers))
@@ -34,8 +37,17 @@ class FakeVenue:
         if method == "GET" and path == "/fapi/v1/positionSide/dual":
             return {"dualSidePosition": False}
         if method == "GET" and path == "/fapi/v3/positionRisk":
-            return [{"symbol": "ETHUSDT", "positionSide": "BOTH", "positionAmt":
-                "0" if self.position_reconciliation_fails else self.position_qty}]
+            query=parse_qs(body)
+            position={"symbol":"ETHUSDT","positionSide":"BOTH",
+                      "positionAmt":("0" if self.position_reconciliation_fails
+                                     else self.position_qty)}
+            return ([position] if query.get("symbol")==["ETHUSDT"]
+                    else [position,{"symbol":"BTCUSDT","positionSide":"BOTH",
+                                    "positionAmt":self.other_symbol_position}])
+        if method == "GET" and path == "/fapi/v1/openOrders":
+            return self.open_orders
+        if method == "GET" and path == "/fapi/v1/openAlgoOrders":
+            return self.open_algo_orders
         if method == "POST" and path == "/fapi/v1/algoOrder":
             self.stop_client_id=parse_qs(body).get("clientAlgoId",[None])[0]
             return {"algoId": 99999, "algoStatus": "NEW"}
@@ -137,6 +149,25 @@ class DemoGatewayTests(unittest.TestCase):
         p = self.engine.propose("ETHUSDT", "BUY", "0.2", "95")
         with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
             self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+
+    def test_last_moment_other_symbol_exposure_blocks_all_mutations(self):
+        self.venue.other_symbol_position="0.07"
+        p=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        with self.assertRaisesRegex(DemoSafetyError,"позиция|Позиция|заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        self.assertFalse(any(method in ("POST","DELETE")
+                             for method,path,*_ in self.venue.calls))
+
+    def test_last_moment_pending_regular_or_conditional_order_blocks(self):
+        for flag in ("open_orders","open_algo_orders"):
+            with self.subTest(flag=flag):
+                self.setUp()
+                setattr(self.venue,flag,[{"orderId":123,"symbol":"ETHUSDT"}])
+                p=self.engine.propose("ETHUSDT","BUY","0.2","95")
+                with self.assertRaisesRegex(DemoSafetyError,"ордера|ордера|заблокирована"):
+                    self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+                self.assertFalse(any(method in ("POST","DELETE")
+                                     for method,path,*_ in self.venue.calls))
 
     def test_stop_rejected_means_no_entry(self):
         self.venue.stop_ok = False
