@@ -143,6 +143,20 @@ class WaveHistoryTests(unittest.TestCase):
                         max_pages=2,page_size=20,sleep_seconds=0)
             self.assertEqual(db.status("PUBLIC_USDM",SYM,"1h")["stored_closed_bars"],0)
 
+    def test_weekly_earliest_1970_never_generates_negative_query_cursor(self):
+        source=Venue(interval="1w",n=24,start=1_700_000_000_000)
+        with tempfile.TemporaryDirectory() as d:
+            db=DurableWaveHistory(Path(d)/"week.db")
+            status=db.sync(venue="PUBLIC_USDM",symbol=SYM,interval="1w",
+                           since_ms=0,fetch=source,now_ms=NOW,
+                           max_pages=1,page_size=20,sleep_seconds=0)
+            klines=[args for venue,path,args in source.calls
+                    if path=="/fapi/v1/klines"]
+            self.assertEqual(klines[0]["startTime"],"0")
+            self.assertEqual(status["stored_closed_bars"],20)
+            self.assertFalse(status["complete_download_claimed"])
+            self.assertTrue(status["exchange_listing_date_completeness_unverified"])
+
     def test_public_and_demo_are_physically_separate(self):
         market=Venue(n=22,venue="PUBLIC_USDM")
         demo=Venue(n=24,venue="DEMO_USDM")
