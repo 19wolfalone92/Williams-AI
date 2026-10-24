@@ -66,6 +66,13 @@ def floor_open_ms(ms:int, interval:str)->int:
         raise ValueError("INVALID_BINANCE_INTERVAL_OR_UTC_MILLIS")
     if interval=="1M":
         return _month_open_ms(datetime.fromtimestamp(ms/1000,timezone.utc))
+    if interval=="3d":
+        # Verified against actual Binance USD-M Futures ETHUSDT 3d klines:
+        # 2026-10-23 00:00 UTC is a legal open, despite its Unix-epoch
+        # modulo(3 days) being ONE DAY, not zero. Anchor is epoch + 1d.
+        offset=86_400_000
+        step=INTERVAL_MS["3d"]
+        return ((ms-offset)//step)*step+offset
     if interval=="1w":
         # Binance weekly UTC candles open on Monday.
         dt=datetime.fromtimestamp(ms/1000,timezone.utc)
