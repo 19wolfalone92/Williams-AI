@@ -22,7 +22,7 @@ internal class NativeWaveNotebook(private val db:NativeWaveHistoryDb) {
                     "venue=? AND symbol=? AND tf=? AND algorithm_revision=?",
                 arrayOf(NativeWaveConfig.VENUE,symbol,tf,revision)
             ).use { x->if(x.moveToFirst() && !x.isNull(0))x.getLong(0) else null }
-            val row=if(last==null) {
+            val selectedCursor=if(last==null) {
                 sql.rawQuery(
                     "SELECT open_ms,close_ms FROM wave_candles WHERE "+
                         "venue=? AND symbol=? AND tf=? "+
@@ -34,7 +34,8 @@ internal class NativeWaveNotebook(private val db:NativeWaveHistoryDb) {
                         "venue=? AND symbol=? AND tf=? AND close_ms>? "+
                         "ORDER BY open_ms ASC LIMIT 1 OFFSET ${stride-1}",
                     arrayOf(NativeWaveConfig.VENUE,symbol,tf,last.toString()))
-            }.use { cursor->
+            }
+            val row=selectedCursor.use { cursor->
                 if(cursor.moveToFirst()) Pair(cursor.getLong(0),cursor.getLong(1))
                 else null
             } ?: break
