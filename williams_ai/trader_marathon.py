@@ -32,6 +32,7 @@ from .causal_paper_lab import frozen_markets
 from .continual_trader import PrivateExperience, learn_from_private_experience, _time
 from .williams_signal_experience import signal_conditioned_outcomes
 from .prequential_skill import causal_incremental_study
+from .causal_trade_quality import causal_profit_quality_study
 
 SUPPORTED = {"15m":"M15","1h":"H1","4h":"H4","1d":"D1"}
 
@@ -113,6 +114,19 @@ def marathon(
     points=frozen_cutoffs if frozen_cutoffs is not None else _split_points(all_cases)
     model=None
     online=None
+    profit_quality=None
+    if points is not None:
+        try:
+            profit_quality=causal_profit_quality_study(
+                ledger,train_until=points[0],
+                validation_until=points[1],observe_until=points[2])
+        except ValueError as exc:
+            profit_quality={
+                "mode":"FROZEN_CAUSAL_PROFIT_EXPECTANCY_RESEARCH_V1",
+                "status":"INSUFFICIENT_COMPLETE_PURGED_PAPER_EVIDENCE",
+                "reason":str(exc),"execution_allowed":False,
+                "trade_action":None,
+            }
     if points is not None:
         try:
             online=causal_incremental_study(
@@ -155,6 +169,8 @@ def marathon(
         "not_ten_million_independent_gguf_inference":True,
         "learnt_numeric_policy":model,
         "prequential_research_skill":online,
+        "profit_quality_frozen_research_only":profit_quality,
+        "win_rate_alone_can_hide_negative_expectancy":True,
         "temporal_split_cutoffs":list(points) if points else None,
         "temporal_split_provenance":(
             "OPERATOR_SPECIFIED_NOT_INDEPENDENTLY_PROVEN_PREREGISTERED"
