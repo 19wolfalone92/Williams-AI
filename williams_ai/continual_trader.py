@@ -81,7 +81,12 @@ class Outcome:
             raise ValueError("Unsupported or non-canonical research market")
         if _time(self.resolved_at) <= _time(self.decision_at):
             raise ValueError("Outcome must become known AFTER its decision")
-        _finite_vector(self.features)
+        # Persist canonical UTC strings for SQLite's chronological keys:
+        # timestamps with Z, +00:00 and arbitrary local offsets compare
+        # identically and cannot sneak future labels through lexical order.
+        object.__setattr__(self, "decision_at", _time(self.decision_at).isoformat())
+        object.__setattr__(self, "resolved_at", _time(self.resolved_at).isoformat())
+        object.__setattr__(self, "features", _finite_vector(self.features))
         if (isinstance(self.net_return, bool)
                 or not isinstance(self.net_return, (int, float))
                 or not math.isfinite(self.net_return)
@@ -114,7 +119,10 @@ class PrivateExperience:
     """Private append-only experience ledger, no raw books/models/API keys."""
 
     def __init__(self, path: Path | str):
-        self.path = _private_database(Path(path))
+        original = Path(path).expanduser()
+        if original.is_symlink():
+            raise ValueError("Symlink to experience journal forbidden")
+        self.path = _private_database(original)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if self.path.is_symlink() or self.path.exists() and (
             not self.path.is_file() or self.path.stat().st_mode & 0o077):
