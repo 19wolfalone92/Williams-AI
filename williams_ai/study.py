@@ -41,9 +41,17 @@ def memory(path: str | Path):
             chunk_sha TEXT NOT NULL, model_id TEXT NOT NULL, result TEXT NOT NULL,
             learned_at TEXT NOT NULL,
             PRIMARY KEY(edition,source_sha,page,chunk_sha,model_id))""")
+        # Old study_errors was keyed only by chunk+model and could let
+        # failing identical text in TC1 block Course/NTD/TC2. Keep legacy
+        # table for non-destructive upgrades; all new retries are scoped.
         db.execute("""CREATE TABLE IF NOT EXISTS study_errors(
             chunk_sha TEXT NOT NULL, model_id TEXT NOT NULL, attempts INTEGER NOT NULL,
             error_type TEXT NOT NULL, PRIMARY KEY(chunk_sha,model_id))""")
+        db.execute("""CREATE TABLE IF NOT EXISTS scoped_study_errors(
+            edition TEXT NOT NULL,source_sha TEXT NOT NULL,page INTEGER NOT NULL,
+            chunk_sha TEXT NOT NULL,model_id TEXT NOT NULL,attempts INTEGER NOT NULL,
+            error_type TEXT NOT NULL,
+            PRIMARY KEY(edition,source_sha,page,chunk_sha,model_id))""")
         db.execute("""CREATE TABLE IF NOT EXISTS research_sources(
             source TEXT PRIMARY KEY, title TEXT NOT NULL, excerpt TEXT NOT NULL,
             retrieved_at TEXT NOT NULL, status TEXT NOT NULL)""")
@@ -108,7 +116,10 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
                 key = (edition, _known_book(edition)["sha256"], int(page), sha, model_id)
                 if dest.execute("SELECT 1 FROM study_notes WHERE edition=? AND source_sha=? AND page=? AND chunk_sha=? AND model_id=?", key).fetchone():
                     continue
-                error = dest.execute("SELECT attempts FROM study_errors WHERE chunk_sha=? AND model_id=?", (sha, model_id)).fetchone()
+                error = dest.execute(
+                    "SELECT attempts FROM scoped_study_errors "
+                    "WHERE edition=? AND source_sha=? AND page=? AND chunk_sha=? AND model_id=?",
+                    key).fetchone()
                 if error and error[0] >= 3:
                     continue
                 if done + failed >= budget:
@@ -120,11 +131,18 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
                     lesson["cross_check"] = "REQUIRES_INDEPENDENT_RULE_AND_GRAPH_REVIEW"
                     lesson["rule_references"] = [x["rule_id"] for x in cards]
                     dest.execute("INSERT INTO study_notes VALUES (?,?,?,?,?,?,?)", (*key, json.dumps(lesson, ensure_ascii=False), datetime.now(timezone.utc).isoformat()))
-                    dest.execute("DELETE FROM study_errors WHERE chunk_sha=? AND model_id=?", (sha, model_id))
+                    dest.execute(
+                        "DELETE FROM scoped_study_errors "
+                        "WHERE edition=? AND source_sha=? AND page=? AND chunk_sha=? AND model_id=?",
+                        key)
                     done += 1
                 except (ValueError, RuntimeError, TypeError, KeyError) as exc:
                     # Store error class only: model exception text can contain private passages.
-                    dest.execute("INSERT INTO study_errors VALUES (?,?,1,?) ON CONFLICT(chunk_sha,model_id) DO UPDATE SET attempts=attempts+1,error_type=excluded.error_type", (sha, model_id, type(exc).__name__))
+                    dest.execute(
+                        "INSERT INTO scoped_study_errors VALUES (?,?,?,?,?,1,?) "
+                        "ON CONFLICT(edition,source_sha,page,chunk_sha,model_id) "
+                        "DO UPDATE SET attempts=attempts+1,error_type=excluded.error_type",
+                        (*key,type(exc).__name__))
                     failed += 1
                 dest.commit()
     finally:
@@ -210,10 +228,10 @@ def study_report(book_db: str | Path, memory_db: str | Path,
                 })
             if model_id:
                 errors=dest.execute(
-                    "SELECT count(*) FROM study_errors WHERE model_id=?",
+                    "SELECT count(*) FROM scoped_study_errors WHERE model_id=?",
                     (model_id,)).fetchone()[0]
             else:
-                errors=dest.execute("SELECT count(*) FROM study_errors").fetchone()[0]
+                errors=dest.execute("SELECT count(*) FROM scoped_study_errors").fetchone()[0]
         return {
             "books":books,
             "model_id":model_id,
