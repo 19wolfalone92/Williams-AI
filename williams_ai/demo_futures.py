@@ -230,7 +230,9 @@ class DemoFutures:
         positions = self._client.request(
             "GET", "/fapi/v3/positionRisk", signed=True
         )
-        if not isinstance(positions,list) or not 1<=len(positions)<=3000:
+        # Binance positionRisk V3 returns ONLY active symbols; an authenticated
+        # empty array is how a completely flat, order-free account appears.
+        if not isinstance(positions,list) or len(positions)>3000:
             raise DemoSafetyError("Не удалось подтвердить позиции всего DEMO-счёта")
         seen=set()
         for pos in positions:
@@ -247,8 +249,6 @@ class DemoFutures:
                 raise DemoSafetyError("Неверный объём позиции DEMO") from exc
             if not amount.is_finite() or amount != 0:
                 raise DemoSafetyError("Позиция уже существует на DEMO-счёте")
-        if symbol not in seen:
-            raise DemoSafetyError("Запрошенный символ не подтверждён DEMO")
         orders=self._client.request(
             "GET","/fapi/v1/openOrders",{"symbol":symbol},signed=True)
         algos=self._client.request(
