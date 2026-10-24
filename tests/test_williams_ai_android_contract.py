@@ -34,7 +34,10 @@ class AndroidOfflineContract(unittest.TestCase):
             "app/src/main/res/layout/activity_main.xml",
         ):
             self.assertIn(path, script)
-        self.assertIn('permissions == ["android.permission.INTERNET"]', script)
+        self.assertIn('"android.permission.INTERNET",', script)
+        self.assertIn('"android.permission.FOREGROUND_SERVICE",', script)
+        self.assertIn('"android.permission.FOREGROUND_SERVICE_DATA_SYNC",', script)
+        self.assertNotIn('"android.permission.BIND_JOB_SERVICE"', script)
         layout = (MOBILE / "overlay/app/src/main/res/layout/activity_main.xml").read_text(encoding="utf-8")
         self.assertIn('android:id="@+id/web_enabled"', layout)
         self.assertIn('android:id="@+id/book_button"', layout)
