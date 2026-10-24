@@ -131,12 +131,19 @@ def inspect_demo_after_restart(client: Any, journal: OneCampaignReservation) -> 
         raise DemoSafetyError("DEMO_POSITION_MODE_NOT_ONE_WAY")
     positions = client.request("GET", "/fapi/v3/positionRisk",
                                {"symbol": PAIR}, signed=True)
-    if (not isinstance(positions, list) or len(positions) != 1 or
-            not isinstance(positions[0], dict) or
-            positions[0].get("symbol") != PAIR or
-            positions[0].get("positionSide") != "BOTH"):
+    # Binance V3 omits symbols with neither position nor ordinary open
+    # orders. An authenticated empty array is a valid flat snapshot, but
+    # NEVER grounds unlocking a previously UNKNOWN pilot journal.
+    if not isinstance(positions,list) or len(positions)>1:
         raise DemoSafetyError("DEMO_POSITION_IDENTITY_UNVERIFIED")
-    amount = _position_decimal(positions[0].get("positionAmt"))
+    if not positions:
+        amount=Decimal(0)
+    else:
+        if (not isinstance(positions[0],dict) or
+                positions[0].get("symbol")!=PAIR or
+                positions[0].get("positionSide")!="BOTH"):
+            raise DemoSafetyError("DEMO_POSITION_IDENTITY_UNVERIFIED")
+        amount=_position_decimal(positions[0].get("positionAmt"))
     # Current ALL open conditional orders; do not mistake ordinary openOrders
     # or a pre-entry ACK for the durable protective algo STOP_MARKET.
     open_algos = client.request("GET", "/fapi/v1/openAlgoOrders",
