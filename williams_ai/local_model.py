@@ -319,6 +319,20 @@ class LocalWilliamsModel:
                 and isinstance(tf["close"],str)
                 and tf["close"]<=chart_analysis["as_of"]
             },
+            "cross_scale_native_confirmed_pivot_alternatives":[
+                {
+                    "parent":x["parent"],"child":x["child"],
+                    "status":x["status"],
+                    "confirmed_child_pivots_inside":
+                        x["confirmed_child_pivots_inside"],
+                    "elliott_wave_degree_not_proven":True,
+                }
+                for x in chart_analysis.get(
+                    "cross_scale_native_subwave_context",[]
+                )[:14] if isinstance(x,dict)
+                and all(k in x for k in (
+                    "parent","child","status","confirmed_child_pivots_inside"))
+            ],
             "competing_h1_h4_d1_wave_theses":thesis_brief,
             "principle_first_nonlinear_evidence":mechanism_brief,
             "tc1_five_magic_bullets":bullets,
