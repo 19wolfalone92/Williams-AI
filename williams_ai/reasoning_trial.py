@@ -98,6 +98,13 @@ def evaluate_historical_thought(
         higher["cross_scale_wave_theses"] = cross_scale_wave_theses(
             frames_for_relations,as_of=evidence["as_of"])
         evidence["higher_timeframe_context"]=higher
+    # Teach the genuine local Qwen prompt distinct TC2 entry, campaign
+    # management and exit rules, using ONLY the historical H1 prefix. This
+    # always remains a source-grounded lesson, NOT an execution signal.
+    if edition=="TC2":
+        from .tc2_trade_lifecycle_coach import teach_tc2_trade_lifecycle
+        evidence["tc2_trade_lifecycle_lesson"]=teach_tc2_trade_lifecycle(
+            evidence,prefix,tick_size=tick_size)
     # The GGUF can review only PAPER outcome feedback already resolved by
     # this closed H1 timestamp; the notebook must never act as book proof.
     experience_notes=None
@@ -195,6 +202,8 @@ def evaluate_historical_thought(
         "model_saw_future_bars":False,
         "model_weights_trained_here":False,
         "book_mastery_percent":None,
+        "tc2_entry_management_exit_source_lesson_supplied":(
+            edition=="TC2" and model is not None),
         "model_explanation":reason[:600] if isinstance(reason,str) else "",
         "audit":result,
         "trade_action":None,"execution_allowed":False,
