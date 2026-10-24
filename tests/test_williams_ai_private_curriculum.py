@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 from williams_ai.book_rules import registry
 from williams_ai.book_index import index_pages
+from williams_ai.study import study_report
 from williams_ai.private_curriculum import complete_private_readthrough
 
 
@@ -72,6 +73,10 @@ class ReadThroughTests(unittest.TestCase):
         pages[9]="Фракталы и движение цены должны быть подтверждены. "*3
         index_pages(self.bookdb,"TC2",tc2["sha256"],pages,
                     declared_pages=tc2["pages"])
+        before=study_report(self.bookdb,self.notes,model_id="gguf-current")
+        changed=next(x for x in before["books"] if x["edition"]=="TC2")
+        self.assertEqual(changed["studied_chunks"],1)
+        self.assertEqual(changed["indexed_text_chunks_remaining"],1)
         stale=complete_private_readthrough(
             self.bookdb,self.notes,student,model_id="gguf-current",
             batch_budget=1,rounds=1)
