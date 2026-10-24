@@ -18,6 +18,7 @@ class AndroidNativePublicChartContract(unittest.TestCase):
         cls.store=(OVERLAY/"java/com/example/llama/NativeWaveHistory.kt").read_text()
         cls.studies=(OVERLAY/"java/com/example/llama/NativeWaveStudy.kt").read_text()
         cls.service=(OVERLAY/"java/com/example/llama/NativeWaveSyncService.kt").read_text()
+        cls.scheduler=(OVERLAY/"java/com/example/llama/NativeWaveScheduledJob.kt").read_text()
         cls.notebook=(OVERLAY/"java/com/example/llama/NativeWaveNotebook.kt").read_text()
         cls.build=(ROOT/"mobile/build_offline_android.sh").read_text()
         cls.manifest=ET.fromstring((OVERLAY/"AndroidManifest.xml").read_text())
@@ -60,6 +61,7 @@ class AndroidNativePublicChartContract(unittest.TestCase):
         names=[x.get(NAMESPACE+"name") for x in self.manifest.findall("uses-permission")]
         self.assertEqual(names,[
             "android.permission.INTERNET",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
             "android.permission.FOREGROUND_SERVICE",
             "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
         ])
@@ -68,6 +70,22 @@ class AndroidNativePublicChartContract(unittest.TestCase):
         service=app.find("service")
         self.assertEqual(service.get(NAMESPACE+"exported"),"false")
         self.assertEqual(service.get(NAMESPACE+"foregroundServiceType"),"dataSync")
+        services=app.findall("service")
+        self.assertEqual(len(services),2)
+        job=services[1]
+        self.assertEqual(job.get(NAMESPACE+"name"),
+                         "com.example.llama.NativeWaveScheduledJob")
+        self.assertEqual(job.get(NAMESPACE+"permission"),
+                         "android.permission.BIND_JOB_SERVICE")
+        self.assertEqual(job.get(NAMESPACE+"exported"),"true")
+        self.assertIn("setPersisted(true)",self.scheduler)
+        self.assertIn("getBoolean(OPTED_IN, false)",self.scheduler)
+        self.assertIn("pagesPerInterval = 1",self.scheduler)
+        self.assertIn("maxDurationMs = 4L * 60_000L",self.scheduler)
+        self.assertIn("marketSyncMutex",self.scheduler)
+        self.assertIn("marketAuto.setOnCheckedChangeListener",self.main)
+        self.assertIn("NativeWaveScheduledJob.setEnabled",self.main)
+        self.assertNotIn("POST",self.scheduler)
         self.assertIsNone(app.find("receiver"))
         self.assertIn("START_NOT_STICKY",self.service)
         self.assertIn("startForeground(6221",self.service)
@@ -80,7 +98,8 @@ class AndroidNativePublicChartContract(unittest.TestCase):
         self.assertIn('com.williamsai.offline',self.build)
         self.assertNotIn("com.williamsbot",self.build)
         for name in ("NativeWaveHistory","NativeWaveStudy",
-                     "NativeWaveNotebook","NativeWaveSyncService"):
+                     "NativeWaveNotebook","NativeWaveSyncService",
+                     "NativeWaveScheduledJob"):
             self.assertIn(name+".kt",self.build)
         self.assertIn("AndroidManifest.xml",self.build)
 
