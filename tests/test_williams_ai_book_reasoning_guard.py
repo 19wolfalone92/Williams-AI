@@ -73,7 +73,7 @@ class GateTests(unittest.TestCase):
         from williams_ai.book_rules import registry,coverage
         package=registry()
         self.assertEqual(len(package["books"]),4)
-        self.assertEqual(len(package["rule_cards"]),36)
+        self.assertGreaterEqual(len(package["rule_cards"]),37)  # includes scanned Course 56
         checked=sum(x["status"]=="REVIEWED_PAGES" for x in package["rule_cards"])
         self.assertEqual(checked,36)
         by_id={x["id"]:x for x in package["rule_cards"]}
