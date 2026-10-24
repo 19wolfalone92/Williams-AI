@@ -128,6 +128,8 @@ internal object NativeWaveStudy {
             if(h1.isEmpty()) return "РЕАЛЬНЫХ СВЕЧЕЙ BINANCE ДЛЯ ${symbol} В ANDROID ЕЩЁ НЕТ. "+
                 "Сначала запустите загрузку данных; не придумывайте график.\n"
             val asOf=h1.last().closeTime
+            if(asOf>System.currentTimeMillis()+5*60_000L)
+                error("В базе данных обнаружено будущее относительно локальных часов")
             val stale=System.currentTimeMillis()-asOf>2*3_600_000L
             val out=StringBuilder(
                 "ПУБЛИЧНЫЕ ДАННЫЕ BINANCE USD-M FUTURES. Только закрытые "+
@@ -142,7 +144,7 @@ internal object NativeWaveStudy {
                 val savedHistoricalReviews=db.historicalNoteCount(symbol,tf)
                 val read=facts(bars)
                 if(read==null){
-                    out.append("${tf}: INSUFFICIENT CLOSED CANDLES (${bars.size}/45).\n")
+                    out.append("${tf}: UNKNOWN — INSUFFICIENT CLOSED CANDLES (${bars.size}/45).\n")
                 } else {
                     // A still-available old monthly candle is valid historical
                     // context but cannot be mistaken for a new live bar.
