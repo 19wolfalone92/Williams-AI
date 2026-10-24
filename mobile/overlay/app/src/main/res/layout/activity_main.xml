@@ -17,6 +17,22 @@
    android:layout_weight="1" android:layout_height="wrap_content"
    android:enabled="false" android:text="Изучать выбранную книгу" />
  </LinearLayout>
+ <!-- PRIVATE local market history: user-tapped Binance PUBLIC USD-M GET only. -->
+ <LinearLayout android:orientation="horizontal" android:layout_width="match_parent"
+  android:layout_height="wrap_content">
+  <Button android:id="@+id/market_start" android:layout_width="0dp"
+   android:layout_weight="1" android:layout_height="wrap_content"
+   android:text="📈 Загрузить 15 ТФ" android:textSize="12sp" />
+  <Button android:id="@+id/market_stop" android:layout_width="0dp"
+   android:layout_weight="1" android:layout_height="wrap_content"
+   android:text="⏹ Стоп" android:textSize="12sp" />
+  <Button android:id="@+id/market_refresh" android:layout_width="0dp"
+   android:layout_weight="1" android:layout_height="wrap_content"
+   android:text="Статус" android:textSize="12sp" />
+ </LinearLayout>
+ <TextView android:id="@+id/market_status" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:padding="6dp" android:textSize="12sp"
+  android:maxLines="3" android:text="Binance история: не загружена. Только публичные свечи, сделок нет." />
  <CheckBox android:id="@+id/web_enabled" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:checked="false"
   android:text="🌐 Искать в интернете, когда информации недостаточно (отправляется только мой вопрос)"
