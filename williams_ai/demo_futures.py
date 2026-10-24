@@ -237,12 +237,26 @@ class DemoFutures:
         state = self._client.request(
             "GET", "/fapi/v1/algoOrder", {"algoId": algo_id}, signed=True
         )
+        if not isinstance(state, dict):
+            return False
+        # A similar stop on the same symbol is NOT proof of *our* SL.
+        # Reject wrong client ID, algo ID, mark/contract side and trigger.
+        try:
+            valid_price = _decimal(state.get("triggerPrice")) == _decimal(
+                proposal.stop_price)
+            identity = str(int(state.get("algoId"))) == str(int(algo_id))
+        except (TypeError, ValueError, DemoSafetyError):
+            return False
         return (
-            state.get("symbol") == proposal.symbol
+            identity
+            and state.get("clientAlgoId") == "WAISL" + proposal.ticket[:23]
+            and state.get("symbol") == proposal.symbol
             and state.get("side") == ("SELL" if proposal.side == "BUY" else "BUY")
             and state.get("orderType") == "STOP_MARKET"
+            and state.get("positionSide") == "BOTH"
+            and state.get("workingType") == "MARK_PRICE"
             and state.get("closePosition") is True
-            and _decimal(state.get("triggerPrice")) == _decimal(proposal.stop_price)
+            and valid_price
             and state.get("algoStatus") == "NEW"
         )
 
@@ -329,6 +343,9 @@ class DemoFutures:
             if (not isinstance(exchange_order,dict)
                     or exchange_order.get("symbol")!=proposal.symbol
                     or str(exchange_order.get("orderId"))!=order_id
+                    or exchange_order.get("clientOrderId")!="WAIEN"+ticket[:23]
+                    or exchange_order.get("side")!=proposal.side
+                    or exchange_order.get("positionSide")!="BOTH"
                     or exchange_order.get("status")!="FILLED"
                     or _decimal(exchange_order.get("executedQty"))
                     !=_decimal(proposal.quantity)):
