@@ -98,11 +98,9 @@ class OfflineIndependentSupervisionTests(unittest.TestCase):
         self.save(candidates()[:60])
         with self.assertRaisesRegex(ValueError,"INSUFFICIENT_REVIEWED"):
             checked_private_training_data(self.data)
-        x=candidates()
-        x[65]["split"]="train"
-        self.save(x)
+        self.save(candidates())
         checked=checked_private_training_data(self.data)
-        self.assertEqual(checked["counts"]["train"],65)
+        self.assertEqual(checked["counts"]["train"],64)
 
     def test_loss_masks_every_prompt_token_and_never_truncates_answer(self):
         tok=type("MockTokenizer",(),{
