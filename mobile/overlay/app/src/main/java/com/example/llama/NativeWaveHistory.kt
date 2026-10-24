@@ -334,13 +334,21 @@ internal class NativeWaveHistoryDb(ctx:Context):SQLiteOpenHelper(
 
 /** User-initiated bounded sweep; restarts resume every stream from SQLite. */
 internal class NativeWaveDownloader(private val ctx:Context) {
-    fun onePass(cancelled:()->Boolean,onStatus:(String)->Unit) {
+    fun onePass(cancelled:()->Boolean,onStatus:(String)->Unit,
+                selectedSymbols:List<String> = NativeWaveConfig.symbols,
+                pagesPerInterval:Int = NativeWaveConfig.MAX_PAGES_PER_INTERVAL_PER_TAP,
+                maxDurationMs:Long = 24L*60_000L) {
+        require(selectedSymbols.isNotEmpty() &&
+            selectedSymbols.distinct().size==selectedSymbols.size &&
+            selectedSymbols.all { it in NativeWaveConfig.symbols })
+        require(pagesPerInterval in 1..NativeWaveConfig.MAX_PAGES_PER_INTERVAL_PER_TAP)
+        require(maxDurationMs in 30_000L..24L*60_000L)
         val db=NativeWaveHistoryDb(ctx)
         try {
             val server=NativeWaveMarketApi.serverTime()
             var streams=0; var added=0; var errors=0; var notes=0
-            val deadline=System.currentTimeMillis()+24*60_000L
-            for (symbol in NativeWaveConfig.symbols) {
+            val deadline=System.currentTimeMillis()+maxDurationMs
+            for (symbol in selectedSymbols) {
                 if(cancelled() || System.currentTimeMillis()>=deadline) break
                 val tick=try { NativeWaveMarketApi.symbolTick(symbol) } catch(e:Exception) {
                     errors++
@@ -358,7 +366,7 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                             "Недостаточно свободного места; запись остановлена"
                         }
                         var cursor=db.lastOpen(symbol,tf) ?: 0L
-                        for(page in 0 until NativeWaveConfig.MAX_PAGES_PER_INTERVAL_PER_TAP) {
+                        for(page in 0 until pagesPerInterval) {
                             if(cancelled() || System.currentTimeMillis()>=deadline) break
                             val klines=NativeWaveMarketApi.candles(symbol,tf,cursor,server)
                             if(klines.isEmpty()) break
