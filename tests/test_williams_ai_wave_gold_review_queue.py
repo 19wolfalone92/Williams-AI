@@ -43,6 +43,14 @@ class WaveReviewTaskContracts(unittest.TestCase):
         self.assertEqual(result["source_precommit_sha256"],
                          cohort["manifest_sha256"])
         for task in result["tasks"]:
+            view=task["review_visible_market_prefix"]
+            self.assertEqual(len(view["bars"]),350)
+            self.assertEqual(view["timeframe"],"H1")
+            self.assertEqual(view["bars"][-1]["close_time"],task["cutoff"])
+            self.assertEqual(view["review_view_sha256"],_fingerprint(view["bars"]))
+            for bar in view["bars"]:
+                self.assertEqual(set(bar),{
+                    "close_time","open","high","low","close","volume","closed"})
             self.assertTrue(task["model_prediction_hidden_from_reviewers"])
             self.assertEqual(task["review_status"],
                              "UNLABELLED_REQUIRES_TWO_INDEPENDENT_EXPERTS")
