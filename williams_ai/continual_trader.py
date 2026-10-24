@@ -148,7 +148,7 @@ class PrivateExperience:
                 stopped INTEGER NOT NULL, source_hash TEXT NOT NULL,
                 setup TEXT NOT NULL,rule_id TEXT NOT NULL,
                 origin TEXT NOT NULL,
-                PRIMARY KEY (symbol,interval,side,decision_at,origin)
+                PRIMARY KEY (symbol,interval,side,decision_at,setup,rule_id,origin)
             )""")
             db.execute("""CREATE INDEX IF NOT EXISTS outcome_chronological
                           ON outcomes(resolved_at,decision_at)""")
@@ -181,9 +181,9 @@ class PrivateExperience:
                 existing = db.execute(
                     """SELECT resolved_at,features_json,net_return,stopped,source_hash,
                        setup,rule_id FROM outcomes WHERE symbol=? AND interval=? AND side=?
-                       AND decision_at=? AND origin=?""",
+                       AND decision_at=? AND setup=? AND rule_id=? AND origin=?""",
                     (obj.symbol, obj.interval, obj.side,
-                     obj.decision_at, ORIGIN),
+                     obj.decision_at, obj.setup,obj.rule_id,ORIGIN),
                 ).fetchone()
                 proposed = (obj.resolved_at, f, obj.net_return,
                             int(obj.stopped), obj.source_hash, obj.setup,obj.rule_id)
@@ -218,8 +218,7 @@ class PrivateExperience:
             ).fetchall()
         return [Outcome(a, b, c, d, e, _finite_vector(json.loads(f)), g,
                         bool(h), i, setup, rule)
-                for a, b, c, d, e, f, g, h, i, setup, rule in rows
-                for unused in (0,)]
+                for a, b, c, d, e, f, g, h, i, setup, rule in rows]
 
     def policies(self) -> list[dict[str, Any]]:
         with self._connect() as db:
