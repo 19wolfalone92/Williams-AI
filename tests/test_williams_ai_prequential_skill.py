@@ -6,7 +6,7 @@ import dataclasses
 import unittest
 
 from williams_ai.continual_trader import Outcome,PrivateExperience
-from williams_ai.prequential_skill import causal_incremental_study
+from williams_ai.prequential_skill import causal_incremental_study, _metrics
 
 ORIGIN=datetime(2025,2,1,tzinfo=timezone.utc)
 HASH="7"*64
@@ -91,6 +91,57 @@ class RealOnlineFeedbackTests(unittest.TestCase):
             self.assertLess(
                 datetime.fromisoformat(r1["last_training_outcome_resolved_at"]),
                 datetime.fromisoformat(stamp(100)))
+
+
+    def test_delayed_validation_labels_are_not_used_to_qualify_model(self):
+        # An event decided before the validation cutoff may resolve during
+        # the final TEST period. Such hindsight must not select a model at b.
+        with TemporaryDirectory() as d:
+            markets=("ETHUSDT","BTCUSDT","SOLUSDT")
+            xs=[ex(i,s,future_resolution=(25 if 130<=i<145 else 3))
+                for s in markets for i in range(1,186)]
+            contaminated=[
+                dataclasses.replace(x,net_return=-x.net_return,
+                                    stopped=not x.stopped,source_hash="a"*64)
+                if stamp(130)<=x.decision_at<stamp(145) else x
+                for x in xs]
+            clean_db=PrivateExperience(Path(d)/"clean.db")
+            late_poison_db=PrivateExperience(Path(d)/"late_poison.db")
+            clean_db.append(xs,knowledge_as_of=stamp(190))
+            late_poison_db.append(contaminated,knowledge_as_of=stamp(190))
+            clean=run(clean_db)
+            poisoned=run(late_poison_db)
+            self.assertEqual(clean["fingerprint"],poisoned["fingerprint"])
+            self.assertEqual(clean["validation_frozen"],poisoned["validation_frozen"])
+            self.assertEqual(clean["qualification"],poisoned["qualification"])
+            self.assertEqual(clean["test_frozen"],poisoned["test_frozen"])
+            self.assertEqual(clean["validation_frozen"]["examples"],90)
+            self.assertEqual(
+                clean["cutoff_purged_late_resolved_outcomes"]["validation_frozen"],45)
+            self.assertTrue(
+                clean["validation_labels_strictly_settled_before_selection_cutoff"])
+            self.assertFalse(clean["execution_allowed"])
+
+    def test_validation_only_with_future_labels_cannot_qualify(self):
+        with TemporaryDirectory() as d:
+            db=PrivateExperience(Path(d)/"late.db")
+            xs=[ex(i,s,future_resolution=(80 if 100<=i<145 else 3))
+                for s in ("ETHUSDT","BTCUSDT","SOLUSDT")
+                for i in range(1,186)]
+            db.append(xs,knowledge_as_of=stamp(250))
+            with self.assertRaisesRegex(
+                    ValueError,"INSUFFICIENT_INDEPENDENT_FROZEN_VALIDATION_TIMES"):
+                run(db)
+
+    def test_multimarket_one_day_is_not_many_independent_dates(self):
+        # A market-wide synchronized move should not fake independent
+        # validation evidence just because many coins signaled together.
+        rows=[(ex(i,s),0.99) for i in range(1,12)
+              for s in ("BTCUSDT","ETHUSDT","SOLUSDT")]
+        result=_metrics(rows,0.50)
+        self.assertEqual(result["paper_selected_examples"],33)
+        self.assertEqual(result["paper_selected_distinct_utc_days"],1)
+        self.assertEqual(result["paper_selected_distinct_assets"],3)
 
     def test_invalid_learning_rate_and_missing_holdout_block(self):
         with TemporaryDirectory() as d:
