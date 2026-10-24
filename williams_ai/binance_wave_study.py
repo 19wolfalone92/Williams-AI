@@ -240,7 +240,7 @@ def _ms_from_date(s:str)->int:
 
 def main()->None:
     p=argparse.ArgumentParser(description="Full-range, resumable Binance native-interval wave study")
-    p.add_argument("action",choices=("sync","study","sync-study","status"))
+    p.add_argument("action",choices=("sync","study","sync-study","status","walk-history"))
     p.add_argument("--db",type=Path,required=True,
                    help="Private local SQLite with durable native exchange candles")
     p.add_argument("--venue",choices=tuple(VENUES),required=True,
@@ -253,6 +253,10 @@ def main()->None:
                    help="earliest/UTC YYYY-MM-DD (only initial database backfill)")
     p.add_argument("--max-pages-per-interval",type=int,default=20)
     p.add_argument("--page-size",type=int,default=1000)
+    p.add_argument("--archive-checkpoints-per-interval",type=int,default=10,
+                   help="For walk-history only: bounded causal past wave snapshots per TF")
+    p.add_argument("--archive-stride",type=int,default=120,
+                   help="Historical checkpoint spacing in bars (not lookahead)")
     p.add_argument("--window",type=int,default=DEFAULT_WINDOW)
     p.add_argument("--edition",choices=("TC1","NTD","TC2","COURSE"),default="TC2")
     p.add_argument("--model",type=Path,help="Local GGUF optional, read-only, no orders")
@@ -291,6 +295,26 @@ def main()->None:
             statuses.append(info)
             print("WILLIAMS_AI_BINANCE_WAVE_CACHE",
                   json.dumps(info,sort_keys=True,ensure_ascii=False),flush=True)
+        if args.action=="walk-history":
+            from .wave_history_notebook import WaveArchiveNotebook
+            notebook=WaveArchiveNotebook(store)
+            snapshots=[]
+            for tf in intervals:
+                examined=notebook.review(
+                    venue=args.venue,symbol=symbol,interval=tf,
+                    checkpoint_budget=args.archive_checkpoints_per_interval,
+                    stride_bars=args.archive_stride,window_bars=args.window,
+                )
+                snapshots.append(examined)
+                print("WILLIAMS_AI_CAUSAL_HISTORICAL_WAVE_CHECKPOINT",
+                      json.dumps(examined,sort_keys=True,ensure_ascii=False),flush=True)
+            reports.append({
+                "mode":"BINANCE_ALL_TF_CAUSAL_ARCHIVE_WAVE_REVIEW",
+                "venue":args.venue,"symbol":symbol,
+                "timeframes":snapshots,
+                "model_weights_trained_here":False,
+                "execution_allowed":False,"trade_action":None,
+            })
         if args.action in ("study","sync-study"):
             report=analyze_all_cached(store,venue=args.venue,symbol=symbol,
                                       intervals=intervals,window=args.window,
