@@ -33,6 +33,7 @@ _ALLOWED = {
     ("GET", "/fapi/v1/algoOrder"),
     ("GET", "/fapi/v1/openAlgoOrders"),
     ("GET", "/fapi/v1/order"),
+    ("GET", "/fapi/v1/openOrders"),
     ("POST", "/fapi/v1/algoOrder"),
     ("POST", "/fapi/v1/order"),
     ("DELETE", "/fapi/v1/algoOrder"),
