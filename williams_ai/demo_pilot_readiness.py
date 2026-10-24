@@ -24,7 +24,8 @@ from typing import Any, Callable
 from .demo_futures import DEMO_HOST, DemoSafetyError, DemoHttp
 
 PAIR = "ETHUSDT"  # One pair, one campaign per pilot. All others blocked.
-PUBLIC_ENDPOINTS = frozenset({"/fapi/v1/time", "/fapi/v1/exchangeInfo", "/fapi/v1/premiumIndex"})
+PUBLIC_ENDPOINTS = frozenset({"/fapi/v1/time", "/fapi/v1/exchangeInfo", "/fapi/v1/premiumIndex",
+                             "/fapi/v1/klines"})
 MAX_TIME_DRIFT_MS = 10_000
 MAX_PREVIEW_NOTIONAL = Decimal("50")
 MAX_PREVIEW_STOP_DISTANCE_RISK = Decimal("1")
