@@ -92,7 +92,7 @@ def checked_private_training_data(path:str|Path, *,
                     or not isinstance(answer,str) or not 20<=len(answer)<=2500):
                 raise ValueError("EMPTY_OR_OVERSIZED_REVIEWED_LESSON")
             normalized=hashlib.sha256(
-                (ed+"\x00"+question.strip().casefold()).encode()).hexdigest()
+                question.strip().casefold().encode()).hexdigest()
             if normalized in case_hashes:
                 raise ValueError("DUPLICATE_QUESTION_ACROSS_HOLDOUT_PARTITIONS")
             case_hashes.add(normalized)
