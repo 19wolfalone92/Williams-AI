@@ -30,9 +30,13 @@
    android:layout_weight="1" android:layout_height="wrap_content"
    android:text="Статус" android:textSize="12sp" />
  </LinearLayout>
+ <CheckBox android:id="@+id/market_auto_update" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:checked="false"
+  android:text="🔁 Автообновление Binance в Android (по 1 паре из 15 за цикл, только свечи)"
+  android:textSize="12sp" />
  <TextView android:id="@+id/market_status" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:padding="6dp" android:textSize="12sp"
-  android:maxLines="3" android:text="Binance история: не загружена. Только публичные свечи, сделок нет." />
+  android:maxLines="5" android:text="Binance история: не загружена. Только публичные свечи, сделок нет." />
  <CheckBox android:id="@+id/web_enabled" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:checked="false"
   android:text="🌐 Искать в интернете, когда информации недостаточно (отправляется только мой вопрос)"
