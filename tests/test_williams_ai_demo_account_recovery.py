@@ -112,6 +112,23 @@ class DemoAccountRecoveryTests(unittest.TestCase):
         self.assertFalse(out["bound_exchange_stop_identity_matched"])
         self.assertEqual(out["status"],"POSITION_WITH_UNVERIFIED_PROTECTION")
 
+    def test_extra_competing_stop_never_counts_as_safe_protection(self):
+        self.journal.reserve_once(self.preview,now_ms=2_000_000_000_000,
+                                  ticket="d"*32)
+        class CompetingVenue(FakeSignedDemo):
+            def request(self,method,path,args=None,*,signed=False):
+                rows=super().request(method,path,args,signed=signed)
+                if path=="/fapi/v1/openAlgoOrders":
+                    rows[0]["clientAlgoId"]="WAISL"+"d"*23
+                    rows.append(dict(rows[0],clientAlgoId="UNRELATED_DEMO_STOP"))
+                return rows
+        out=inspect_demo_after_restart(CompetingVenue(),self.journal)
+        self.assertEqual(out["status"],
+            "POSITION_WITH_EXTRA_OPEN_STOP_CANDIDATES_REVIEW")
+        self.assertFalse(out["stop_acknowledged"])
+        self.assertEqual(out["possible_protective_stops"],2)
+        self.assertEqual(len(self.journal.status()["reservations"]),1)
+
     def test_bound_stop_with_modified_stop_price_raises_and_keeps_lock(self):
         self.journal.reserve_once(self.preview,now_ms=2_000_000_000_000,
                                   ticket="c"*32)
