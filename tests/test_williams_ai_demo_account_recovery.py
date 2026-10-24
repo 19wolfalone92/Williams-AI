@@ -83,6 +83,59 @@ class DemoAccountRecoveryTests(unittest.TestCase):
         partial=inspect_demo_after_restart(FakeSignedDemo(position="0.05"),self.journal)
         self.assertEqual(partial["status"],"EXCHANGE_POSITION_SIZE_MISMATCH")
 
+    def test_bound_client_id_exact_signed_stop_and_price_are_verified(self):
+        self.journal.reserve_once(self.preview,now_ms=2_000_000_000_000,
+                                  ticket="a"*32)
+        bound=self.journal.bound_client_ids()
+        self.assertEqual(bound["stop_client_algo_id"],"WAISL"+"a"*23)
+        self.assertEqual(bound["entry_client_order_id"],"WAIEN"+"a"*23)
+        self.assertEqual(bound["expected_stop_price"],"95")
+        class OwnedVenue(FakeSignedDemo):
+            def request(self,method,path,args=None,*,signed=False):
+                ret=super().request(method,path,args,signed=signed)
+                if path=="/fapi/v1/openAlgoOrders":
+                    ret[0]["clientAlgoId"]=bound["stop_client_algo_id"]
+                return ret
+        out=inspect_demo_after_restart(OwnedVenue(),self.journal)
+        self.assertEqual(out["status"],
+            "POSITION_WITH_SIGNED_MATCHING_BOUND_STOP_NEEDS_FILL_AUDIT")
+        self.assertTrue(out["bound_exchange_stop_identity_matched"])
+        self.assertTrue(out["stop_acknowledged"])
+        self.assertTrue(out["entry_exchange_fill_not_independently_reconciled"])
+        self.assertEqual(len(self.journal.status()["reservations"]),1)
+
+    def test_matching_price_but_foreign_stop_does_not_prove_ownership(self):
+        self.journal.reserve_once(self.preview,now_ms=2_000_000_000_000,
+                                  ticket="b"*32)
+        out=inspect_demo_after_restart(FakeSignedDemo(),self.journal)
+        self.assertFalse(out["stop_acknowledged"])
+        self.assertFalse(out["bound_exchange_stop_identity_matched"])
+        self.assertEqual(out["status"],"POSITION_WITH_UNVERIFIED_PROTECTION")
+
+    def test_bound_stop_with_modified_stop_price_raises_and_keeps_lock(self):
+        self.journal.reserve_once(self.preview,now_ms=2_000_000_000_000,
+                                  ticket="c"*32)
+        class WrongStop(FakeSignedDemo):
+            def request(self,method,path,args=None,*,signed=False):
+                ret=super().request(method,path,args,signed=signed)
+                if path=="/fapi/v1/openAlgoOrders":
+                    ret[0]["clientAlgoId"]="WAISL"+"c"*23
+                    ret[0]["triggerPrice"]="94"
+                return ret
+        with self.assertRaisesRegex(DemoSafetyError,
+                                    "BOUND_DEMO_STOP_ID_HAS_WRONG_PARAMETERS"):
+            inspect_demo_after_restart(WrongStop(),self.journal)
+        self.assertEqual(len(self.journal.status()["reservations"]),1)
+
+    def test_invalid_ticket_and_rollback_never_create_reserved_campaign(self):
+        for ticket in ("", "z"*32, "a"*31, "A"*32, True):
+            with self.subTest(ticket=ticket):
+                with self.assertRaisesRegex(DemoSafetyError,"INVALID_DEMO_INTENT_TICKET"):
+                    self.journal.reserve_once(self.preview,
+                        now_ms=2_000_000_000_000,ticket=ticket)
+        self.assertIsNone(self.journal.bound_client_ids())
+        self.assertEqual(self.journal.status()["reservations"],[])
+
     def test_flat_with_orphan_stop_does_not_unlock(self):
         self.reserve()
         out=inspect_demo_after_restart(FakeSignedDemo(position="0"),self.journal)
