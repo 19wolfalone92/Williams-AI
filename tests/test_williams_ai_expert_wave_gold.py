@@ -147,6 +147,40 @@ class ExpertWaveBenchmarkTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"DUPLICATE_MARKET_SNAPSHOT"):
             evaluate_blind_wave_gold(self.ann,self.pred)
 
+    def test_multiclass_full_cohort_beyond_majority_is_only_research_signal(self):
+        labels=("IMPULSE_UP","IMPULSE_DOWN","CORRECTION")
+        reviews=[]
+        predictions=[]
+        for day in range(30):
+            actual=labels[day%3]
+            reviews.extend([reviewer(day,"reviewer-001",structure=actual),
+                            reviewer(day,"reviewer-002",structure=actual)])
+            predictions.append(prediction(day,actual))
+        self.save(reviews,predictions)
+        out=evaluate_blind_wave_gold(self.ann,self.pred)
+        self.assertTrue(out["diverse_three_class_min_five_each_benchmark"])
+        self.assertTrue(out["research_only_discriminative_baseline_beaten"])
+        self.assertEqual(out["full_cohort_accuracy_abstentions_and_missing_as_wrong"],1.0)
+        self.assertEqual(out["full_cohort_majority_class_baseline"],0.33333)
+        self.assertFalse(out["execution_allowed"])
+
+    def test_selective_one_answer_cannot_claim_multiclass_skill(self):
+        labels=("IMPULSE_UP","IMPULSE_DOWN","CORRECTION")
+        reviews=[]
+        predictions=[]
+        for day in range(30):
+            actual=labels[day%3]
+            reviews.extend([reviewer(day,"reviewer-001",structure=actual),
+                            reviewer(day,"reviewer-002",structure=actual)])
+            predictions.append(prediction(
+                day,actual if day==0 else "UNDETERMINED"))
+        self.save(reviews,predictions)
+        out=evaluate_blind_wave_gold(self.ann,self.pred)
+        self.assertEqual(out["nonabstained_structure_accuracy"],1.0)
+        self.assertEqual(out["full_cohort_accuracy_abstentions_and_missing_as_wrong"],0.03333)
+        self.assertTrue(out["diverse_three_class_min_five_each_benchmark"])
+        self.assertFalse(out["research_only_discriminative_baseline_beaten"])
+
     def test_single_class_perfect_score_exposes_trivial_constant_baseline(self):
         a,p=self.base();self.save(a,p)
         out=evaluate_blind_wave_gold(self.ann,self.pred)
@@ -156,6 +190,9 @@ class ExpertWaveBenchmarkTests(unittest.TestCase):
             "descriptive_majority_class_accuracy_not_a_trained_baseline"],1.0)
         self.assertTrue(out[
             "prediction_seal_is_not_independent_timestamp_or_blindness_proof"])
+        self.assertEqual(out["full_cohort_majority_class_baseline"],1.0)
+        self.assertFalse(out["diverse_three_class_min_five_each_benchmark"])
+        self.assertFalse(out["research_only_discriminative_baseline_beaten"])
 
 if __name__=="__main__":
     unittest.main()
