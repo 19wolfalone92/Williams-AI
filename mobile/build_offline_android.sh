@@ -35,6 +35,9 @@ done
 test_package="$project/app/src/test/java/com/example/llama"
 mkdir -p "$test_package"
 cp "$root/mobile/overlay/app/src/test/java/com/example/llama/NativeFuturesMetadataTest.kt" "$test_package/"
+instrumented_package="$project/app/src/androidTest/java/com/example/llama"
+mkdir -p "$instrumented_package"
+cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/NativeMarketRuntimeTest.kt" "$instrumented_package/"
 
 mkdir -p "$project/app/src/main/assets"
 cp "$root/knowledge/LEARNING_CURRICULUM_RU.md" "$project/app/src/main/assets/LEARNING_CURRICULUM_RU.md"

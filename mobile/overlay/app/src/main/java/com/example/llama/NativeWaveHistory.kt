@@ -205,8 +205,9 @@ internal object NativeWaveMarketApi {
     }
 }
 
-internal class NativeWaveHistoryDb(ctx:Context):SQLiteOpenHelper(
-    ctx.applicationContext,"williams_ai_public_usdm_wave_v1.sqlite3",null,1) {
+internal class NativeWaveHistoryDb(ctx:Context,
+    databaseName:String="williams_ai_public_usdm_wave_v1.sqlite3"):SQLiteOpenHelper(
+    ctx.applicationContext,databaseName,null,1) {
     override fun onCreate(db:SQLiteDatabase) {
         db.execSQL("""CREATE TABLE wave_candles(
             venue TEXT NOT NULL, symbol TEXT NOT NULL, tf TEXT NOT NULL,
