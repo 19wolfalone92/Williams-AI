@@ -18,10 +18,11 @@ class RehearsingFakeStudent:
         self.seen=[]
     def answer_exam_case(self,question,*,prior_lessons=None):
         self.seen.append({"question":question,"notes":prior_lessons})
+        known=next(x for x in learning_cases() if x["id"]==question["id"])
         if prior_lessons:
-            known=next(x for x in learning_cases() if x["id"]==question["id"])
             return {"choice":known["correct"],"reason":"Lesson paraphrased"}
-        return {"choice":"D","reason":"Not sure"}
+        wrong=next(x for x in "ABC" if x!=known["correct"])
+        return {"choice":wrong,"reason":"Validly formatted conceptual mistake"}
 
 
 class AdaptiveBookTutorTests(unittest.TestCase):

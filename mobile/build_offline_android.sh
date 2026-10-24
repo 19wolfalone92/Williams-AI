@@ -20,6 +20,7 @@ for file in \
   app/src/main/java/com/example/llama/WebResearch.kt \
   app/src/main/java/com/example/llama/BookKnowledge.kt \
   app/src/main/java/com/example/llama/StudyMemory.kt \
+  app/src/main/java/com/example/llama/NativeFuturesMetadata.kt \
   app/src/main/java/com/example/llama/NativeWaveHistory.kt \
   app/src/main/java/com/example/llama/NativeWaveStudy.kt \
   app/src/main/java/com/example/llama/NativeWaveNotebook.kt \
@@ -30,6 +31,13 @@ for file in \
   app/src/main/AndroidManifest.xml; do
   cp "$root/mobile/overlay/$file" "$project/$file"
 done
+
+test_package="$project/app/src/test/java/com/example/llama"
+mkdir -p "$test_package"
+cp "$root/mobile/overlay/app/src/test/java/com/example/llama/NativeFuturesMetadataTest.kt" "$test_package/"
+instrumented_package="$project/app/src/androidTest/java/com/example/llama"
+mkdir -p "$instrumented_package"
+cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/NativeMarketRuntimeTest.kt" "$instrumented_package/"
 
 mkdir -p "$project/app/src/main/assets"
 cp "$root/knowledge/LEARNING_CURRICULUM_RU.md" "$project/app/src/main/assets/LEARNING_CURRICULUM_RU.md"
@@ -74,7 +82,7 @@ PY
 
 cd "$project"
 chmod +x ./gradlew
-./gradlew :app:assembleDebug --no-daemon --max-workers=2
+./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --max-workers=2
 
 output="$root/mobile/out"
 mkdir -p "$output"

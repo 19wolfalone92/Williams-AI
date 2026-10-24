@@ -56,12 +56,13 @@ def _read_only_demo_json(path: str, args: dict[str,str]|None=None)->Any:
                      headers={"Accept":"application/json",
                               "User-Agent":"Williams-AI-controlled-DEMO-health/1"})
         response=conn.getresponse()
-        raw=response.read(131073)
+        budget=4_000_000 if path=="/fapi/v1/exchangeInfo" else 131072
+        raw=response.read(budget+1)
         if response.status!=200:
             # Status code alone is public, carries no signed URL or secrets.
             # Distinguish geographic HTTP 451 from malformed market data.
             raise DemoSafetyError("DEMO_PUBLIC_HTTP_"+str(int(response.status)))
-        if len(raw)>131072:
+        if len(raw)>budget:
             raise DemoSafetyError("DEMO_PUBLIC_MARKET_RESPONSE_TOO_LARGE")
         return json.loads(raw.decode("utf-8"))
     except (TimeoutError,OSError,ValueError) as exc:
@@ -102,11 +103,14 @@ def check_public_demo(
     observed=t["serverTime"]
     if abs(observed-local)>MAX_TIME_DRIFT_MS:
         raise DemoSafetyError("DEMO_SERVER_TIME_DRIFT")
-    info=fetch("/fapi/v1/exchangeInfo",{"symbol":symbol})
+    info=fetch("/fapi/v1/exchangeInfo",None)
     if (not isinstance(info,dict) or not isinstance(info.get("symbols"),list)
-            or len(info["symbols"])!=1):
+            or not info["symbols"]):
         raise DemoSafetyError("DEMO_SYMBOL_METADATA_UNTRUSTED")
-    pair=info["symbols"][0]
+    matching=[x for x in info["symbols"] if isinstance(x,dict) and x.get("symbol")==PAIR]
+    if len(matching)!=1:
+        raise DemoSafetyError("DEMO_SYMBOL_METADATA_UNTRUSTED")
+    pair=matching[0]
     if (not isinstance(pair,dict) or pair.get("symbol")!=PAIR
             or pair.get("status")!="TRADING"
             or not isinstance(pair.get("filters"),list)):

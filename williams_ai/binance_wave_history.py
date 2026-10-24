@@ -150,12 +150,13 @@ def _read_market(venue:str,path:str,params:dict[str,str]|None=None)->Any:
                            headers={"Accept":"application/json",
                                     "User-Agent":"WilliamsAI-public-closed-market/1"})
         r=connection.getresponse()
-        raw=r.read(2_500_001)
+        budget=4_000_000 if path=="/fapi/v1/exchangeInfo" else 2_500_000
+        raw=r.read(budget+1)
         if r.status!=200:
             # Explicitly expose HTTP451/429 rather than silently switching
             # to Spot, an unsafe live-production trading venue, or mock bars.
             raise HistoryUnavailable(f"{venue}_PUBLIC_HTTP_{r.status}")
-        if len(raw)>2_500_000:
+        if len(raw)>budget:
             raise HistoryUnavailable("PUBLIC_RESPONSE_EXCEEDS_BOUNDS")
         return json.loads(raw.decode("utf8"))
     except (OSError,TimeoutError,ValueError) as exc:
@@ -178,11 +179,14 @@ def _market_snapshot(venue:str,symbol:str,fetch:Callable[...,Any],
             isinstance(t["serverTime"],bool) or
             abs(t["serverTime"]-local_ms)>MAX_CLOCK_SKEW_MS):
         raise HistoryUnavailable("FUTURES_PUBLIC_SERVER_CLOCK_UNTRUSTED")
-    info=fetch(venue,"/fapi/v1/exchangeInfo",{"symbol":symbol})
+    info=fetch(venue,"/fapi/v1/exchangeInfo",None)
     pairs=info.get("symbols") if isinstance(info,dict) else None
-    if not isinstance(pairs,list) or len(pairs)!=1:
+    if not isinstance(pairs,list):
         raise HistoryUnavailable("FUTURES_CONTRACT_NOT_VERIFIED")
-    pair=pairs[0]
+    matching=[x for x in pairs if isinstance(x,dict) and x.get("symbol")==symbol]
+    if len(matching)!=1:
+        raise HistoryUnavailable("FUTURES_CONTRACT_NOT_VERIFIED")
+    pair=matching[0]
     if not isinstance(pair,dict) or pair.get("symbol")!=symbol or (
             pair.get("status")!="TRADING" or
             not isinstance(pair.get("filters"),list)):

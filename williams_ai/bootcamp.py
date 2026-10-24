@@ -83,7 +83,7 @@ def bootcamp(
         markets,model,editions=historical_editions,
         checkpoints=checkpoints,
         book_index=book_index,coach_notebook=coaching_memory,
-        model_id=model_id)
+        study_memory=study_memory,model_id=model_id)
     return {
         "mode":"ACTUAL_GGUF_BOUNDED_BOOK_STUDY_AND_CAUSAL_PRACTICE",
         "model_fingerprint_id":model_id,

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
@@ -21,6 +20,8 @@ def main():
     study.add_argument("--model", type=Path, required=True)
     study.add_argument("--edition", choices=["TC1", "NTD", "TC2", "COURSE"], required=True)
     study.add_argument("--budget", type=int, default=4, help="Maximum source chunks per invocation, 1..100")
+    study.add_argument("--learning-mode",choices=["legacy_json","auto","reasoning"],default="legacy_json")
+    study.add_argument("--reasoning-budget",type=int,default=2048)
     study.add_argument("--until-complete", action="store_true", help="Continue bounded batches automatically; each completed chunk is checkpointed")
     report = sub.add_parser("report")
     report.add_argument("--books", required=True)
@@ -38,20 +39,19 @@ def main():
     opts = parser.parse_args()
     if opts.action == "study":
         from .local_model import LocalWilliamsModel
-        digest = hashlib.sha256()
-        with opts.model.open("rb") as source:
-            for block in iter(lambda: source.read(1024 * 1024), b""):
-                digest.update(block)
-        model = LocalWilliamsModel(opts.model)
+        from .study_cli import _model_identity
+        model_id = _model_identity(opts.model)
+        model = LocalWilliamsModel(opts.model,learning_mode=opts.learning_mode,
+                                   reasoning_budget=opts.reasoning_budget)
         result = study_batch(opts.books, opts.memory, opts.edition, model,
-                             model_id=digest.hexdigest(), budget=opts.budget)
+                             model_id=model_id, budget=opts.budget)
         if opts.until_complete:
             totals = {"studied_chunks": result["studied_chunks"], "failed_chunks": result["failed_chunks"]}
             for _ in range(1000):
                 if result["studied_chunks"] + result["failed_chunks"] == 0:
                     break
                 result = study_batch(opts.books, opts.memory, opts.edition, model,
-                                     model_id=digest.hexdigest(), budget=opts.budget)
+                                     model_id=model_id, budget=opts.budget)
                 for key in totals:
                     totals[key] += result[key]
             result = {**result, **totals, "report": study_report(opts.books, opts.memory)}
@@ -59,7 +59,8 @@ def main():
         result = study_report(opts.books, opts.memory)
     elif opts.action == "ask":
         pages = search_pages(opts.books, opts.question, edition=opts.edition, limit=3) if opts.books else []
-        learned = recall(opts.memory, opts.question, edition=opts.edition) if opts.memory else []
+        learned = recall(opts.memory, opts.question, edition=opts.edition,
+                         book_index=opts.books) if opts.memory else []
         web = research(opts.question, enabled=opts.web)
         if opts.memory and opts.web:
             remember_web(opts.memory, web)

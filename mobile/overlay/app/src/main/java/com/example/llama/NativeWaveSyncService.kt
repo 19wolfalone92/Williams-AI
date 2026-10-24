@@ -114,6 +114,19 @@ class NativeWaveSyncService : Service() {
         return START_NOT_STICKY
     }
 
+    // API 35+ can exhaust the shared dataSync quota across several manual
+    // batches. Return immediately; never wait for a blocked HTTP worker here.
+    override fun onTimeout(startId:Int,fgsType:Int) {
+        stop.set(true)
+        worker?.interrupt()
+        getSharedPreferences("native_market_public",MODE_PRIVATE).edit()
+            .putBoolean("running",false)
+            .putString("summary","Android остановил фоновую загрузку по лимиту. История сохранена; повторите позже.")
+            .putLong("updated_ms",System.currentTimeMillis()).apply()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     override fun onDestroy() {
         stop.set(true)
         worker?.interrupt()

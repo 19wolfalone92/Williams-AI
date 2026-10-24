@@ -25,6 +25,7 @@ def examine_many(
     checkpoints:tuple[int,...]=(299,599,899,1199),
     book_index:Path|None=None,
     coach_notebook:Path|None=None,
+    study_memory:Path|None=None,
     model_id:str|None=None,
 )->dict[str,Any]:
     if not markets:
@@ -52,7 +53,8 @@ def examine_many(
                         symbol,market["bars"],tick_size=market["tick_size"],
                         bar_index=last_bar,edition=edition,model=model,
                         book_index=book_index,
-                        coach_notebook=coach_notebook,model_id=model_id)
+                        coach_notebook=coach_notebook,
+                        study_memory=study_memory,model_id=model_id)
                 except (ValueError,TypeError,RuntimeError,KeyError,IndexError) as exc:
                     # Do not stop the exam when the GGUF emits invalid JSON.
                     malformed_cases+=1
@@ -117,6 +119,7 @@ def main()->None:
     p.add_argument("--local-model",type=Path,required=True)
     p.add_argument("--book-index",type=Path,help="Private source-page database outside git")
     p.add_argument("--coach-notebook",type=Path,help="Private model-specific learning journal")
+    p.add_argument("--study-memory",type=Path,help="Model's private source-study notes")
     p.add_argument("--dataset",type=Path,default=FROZEN_DATA)
     p.add_argument("--gpu-layers",type=int,default=0)
     p.add_argument("--edition",choices=[*EDITION_ORDER,"ALL"],default="ALL")
@@ -132,12 +135,13 @@ def main()->None:
     positions={1:(899,),2:(599,999),4:(299,599,899,1199)}[args.checkpoints]
     editions=EDITION_ORDER if args.edition=="ALL" else (args.edition,)
     model_id=None
-    if args.coach_notebook:
+    if args.coach_notebook or args.study_memory:
         from .study_cli import _model_identity
         model_id=_model_identity(args.local_model)
     output=examine_many(select,model,editions=editions,checkpoints=positions,
                         book_index=args.book_index,
-                        coach_notebook=args.coach_notebook,model_id=model_id)
+                        coach_notebook=args.coach_notebook,
+                        study_memory=args.study_memory,model_id=model_id)
     print(json.dumps(output,ensure_ascii=False,indent=2))
 
 

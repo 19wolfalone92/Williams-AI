@@ -130,7 +130,10 @@ def main():
     learned=[]
     if a.study_memory:
         from .study import recall
-        learned=recall(a.study_memory,a.question,edition=a.edition,limit=1)
+        from .study_cli import _model_identity
+        learned=recall(a.study_memory,a.question,edition=a.edition,limit=1,
+                       model_id=_model_identity(a.local_model),
+                       book_index=a.book_index)
     coaching=[]
     if a.coach_notebook:
         from .adaptive_coach import recall_model_corrections

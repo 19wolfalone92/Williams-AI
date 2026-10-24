@@ -30,7 +30,7 @@ def make_fetch(*,price="100",rows=None,clock=SERVER,venue="FUTURES"):
         urls.append(url)
         if url.endswith("/time"):
             return {"serverTime":clock}
-        if "/exchangeInfo?" in url:
+        if "/exchangeInfo" in url:
             return {"symbols":[{
                 "symbol":"BTCUSDT","status":"TRADING",
                 "filters":[{"filterType":"PRICE_FILTER","tickSize":"0.01"}]
@@ -117,7 +117,7 @@ class BinancePublicForwardCapture(unittest.TestCase):
         fetch,_,_=make_fetch()
         def malformed(url):
             val=fetch(url)
-            if "/exchangeInfo?" in url:
+            if "/exchangeInfo" in url:
                 val["symbols"][0]["status"]="HALT"
             return val
         with self.assertRaisesRegex(ValueError,"market status"):

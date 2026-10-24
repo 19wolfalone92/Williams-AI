@@ -45,7 +45,6 @@ internal object NativeWaveConfig {
         "1d" to 86_400_000L, "3d" to 259_200_000L,
         "1w" to 604_800_000L, "1M" to -1L,
     )
-    const val MAX_HTTP_RESPONSE_BYTES = 1_800_000
 
     fun nextOpen(open: Long, tf: String): Long {
         require(intervals.containsKey(tf)) { "Неизвестный ТФ" }
@@ -101,6 +100,7 @@ internal object NativeWaveMarketApi {
         conn.readTimeout=15_000
         conn.setRequestProperty("Accept","application/json")
         conn.setRequestProperty("User-Agent","WilliamsAI-Android-PUBLIC-FUTURES-READONLY/1")
+        val budget=NativeFuturesMetadata.responseBudget(path)
         try {
             val response=conn.responseCode
             check(response==200) { "BINANCE_PUBLIC_HTTP_${response}" }
@@ -111,7 +111,7 @@ internal object NativeWaveMarketApi {
                     while(true) {
                         val count=buffered.read(block)
                         if(count<0) break
-                        check(dest.size()+count<=NativeWaveConfig.MAX_HTTP_RESPONSE_BYTES) {
+                        check(dest.size()+count<=budget) {
                             "Ответ Binance превышает лимит"
                         }
                         dest.write(block,0,count)
@@ -134,19 +134,21 @@ internal object NativeWaveMarketApi {
     }
     fun symbolTick(symbol:String):String {
         require(symbol in NativeWaveConfig.symbols)
-        val objectData=JSONObject(get("/fapi/v1/exchangeInfo","symbol="+symbol))
+        val objectData=JSONObject(get("/fapi/v1/exchangeInfo"))
         val symbols=objectData.getJSONArray("symbols")
-        check(symbols.length()==1) { "Контракт не найден" }
-        val pair=symbols.getJSONObject(0)
-        check(pair.getString("symbol")==symbol && pair.getString("status")=="TRADING") {
-            "Контракт не в торговом статусе Binance"
+        val catalog=(0 until symbols.length()).map { i ->
+            val row=symbols.getJSONObject(i)
+            row.getString("symbol") to row.getString("status")
         }
+        val pair=symbols.getJSONObject(NativeFuturesMetadata.contractIndex(symbol,catalog))
         val filters=pair.getJSONArray("filters")
         var tick:String?=null
         for (i in 0 until filters.length()) {
             val f=filters.getJSONObject(i)
-            if (f.getString("filterType")=="PRICE_FILTER")
+            if (f.getString("filterType")=="PRICE_FILTER") {
+                check(tick==null) { "Повторяющийся PRICE_FILTER биржи" }
                 tick=positiveDecimal(f.getString("tickSize"))
+            }
         }
         return tick ?: error("Не найден PRICE_FILTER биржи")
     }
@@ -203,8 +205,9 @@ internal object NativeWaveMarketApi {
     }
 }
 
-internal class NativeWaveHistoryDb(ctx:Context):SQLiteOpenHelper(
-    ctx.applicationContext,"williams_ai_public_usdm_wave_v1.sqlite3",null,1) {
+internal class NativeWaveHistoryDb(ctx:Context,
+    databaseName:String="williams_ai_public_usdm_wave_v1.sqlite3"):SQLiteOpenHelper(
+    ctx.applicationContext,databaseName,null,1) {
     override fun onCreate(db:SQLiteDatabase) {
         db.execSQL("""CREATE TABLE wave_candles(
             venue TEXT NOT NULL, symbol TEXT NOT NULL, tf TEXT NOT NULL,
