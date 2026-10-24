@@ -22,6 +22,7 @@ for file in \
   app/src/main/java/com/example/llama/StudyMemory.kt \
   app/src/main/java/com/example/llama/NativeWaveHistory.kt \
   app/src/main/java/com/example/llama/NativeWaveStudy.kt \
+  app/src/main/java/com/example/llama/NativeWaveNotebook.kt \
   app/src/main/java/com/example/llama/NativeWaveSyncService.kt \
   app/src/main/res/values/strings.xml \
   app/src/main/res/layout/activity_main.xml \
