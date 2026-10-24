@@ -350,6 +350,8 @@ internal class NativeWaveDownloader(private val ctx:Context) {
         try {
             val server=NativeWaveMarketApi.serverTime()
             var streams=0; var added=0; var errors=0; var notes=0
+            var visited=0
+            val totalPlanned=selectedSymbols.size*NativeWaveConfig.intervals.size
             val deadline=System.currentTimeMillis()+maxDurationMs
             for (symbol in selectedSymbols) {
                 if(cancelled() || System.currentTimeMillis()>=deadline) break
@@ -363,6 +365,7 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                 }
                 for(tf in NativeWaveConfig.intervals.keys) {
                     if(cancelled() || System.currentTimeMillis()>=deadline) break
+                    visited++
                     try {
                         val disk=StatFs(ctx.filesDir.absolutePath)
                         check(disk.availableBytes>NativeWaveConfig.MIN_FREE_STORAGE_BYTES) {
@@ -372,7 +375,12 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                         for(page in 0 until pagesPerInterval) {
                             if(cancelled() || System.currentTimeMillis()>=deadline) break
                             val klines=NativeWaveMarketApi.candles(symbol,tf,cursor,server)
-                            if(klines.isEmpty()) break
+                            if(klines.isEmpty()) {
+                                check(db.cachedCount(symbol,tf)>0) {
+                                    "Не получены закрытые свечи $symbol/$tf"
+                                }
+                                break
+                            }
                             added+=db.savePage(symbol,tf,tick,server,klines)
                             streams++
                             val next=NativeWaveConfig.nextOpen(klines.last().openTime,tf)
@@ -402,9 +410,15 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                     }
                 }
             }
-            onStatus("Завершён ограниченный цикл: сохранено ${added} закрытых "+
-                "свечей, страниц ${streams}, новых исторических заметок ${notes}, ошибок ${errors}. "+
-                "История листинга ещё НЕ подтверждена целиком. Сделок нет.")
+            val trulyComplete = visited==totalPlanned && errors==0 && !cancelled()
+            onStatus(
+                (if(trulyComplete) "Завершён ограниченный цикл: "
+                 else "НЕПОЛНЫЙ цикл — не все TF проверены: ") +
+                "проверено TF=" + visited + "/" + totalPlanned +
+                ", свечей=" + added + ", страниц=" + streams +
+                ", исторических заметок=" + notes + ", ошибок=" + errors +
+                ". Глубина истории с листинга НЕ доказана. Сделок нет."
+            )
         } finally { db.close() }
     }
 }
