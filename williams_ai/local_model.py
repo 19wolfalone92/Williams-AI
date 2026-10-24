@@ -599,6 +599,57 @@ class LocalWilliamsModel:
                     "never_claim_real_fill_from_OHLC":True,
                     "wave_degree_still_unverified":True,
                 }
+        # Actual inference receives the causal, practical rehearsal from
+        # independent OHLCV reanalysis. The prompt is a bounded whitelist;
+        # no future outcomes, broker instructions or claimed probabilities.
+        practice=chart_analysis.get("practical_market_teacher")
+        if practice is not None:
+            if (not isinstance(practice,dict)
+                    or practice.get("mode")!="BOOK_SCOPED_CAUSAL_PRACTICAL_TRADER_REHEARSAL"
+                    or practice.get("symbol")!=chart_analysis.get("symbol")
+                    or practice.get("as_of")!=chart_analysis.get("as_of")
+                    or practice.get("book")!=edition
+                    or practice.get("trade_action","invalid") is not None
+                    or practice.get("execution_allowed") is not False
+                    or practice.get("future_bars_read") is not False
+                    or practice.get("model_weights_modified_here") is not False):
+                raise ValueError("UNTRUSTED_PRACTICAL_MARKET_LESSON")
+            cases=practice.get("five_competing_falsifiable_scenarios")
+            expected_hypotheses={
+                "CONTINUATION_UP","CONTINUATION_DOWN",
+                "CORRECTION_OR_COMPLEX_RANGE",
+                "POSSIBLE_REVERSAL_UP","POSSIBLE_REVERSAL_DOWN",
+            }
+            if (not isinstance(cases,list) or len(cases)!=5
+                    or {x.get("hypothesis") for x in cases
+                        if isinstance(x,dict)}!=expected_hypotheses
+                    or any(not isinstance(x,dict)
+                           or x.get("prediction_probability") is not None
+                           or x.get("wave_degree_confirmed") is not False
+                           for x in cases)):
+                raise ValueError("UNVERIFIED_PRACTICAL_HYPOTHESES")
+            observation["practical_decision_rehearsal"]={
+                "purpose":"Apply book methods to actual market; NOT a trade order",
+                "as_of":practice["as_of"],"edition":edition,
+                "market_context":practice.get("market_context"),
+                "ao_change":practice.get("ao_direction"),
+                "ac_change":practice.get("ac_direction"),
+                "alternatives":[{
+                    "hypothesis":x["hypothesis"],
+                    "state":x.get("state"),
+                    "support":x.get("supporting_observation_codes",[])[:2],
+                    "contradictions":x.get("contradiction_codes",[])[:2],
+                    "falsifier_needs_next_closed_bar":True,
+                } for x in cases],
+                "book_entry_gate_status":(
+                    practice.get("edition_specific_entry_gate",{})
+                    .get("status")
+                ),
+                "entry_indicators_are_not_exchange_fills":True,
+                "unseen_future_candles_are_forbidden":True,
+                "always_consider_NO_TRADE":True,
+                "no_trading_authority":True,
+            }
         pages=[]
         if primary_pages is not None:
             if not isinstance(primary_pages,list) or len(primary_pages)>3:
@@ -754,6 +805,12 @@ class LocalWilliamsModel:
             "сигнал мудреца без исполненного встречного триггера НЕ закрывает "
             "позицию; перенос SL только в сторону уменьшения риска. "
             "Не превращай непроверенные волны в подтверждённые. "
+            "Применяй книги в практике: для текущих уже закрытых свечей "
+            "сопоставляй ДВА и более конкурирующих сценария, приводи "
+            "поддерживающие и противоречащие факты, указывай условия "
+            "опровержения после новой закрытой свечи. Отдельно проверяй "
+            "книжный допуск входа, ценовой триггер, риск, сопровождение "
+            "и действительный биржевой выход; NO_TRADE всегда возможен. "
             "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
             "Пять Волшебных Пуль TC1 — дивергенция W3/W5, целевая зона, "
             "терминальный фрактал, Squat с настоящим тик-объёмом, поворот "
