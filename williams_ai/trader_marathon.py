@@ -33,6 +33,7 @@ from .continual_trader import PrivateExperience, learn_from_private_experience, 
 from .williams_signal_experience import signal_conditioned_outcomes
 from .prequential_skill import causal_incremental_study
 from .causal_trade_quality import causal_profit_quality_study
+from .prequential_net_skill import causal_expected_net_study
 
 SUPPORTED = {"15m":"M15","1h":"H1","4h":"H4","1d":"D1"}
 
@@ -115,6 +116,19 @@ def marathon(
     model=None
     online=None
     profit_quality=None
+    expected_net=None
+    if points is not None:
+        try:
+            expected_net=causal_expected_net_study(
+                ledger,train_until=points[0],
+                validation_until=points[1],observe_until=points[2],
+                min_training_decisions=max(10,min_train//2),
+                min_validation_decisions=max(5,min_validation//2))
+        except ValueError as exc:
+            expected_net={"mode":"WILLIAMS_AI_PREQUENTIAL_HUBER_AFTER_FRICTIONS_PAPER_V1",
+                          "qualification":"ABSTAIN_EXPECTED_RETURN_NOT_VALIDATED",
+                          "reason":str(exc),"execution_allowed":False,
+                          "trade_action":None}
     if points is not None:
         try:
             profit_quality=causal_profit_quality_study(
@@ -170,6 +184,7 @@ def marathon(
         "learnt_numeric_policy":model,
         "prequential_research_skill":online,
         "profit_quality_frozen_research_only":profit_quality,
+        "online_expected_net_research_only":expected_net,
         "win_rate_alone_can_hide_negative_expectancy":True,
         "temporal_split_cutoffs":list(points) if points else None,
         "temporal_split_provenance":(
