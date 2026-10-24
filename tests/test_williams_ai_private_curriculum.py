@@ -60,6 +60,27 @@ class ReadThroughTests(unittest.TestCase):
         self.assertIsNone(second["book_mastery_percent"])
         self.assertFalse(second["real_weight_updates_occurred"])
 
+    def test_reindex_new_ocr_text_invalidates_stale_reading_without_pdf_sha_change(self):
+        student=Reader()
+        completed=complete_private_readthrough(
+            self.bookdb,self.notes,student,model_id="gguf-current",
+            batch_budget=2,rounds=1)
+        self.assertEqual(completed["indexed_chunks_remaining_for_model"],0)
+        tc2=next(v for v in registry()["books"] if v["id"]=="TC2")
+        pages=[""]*tc2["pages"]
+        pages[8]="Исправленный OCR с другой инструкцией про W4 и AO. "*3
+        pages[9]="Фракталы и движение цены должны быть подтверждены. "*3
+        index_pages(self.bookdb,"TC2",tc2["sha256"],pages,
+                    declared_pages=tc2["pages"])
+        stale=complete_private_readthrough(
+            self.bookdb,self.notes,student,model_id="gguf-current",
+            batch_budget=1,rounds=1)
+        self.assertEqual(stale["newly_studied_chunks"],1)
+        self.assertEqual(stale["indexed_chunks_remaining_for_model"],0)
+        self.assertFalse(any(x["text_pass_completed_for_this_specific_model"]
+                             for x in stale["books"]))
+        self.assertEqual(len(student.calls),9)
+
     def test_second_model_does_not_reuse_prior_ones_readthrough(self):
         reader=Reader()
         a=complete_private_readthrough(
