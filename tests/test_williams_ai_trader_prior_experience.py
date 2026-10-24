@@ -61,6 +61,10 @@ class LearningMustBeCausal(unittest.TestCase):
             group=model.experience["by_wise_man_and_direction"]["WM3:LONG"]
             self.assertEqual(group["count"],24)
             self.assertEqual(group["past_positive_fraction"],0.5)
+            self.assertEqual(group["past_paper_profit_factor"],0.5)
+            self.assertEqual(group["past_payoff_break_even_win_rate"],0.66667)
+            self.assertEqual(group["distinct_utc_decision_dates_not_independent"],1)
+            self.assertTrue(group["not_actual_portfolio_pnl"])
             self.assertFalse(result["execution_allowed"])
             self.assertIsNone(result["trade_action"])
             # Earlier 2024 view sees NO lessons from 2025 or 2035.
@@ -100,6 +104,10 @@ class LearningMustBeCausal(unittest.TestCase):
             context=user["chart"]["prior_resolved_private_TC2_paper_experience"]
             self.assertEqual(context["evidence_count"],26)
             self.assertEqual(context["by_setup"]["WM3:LONG"]["count"],26)
+            self.assertIn("past_paper_profit_factor",
+                          context["by_setup"]["WM3:LONG"])
+            self.assertTrue(context["by_setup"]["WM3:LONG"]
+                            ["past_returns_not_next_trade_expectancy"])
             self.assertTrue(context["not_book_confirmation"])
             self.assertTrue(context["no_execution"])
 
