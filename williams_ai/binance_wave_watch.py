@@ -26,7 +26,7 @@ def one_watch_cycle(
     venue:str,symbols:tuple[str,...],
     intervals:tuple[str,...]=tuple(INTERVAL_MS),
     max_pages:int=50,fetch:Callable[...,Any]|None=None,
-    now_ms:int|None=None,
+    now_ms:int|None=None,archive_checkpoints_per_tf:int=2,
 )->dict[str,Any]:
     if venue not in VENUES or not 1<=len(symbols)<=MAX_SYMBOLS or (
         len(set(symbols))!=len(symbols)) or any(
@@ -35,6 +35,10 @@ def one_watch_cycle(
             x not in INTERVAL_MS for x in intervals
         ):
         raise ValueError("INVALID_WATCH_VENUE_SYMBOLS_OR_TFS")
+    if (not isinstance(archive_checkpoints_per_tf,int) or
+            isinstance(archive_checkpoints_per_tf,bool) or
+            not 0<=archive_checkpoints_per_tf<=100):
+        raise ValueError("INVALID_ARCHIVE_CHECKPOINT_BUDGET")
     out=[]
     for symbol in symbols:
         stages=[]
@@ -78,6 +82,22 @@ def one_watch_cycle(
                     research["all_intervals_have_usable_wave_indicators"],
                 "requires_independent_book_and_chart_confirmation":True,
             }
+            if archive_checkpoints_per_tf:
+                from .wave_history_notebook import WaveArchiveNotebook
+                notebook=WaveArchiveNotebook(store)
+                summaries=[]
+                for tf in intervals:
+                    note=notebook.review(
+                        venue=venue,symbol=symbol,interval=tf,
+                        checkpoint_budget=archive_checkpoints_per_tf,
+                        stride_bars=120,window_bars=1400,
+                    )
+                    summaries.append({
+                        "interval":tf,
+                        "new_historical_checkpoints":note["new_checkpoints"],
+                        "research_status":note.get("study_status",note.get("status")),
+                    })
+                status["historical_wave_memory_incremental"]=summaries
         out.append(status)
     return {
         "mode":"FOREGROUND_BINANCE_PUBLIC_CLOSED_BAR_RESEARCH_WATCH",
@@ -101,6 +121,8 @@ def main()->None:
     p.add_argument("--pages-per-timeframe",type=int,default=50)
     p.add_argument("--poll-seconds",type=int,default=3600,
                    help=">=300; explicit foreground hourly update")
+    p.add_argument("--archive-checkpoints-per-tf",type=int,default=2,
+                   help="Causal historical archive snapshots per TF per live refresh")
     p.add_argument("--max-cycles",type=int,default=1,
                    help="1 = one update. 0 = run until Ctrl+C; no hidden cloud background task")
     a=p.parse_args()
@@ -113,7 +135,8 @@ def main()->None:
         while a.max_cycles==0 or done<a.max_cycles:
             summary=one_watch_cycle(
                 store,venue=a.venue,symbols=tuple(a.symbols),
-                intervals=intervals,max_pages=a.pages_per_timeframe)
+                intervals=intervals,max_pages=a.pages_per_timeframe,
+                archive_checkpoints_per_tf=a.archive_checkpoints_per_tf)
             done+=1
             print("WILLIAMS_AI_BINANCE_ALL_TF_WATCH_CYCLE",
                   json.dumps(summary,ensure_ascii=False,sort_keys=True),flush=True)
