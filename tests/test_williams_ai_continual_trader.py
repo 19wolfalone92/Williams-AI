@@ -27,6 +27,28 @@ def sample(i:int,symbol:str="ETHUSDT",*,bias:float=0)->Outcome:
                    (i%5)>2,HASH,wave,rule)
 
 class PrivateMarketLearningTests(unittest.TestCase):
+    def test_durable_global_10m_progress_cannot_double_count_repeat_batched_archive(self):
+        with TemporaryDirectory() as d:
+            journal=PrivateExperience(Path(d)/"archive.db")
+            eth=[sample(i,"ETHUSDT") for i in range(30)]
+            btc=[sample(i,"BTCUSDT") for i in range(20)]
+            until=sample(400).resolved_at
+            journal.append(eth,knowledge_as_of=until)
+            first=journal.cumulative_coverage()
+            self.assertEqual(first["durable_resolved_counterfactual_wm_examples"],30)
+            self.assertEqual(first["durable_unique_symbol_timeframe_decision_snapshots"],30)
+            self.assertEqual(first["crypto_assets_with_persisted_examples"],1)
+            journal.append(eth,knowledge_as_of=until)
+            self.assertEqual(first,journal.cumulative_coverage())
+            journal.append(btc,knowledge_as_of=until)
+            later=journal.cumulative_coverage()
+            self.assertEqual(later["durable_resolved_counterfactual_wm_examples"],50)
+            self.assertEqual(later["durable_unique_symbol_timeframe_decision_snapshots"],50)
+            self.assertEqual(later["crypto_assets_with_persisted_examples"],2)
+            self.assertFalse(later["ten_million_independent_gguf_chart_decisions_proven"])
+            self.assertEqual(later["fills_executed"],0)
+            self.assertFalse(later["execution_allowed"])
+
     def test_future_not_known_cannot_train_and_utc_offsets_normalized(self):
         with TemporaryDirectory() as d:
             db=PrivateExperience(Path(d)/"memory.sqlite3")
