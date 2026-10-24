@@ -97,6 +97,7 @@ def marathon(
         }
     observed=max(x.resolved_at for x in all_cases)
     written=ledger.append(all_cases,knowledge_as_of=observed)
+    accumulated=ledger.cumulative_coverage()
     points=_split_points(all_cases)
     model=None
     online=None
@@ -134,6 +135,12 @@ def marathon(
         "actual_gguf_book_trading_decisions_tested_in_this_run":0,
         "verified_historical_binance_exchange_fills":0,
         "private_persistent_learning":written,
+        "durable_cross_batch_knowledge_coverage":accumulated,
+        "ten_million_distinct_paper_market_episodes_reached":(
+            accumulated["durable_unique_symbol_timeframe_decision_snapshots"]>=goal),
+        "distinct_paper_market_episodes_remaining":max(
+            0,goal-accumulated["durable_unique_symbol_timeframe_decision_snapshots"]),
+        "not_ten_million_independent_gguf_inference":True,
         "learnt_numeric_policy":model,
         "prequential_research_skill":online,
         "gguf_weight_updating_performed":False,
