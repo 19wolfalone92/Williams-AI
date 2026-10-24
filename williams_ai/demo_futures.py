@@ -139,7 +139,7 @@ class DemoFutures:
 
     def __init__(
         self, client: DemoHttp, *, enabled: bool = False, acknowledgement: str = "",
-        max_notional: str = "150", max_risk: str = "3",
+        max_notional: str = "50", max_risk: str = "1",
         clock: Callable[[], float] = time.time,
     ):
         self._client = client
@@ -303,8 +303,44 @@ class DemoFutures:
                 }, signed=True
             )
             entered = True
-            if order_response.get("symbol") != proposal.symbol or order_response.get("status") != "FILLED":
-                raise DemoSafetyError("Демо-вход не подтверждён как FILLED; сверить вручную")
+            # Do not mistake an ACK/FILLED label for an authenticated
+            # *entire* position. Result must include exact filled quantity
+            # and durable exchange order ID, then fresh signed REST GET must
+            # independently confirm status/quantity and account position.
+            if (not isinstance(order_response, dict)
+                    or order_response.get("symbol") != proposal.symbol
+                    or order_response.get("status") != "FILLED"):
+                raise DemoSafetyError("DEMO_ENTRY_NOT_VERIFIED_FILLED")
+            try:
+                order_id = str(int(order_response["orderId"]))
+                actual_fill = _decimal(order_response["executedQty"])
+            except (KeyError,TypeError,ValueError,DemoSafetyError) as exc:
+                raise DemoSafetyError("DEMO_ENTRY_EXECUTION_DETAILS_UNVERIFIED") from exc
+            if int(order_id) <= 0 or actual_fill != _decimal(proposal.quantity):
+                raise DemoSafetyError("DEMO_ENTRY_FILL_QUANTITY_MISMATCH")
+            exchange_order = self._client.request(
+                "GET", "/fapi/v1/order",
+                {"symbol":proposal.symbol,"orderId":order_id}, signed=True)
+            if (not isinstance(exchange_order,dict)
+                    or exchange_order.get("symbol")!=proposal.symbol
+                    or str(exchange_order.get("orderId"))!=order_id
+                    or exchange_order.get("status")!="FILLED"
+                    or _decimal(exchange_order.get("executedQty"))
+                    !=_decimal(proposal.quantity)):
+                raise DemoSafetyError("DEMO_SIGNED_ORDER_RECONCILIATION_FAILED")
+            account_positions = self._client.request(
+                "GET", "/fapi/v3/positionRisk",
+                {"symbol":proposal.symbol}, signed=True)
+            expected_position = (_decimal(proposal.quantity)
+                                 if proposal.side=="BUY"
+                                 else -_decimal(proposal.quantity))
+            if (not isinstance(account_positions,list)
+                    or len(account_positions)!=1
+                    or account_positions[0].get("symbol")!=proposal.symbol
+                    or account_positions[0].get("positionSide")!="BOTH"
+                    or Decimal(str(account_positions[0].get("positionAmt")))
+                    !=expected_position):
+                raise DemoSafetyError("DEMO_ACCOUNT_POSITION_RECONCILIATION_FAILED")
             if not self._stop_confirmed(algo_id, proposal):
                 raise DemoSafetyError("После входа подтверждение защитного SL потеряно")
             return {
