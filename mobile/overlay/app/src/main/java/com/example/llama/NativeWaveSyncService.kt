@@ -84,12 +84,14 @@ class NativeWaveSyncService : Service() {
         } else startForeground(6221,notice("Проверяю Binance USD-M..."))
         worker=Thread({
             try {
-                NativeWaveDownloader(applicationContext).onePass(
-                    cancelled={stop.get() || Thread.currentThread().isInterrupted},
-                    onStatus={s->
-                        if(!stop.get())updateState(s)
-                    }
-                )
+                synchronized(NativeWaveConfig.marketSyncMutex) {
+                    if(!stop.get()) NativeWaveDownloader(applicationContext).onePass(
+                        cancelled={stop.get() || Thread.currentThread().isInterrupted},
+                        onStatus={s->
+                            if(!stop.get())updateState(s)
+                        }
+                    )
+                }
             } catch(_:InterruptedException) {
                 Thread.currentThread().interrupt()
             } catch(e:Exception) {
