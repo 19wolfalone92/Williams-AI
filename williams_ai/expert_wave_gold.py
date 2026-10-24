@@ -84,6 +84,8 @@ def evaluate_blind_wave_gold(
     if any(isinstance(v,bool) or not isinstance(v,int) or v<1
            for v in (min_agreed_cases,min_utc_days)):
         raise ValueError("INVALID_BENCHMARK_MINIMUM")
+    from .book_rules import registry
+    book_pages={x["id"]:x["pages"] for x in registry()["books"]}
     reviews=_read_rows(independent_reviews,10000)
     predictions=_read_rows(model_predictions,5000)
     groups=defaultdict(list)
@@ -101,6 +103,7 @@ def evaluate_blind_wave_gold(
                 or not isinstance(row["source_page"],int)
                 or isinstance(row["source_page"],bool)
                 or row["source_page"]<1
+                or row["source_page"]>book_pages[row["edition"]]
                 or not isinstance(row["wave_degree"],str)
                 or not 1<=len(row["wave_degree"])<=80
                 or not isinstance(row["justification"],str)
