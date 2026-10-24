@@ -93,8 +93,18 @@ def verify_original(book: str, pdf_path: str | Path) -> dict[str, Any]:
 
 
 def _chunks(text: str, length: int = 900) -> list[str]:
+    """Index ALL page text or refuse it: never silently drop chapter endings.
+
+    A previous 35,000-character page truncation could make page coverage
+    look complete even though the last words were not in the GGUF index.
+    Large malformed extractions fail closed with an explicit error.
+    """
+    if not isinstance(text,str) or len(text)>250_000:
+        raise ValueError("SOURCE_PAGE_TOO_LARGE_FOR_LOSSLESS_INDEX")
+    if not isinstance(length,int) or not 100<=length<=2000:
+        raise ValueError("INVALID_SOURCE_CHUNK_LENGTH")
     plain = re.sub(r"\s+", " ", text).strip()
-    return [plain[i:i + length] for i in range(0, min(len(plain), 35000), length)]
+    return [plain[i:i + length] for i in range(0,len(plain),length)]
 
 
 def index_pages(
