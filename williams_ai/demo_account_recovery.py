@@ -45,9 +45,10 @@ def inspect_demo_account_before_first_order(
             side_mode.get("dualSidePosition") is not False):
         raise DemoSafetyError("SIGNED_PREFLIGHT_ONE_WAY_REQUIRED")
     all_positions=client.request("GET","/fapi/v3/positionRisk",signed=True)
-    if (not isinstance(all_positions,list) or not 1<=len(all_positions)<=3000
-            or not any(isinstance(x,dict) and x.get("symbol")==PAIR
-                       for x in all_positions)):
+    # Official Binance positionRisk V3 returns ONLY symbols with non-zero
+    # positions or open orders. For a truly flat and unused DEMO account an
+    # authenticated [] is EXPECTED, not a data-integrity failure.
+    if not isinstance(all_positions,list) or len(all_positions)>3000:
         raise DemoSafetyError("SIGNED_PREFLIGHT_FULL_POSITION_LIST_UNTRUSTED")
     seen=set()
     for position in all_positions:
