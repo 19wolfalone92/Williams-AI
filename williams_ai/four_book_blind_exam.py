@@ -185,8 +185,23 @@ def four_book_blind_cases(*, seed: int=20261024) -> list[dict[str, Any]]:
     return tasks
 
 
-def grade_four_book_model(model: Any, *, seed: int=20261024)->dict[str,Any]:
-    tasks=four_book_blind_cases(seed=seed)
+def grade_four_book_model(model: Any, *, seed: int=20261024,
+                          per_edition: int=8)->dict[str,Any]:
+    if (isinstance(per_edition,bool) or not isinstance(per_edition,int)
+            or not 1<=per_edition<=8):
+        raise ValueError("INVALID_PER_EDITION_EXAM_SIZE")
+    all_tasks=four_book_blind_cases(seed=seed)
+    # Diagnostic-size exams remain balanced across books. The frozen full
+    # 8-per-edition variant has no sampling and no heldout-score selection.
+    tasks=[]
+    for ed in ("TC1","NTD","TC2","COURSE"):
+        cohort=[x for x in all_tasks if x["public"]["edition"]==ed]
+        selected=[cohort[i] for i in range(8) if (i*per_edition//8)!=((i+1)*per_edition//8)]
+        # Pick indices approximately evenly spaced, without consulting answers
+        # or outcomes. For a 4-book, 4-per-book pilot this takes 1,3,5,7.
+        tasks.extend(selected)
+    if len(tasks)!=4*per_edition:
+        raise RuntimeError("BALANCED_BOOK_CASE_SELECTION_FAILED")
     grades=[]
     for task in tasks:
         public=task["public"]
@@ -218,6 +233,8 @@ def grade_four_book_model(model: Any, *, seed: int=20261024)->dict[str,Any]:
     return {
         "mode":"FOUR_WILLIAMS_BOOKS_BLIND_LOCAL_GGUF_RULE_APPLICATION_EXAM",
         "protocol_sha256":manifest,"seed":seed,"total":len(tasks),
+        "per_edition":per_edition,
+        "full_32_case_exam_completed":per_edition==8,
         "correct":correct,"accuracy_all_including_abstentions":correct/len(tasks),
         "by_edition":scores,
         "majority_letter_baseline":baseline/len(tasks),
@@ -241,13 +258,15 @@ def main()->None:
     p.add_argument("--expected-sha256",required=True)
     p.add_argument("--ctx",type=int,default=8192)
     p.add_argument("--seed",type=int,default=20261024)
+    p.add_argument("--per-edition",type=int,choices=range(1,9),default=8)
     args=p.parse_args()
     from .real_gguf_acceptance import actual_gguf_sha256
     from .local_model import LocalWilliamsModel
     actual_gguf_sha256(args.model,args.expected_sha256)
     model=LocalWilliamsModel(args.model,n_ctx=args.ctx,gpu_layers=0,
                              learning_mode="auto")
-    print(json.dumps(grade_four_book_model(model,seed=args.seed),
+    print(json.dumps(grade_four_book_model(
+        model,seed=args.seed,per_edition=args.per_edition),
                      ensure_ascii=False,indent=2,sort_keys=True))
 
 
