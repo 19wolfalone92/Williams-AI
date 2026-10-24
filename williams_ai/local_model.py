@@ -350,6 +350,13 @@ class LocalWilliamsModel:
                                 v.get("past_positive_fraction"),
                             "past_mean_net_return":
                                 v.get("past_mean_net_return"),
+                            "past_paper_profit_factor":
+                                v.get("past_paper_profit_factor"),
+                            "past_payoff_break_even_win_rate":
+                                v.get("past_payoff_break_even_win_rate"),
+                            "distinct_utc_decision_dates_not_independent":
+                                v.get("distinct_utc_decision_dates_not_independent"),
+                            "past_returns_not_next_trade_expectancy":True,
                             "not_current_trade_probability":True,
                         }
                         for key,v in chart_analysis["past_experience"].get(
@@ -519,6 +526,9 @@ class LocalWilliamsModel:
             "терминальный фрактал, Squat с настоящим тик-объёмом, поворот "
             "Profitunity MACD 5/34/5. Это НЕ пять измерений NTD и НЕ "
             "автоматический вход, выход или стоп. "
+            "Максимум выигрышных сделок НЕ равен максимуму прибыли: сравни "
+            "средний выигрыш, средний убыток, издержки, просадку и размер выборки. "
+            "Данные paper опыта не подтверждают прибыль следующей сделки. "
             "Не симулируй человеческий страх/жадность; воспроизводи "
             "дисциплину: не мсти убыткам, не увеличивай риск без плана, "
             "не отменяй SL, при новых фактах пересматривай свою разметку. "
