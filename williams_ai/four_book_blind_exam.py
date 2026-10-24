@@ -259,12 +259,14 @@ def main()->None:
     p.add_argument("--ctx",type=int,default=8192)
     p.add_argument("--seed",type=int,default=20261024)
     p.add_argument("--per-edition",type=int,choices=range(1,9),default=8)
+    p.add_argument("--reasoning-budget",type=int,default=1024)
     args=p.parse_args()
     from .real_gguf_acceptance import actual_gguf_sha256
     from .local_model import LocalWilliamsModel
     actual_gguf_sha256(args.model,args.expected_sha256)
     model=LocalWilliamsModel(args.model,n_ctx=args.ctx,gpu_layers=0,
-                             learning_mode="auto")
+                             learning_mode="auto",
+                             reasoning_budget=args.reasoning_budget)
     print(json.dumps(grade_four_book_model(
         model,seed=args.seed,per_edition=args.per_edition),
                      ensure_ascii=False,indent=2,sort_keys=True))
