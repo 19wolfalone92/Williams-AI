@@ -152,7 +152,9 @@ class LocalWilliamsModel:
     def propose_chart_reasoning(
         self, chart_analysis: dict[str, Any], *, edition: str = "TC2",
         primary_pages: list[dict[str, Any]] | None = None,
-        prior_lessons: list[dict[str, str]] | None = None
+        prior_lessons: list[dict[str, str]] | None = None,
+        study_lessons: list[dict[str, str]] | None = None,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
         """Local model's RESEARCH interpretation, never an executable order.
 
@@ -438,6 +440,29 @@ class LocalWilliamsModel:
                         or not 10<=len(explanation)<=450):
                     raise ValueError("Private lesson is not from the selected edition")
                 corrections.append({"source":source,"excerpt":explanation})
+        # Studying privately indexed books is already supported, but those
+        # saved summaries must actually reach a LATER reasoning prompt.
+        # These are generated and UNVERIFIED notes, never original book rules.
+        studied=[]
+        if study_lessons is not None:
+            if (not isinstance(study_lessons,list) or len(study_lessons)>2
+                    or not isinstance(model_id,str)
+                    or not 1<=len(model_id)<=120):
+                raise ValueError("Book recall requires exact model identity and <=2 notes")
+            for note in study_lessons:
+                if not isinstance(note,dict):
+                    raise ValueError("Malformed privately learned book note")
+                source=note.get("source")
+                excerpt=note.get("excerpt")
+                if (not isinstance(source,str)
+                        or not source.startswith(f"STUDY:{edition}: PDF ")
+                        or note.get("status")!="MODEL_SPECIFIC_SOURCE_DERIVED_UNVERIFIED"
+                        or note.get("model_id")!=model_id
+                        or not isinstance(excerpt,str)
+                        or not excerpt.startswith("Непроверенный учебный вывод: ")
+                        or not 25<=len(excerpt)<=490):
+                    raise ValueError("Mixed-model or unauthenticated source summary")
+                studied.append({"source":source,"hypothesis_not_a_book_rule":excerpt[:350]})
         # An actual 1.7B CPU model failed on five of eight historical
         # prompts. Some original chart contexts were >16k chars and used
         # the remaining generation budget. Compact OPTIONAL observations
@@ -447,6 +472,7 @@ class LocalWilliamsModel:
         payload={
             "primary_book_pages":pages,
             "previous_model_mistake_corrections":corrections,
+            "same_model_unverified_book_study_notes":studied,
             "source_cards":cards,"edition":edition,"chart":observation,
         }
         def encode()->str:
@@ -519,6 +545,8 @@ class LocalWilliamsModel:
         system=SYSTEM_INSTRUCTIONS+(
             " Ты сдаёшь проверку знания книг и применения алгоритмов, НЕ торгуешь. "
             "Каждое утверждение относится к переданному изданию. "
+            "Собственные конспекты из памяти — неподтверждённые гипотезы, "
+            "не используй их вместо конкретных проверенных страниц и правил. "
             "Не утверждай исполнение заявки или SL по OHLC. "
             "Не превращай непроверенные волны в подтверждённые. "
             "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
