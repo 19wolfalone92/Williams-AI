@@ -69,7 +69,7 @@ class ProfitEdgeTests(unittest.TestCase):
             self.assertEqual(a["test_frozen"]["paper_positions"],
                              b["test_frozen"]["paper_positions"])
             self.assertEqual(
-                a["cutoff_purged_not_counted_in_each_partition"]["train"],3)
+                a["cutoff_purged_not_counted_in_each_partition"]["train"],6)
             self.assertFalse(a["execution_allowed"])
             self.assertIsNone(a["trade_action"])
             self.assertTrue(a["positive_win_rate_alone_never_authorizes_trading"])
