@@ -99,3 +99,39 @@ def write_universe_snapshot(public: Universe, path: Path) -> Path:
         f.flush()
         os.fsync(f.fileno())
     return dest
+
+
+def read_universe_snapshot(path: Path, *, venue: str) -> Universe:
+    """Never let model text or an arbitrary JSON file add trading symbols.
+
+    Only earlier immutable PUBLIC exchangeInfo universe snapshot form is
+    accepted. Validation catches duplicate symbols and venue switching.
+    """
+    dest=Path(path).expanduser()
+    if dest.is_symlink() or not dest.is_file():
+        raise ValueError("Immutable market universe snapshot file required")
+    data=json.loads(dest.read_text(encoding="utf8"))
+    if not isinstance(data,dict) or data.get("mode")!=(
+            "PUBLIC_BINANCE_USDM_PERPETUAL_UNIVERSE_SNAPSHOT") or (
+            data.get("venue")!=venue or venue not in VENUES):
+        raise HistoryUnavailable("UNTRUSTED_OR_WRONG_VENUE_UNIVERSE")
+    names=data.get("eligible_symbols")
+    if (not isinstance(names,list) or not 1<=len(names)<=10_000
+            or len(names)!=data.get("eligible_symbols_count")
+            or names!=sorted(set(names))):
+        raise HistoryUnavailable("UNVERIFIED_OR_DUPLICATED_UNIVERSE")
+    for name in names:
+        if (not isinstance(name,str) or not name.endswith("USDT")
+                or not 5<=len(name)<=24 or not all(
+                    c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" for c in name)):
+            raise HistoryUnavailable("UNVERIFIED_FUTURES_SYMBOL")
+    hash_value=data.get("source_sha256")
+    if (not isinstance(hash_value,str) or len(hash_value)!=64
+            or any(ch not in "0123456789abcdef" for ch in hash_value)):
+        raise HistoryUnavailable("INVALID_PUBLIC_SNAPSHOT_FINGERPRINT")
+    ms=data.get("observed_server_ms")
+    if not isinstance(ms,int) or isinstance(ms,bool) or ms<=0:
+        raise HistoryUnavailable("INVALID_PUBLIC_SNAPSHOT_CLOCK")
+    if data.get("historical_survivorship_bias_ruled_out") is not False:
+        raise HistoryUnavailable("UNSUPPORTED_NO_SURVIVORSHIP_BIAS_ASSERTION")
+    return Universe(venue,ms,tuple(names),hash_value)
