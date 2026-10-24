@@ -96,6 +96,17 @@ def main()->None:
     if first!="DEMO_ACCOUNT_ONLY":
         raise DemoSafetyError("DEMO account was not explicitly approved")
     client=DemoHttp(key,secret)
+    # Safety-critical: signed account-wide flat + no pending ETH orders
+    # is checked INSIDE the supervised order flow, not merely in a
+    # separate optional readiness command. Unknown state blocks any POST.
+    signed_preflight=inspect_demo_account_before_first_order(client,journal)
+    print(json.dumps({
+        "signed_demo_account_readiness":signed_preflight["status"],
+        "existing_open_pair_orders":False,
+        "all_futures_positions_flat":True,
+        "protective_stop_not_yet_proven":True,
+        "orders_sent":False,
+    },ensure_ascii=False,indent=2))
     engine=DemoFutures(client,enabled=True,
                        acknowledgement=first,max_notional="50",max_risk="1")
     # The exchange-side preconditions and reference mark are read again.
