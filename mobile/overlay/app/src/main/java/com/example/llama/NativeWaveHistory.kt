@@ -169,8 +169,10 @@ internal object NativeWaveMarketApi {
             val op=v.getLong(0); val end=v.getLong(6)
             check(op>=start && op==NativeWaveConfig.floorOpen(op,tf) &&
                 end==NativeWaveConfig.nextOpen(op,tf)-1L) { "Нарушен календарь Binance" }
-            if (prior!=null) check(op==NativeWaveConfig.nextOpen(prior,tf)) {
-                "Пропущена или дублирована свеча"
+            prior?.let {older->
+                check(op==NativeWaveConfig.nextOpen(older,tf)) {
+                    "Пропущена или дублирована свеча"
+                }
             }
             prior=op
             if(end>=serverMs-NativeWaveConfig.FINALITY_MS) break
@@ -261,8 +263,10 @@ internal class NativeWaveHistoryDb(ctx:Context):SQLiteOpenHelper(
                 if(found!=null) {
                     check(found==bar.fingerprint()) { "Изменена ранее закрытая свеча Binance" }
                 } else {
-                    if(previous!=null) check(bar.openTime==NativeWaveConfig.nextOpen(previous,tf)) {
-                        "Обнаружен пропуск исторических свечей"
+                    previous?.let { older ->
+                        check(bar.openTime==NativeWaveConfig.nextOpen(older,tf)) {
+                            "Обнаружен пропуск исторических свечей"
+                        }
                     }
                     db.execSQL(
                         "INSERT INTO wave_candles VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -340,7 +344,10 @@ internal class NativeWaveDownloader(private val ctx:Context) {
                 if(cancelled() || System.currentTimeMillis()>=deadline) break
                 val tick=try { NativeWaveMarketApi.symbolTick(symbol) } catch(e:Exception) {
                     errors++
-                    onStatus("${symbol}: контракт/доступ недоступен: ${e.javaClass.simpleName}")
+                    onStatus("${symbol}: контракт/доступ недоступен: ${e.message?.take(65)}")
+                    if(e.message?.contains("HTTP_451")==true ||
+                       e.message?.contains("HTTP_429")==true ||
+                       e.message?.contains("время")==true) return
                     continue
                 }
                 for(tf in NativeWaveConfig.intervals.keys) {
