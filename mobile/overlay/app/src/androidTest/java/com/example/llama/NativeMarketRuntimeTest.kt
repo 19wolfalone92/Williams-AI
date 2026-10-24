@@ -59,7 +59,16 @@ class NativeMarketRuntimeTest {
             db.savePage("BTCUSDT","1h","0.01",testCandle(2).closeTime+5000,(0..2).map(::testCandle))
             try {
                 db.savePage("BTCUSDT","1h","0.01",testCandle(3).closeTime+5000,
-                    listOf(testCandle(3),testCandle(1).copy(high="103")))
+                    listOf(testCandle(3),testCandle(1).let { prior ->
+                        // Android's minified production APK may remove
+                        // Kotlin data-class copy$default; use its public
+                        // constructor in the separately compiled test APK.
+                        NativeCandle(
+                            prior.openTime,prior.closeTime,
+                            prior.open,"103",prior.low,prior.close,
+                            prior.baseVolume,prior.quoteVolume,prior.trades,
+                            prior.takerBase,prior.takerQuote)
+                    }))
                 fail("Changed closed history accepted")
             } catch (_:IllegalStateException) { }
             assertEquals(3,db.cachedCount("BTCUSDT","1h"))
