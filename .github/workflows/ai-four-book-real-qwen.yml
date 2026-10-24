@@ -1,0 +1,75 @@
+name: Williams AI REAL Qwen3 verified all-four-books diagnostic
+
+on:
+  push:
+    branches:
+      - fix/ai-blind-wave-review-candle-integrity-20261024
+    paths:
+      - '.github/workflows/ai-four-book-real-qwen.yml'
+      - 'williams_ai/four_book_blind_exam.py'
+      - 'williams_ai/four_book_curriculum.py'
+      - 'williams_ai/tc2_trade_lifecycle_exam.py'
+      - 'williams_ai/local_model.py'
+      - 'tests/test_williams_ai_four_book_mastery.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: four-book-qwen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-source-scoped-four-books:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HOME: /tmp/williams_public_4_books_qwen
+      GGUF_FILE: Qwen3-1.7B-Q4_K_M.gguf
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - name: Checkout isolated Williams AI (NO original bot)
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source edition and no-execution regression contracts
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Install LOCAL CPU llama.cpp, NOT model training
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download real PUBLIC pinned Qwen3 1.7B Q4_K_M GGUF
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          downloaded=Path(hf_hub_download(
+              repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename=os.environ['GGUF_FILE'],
+              local_dir='/tmp/williams_ai_4_book_model'))
+          print('VERIFIED_PUBLIC_1P7B_MODEL',
+                actual_gguf_sha256(downloaded,os.environ['GGUF_SHA256']))
+          PY
+      - name: Actual GGUF reasoning on 16 held-key questions, four books evenly
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m williams_ai.four_book_blind_exam \
+            --model "/tmp/williams_ai_4_book_model/${GGUF_FILE}" \
+            --expected-sha256 "${GGUF_SHA256}" \
+            --per-edition 4 --ctx 8192 --reasoning-budget 1024 \
+            | tee /tmp/real_qwen_four_books_report.json
+      - name: Retain only public diagnostic result, no PDFs or GGUF or secrets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-public-qwen1p7b-four-book-skill-exam
+          path: /tmp/real_qwen_four_books_report.json
+          retention-days: 7
+          if-no-files-found: ignore
