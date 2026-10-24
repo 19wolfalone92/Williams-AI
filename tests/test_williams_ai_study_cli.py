@@ -89,7 +89,7 @@ class FourBookStudyCLITests(unittest.TestCase):
         self.assertFalse(a["model_has_reviewed_all_pdf_page_text"])
         unscoped=study_report(self.books,self.study)
         t=next(x for x in unscoped["books"] if x["edition"]=="TC2")
-        self.assertIsNone(t["studied_chunks"])
+        self.assertEqual(t["studied_chunks"],1)  # best single student, not 2 combined
         self.assertEqual(t["per_model_progress"]["model-alpha"]["studied_chunks"],1)
         self.assertEqual(t["per_model_progress"]["model-beta"]["studied_chunks"],1)
         self.assertTrue(unscoped["unscoped_progress_not_summed_across_models"])
