@@ -2,7 +2,7 @@ name: Williams AI offline Android APK
 
 on:
   push:
-    branches: [feature/read-only-ai-analyst, feature/web-search-demo-futures, feature/book-grounded-chart-reader, feature/android-native-binance-waves-20261024, feature/continual-ai-trader-learning-20261024]
+    branches: [feature/read-only-ai-analyst, feature/web-search-demo-futures, feature/book-grounded-chart-reader, feature/android-native-binance-waves-20261024, feature/continual-ai-trader-learning-20261024, fix/ai-blind-wave-review-candle-integrity-20261024]
     paths:
       - "mobile/**"
       - ".github/workflows/ai-android-apk.yml"
