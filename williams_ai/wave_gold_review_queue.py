@@ -16,7 +16,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .prospective_qualification import _fingerprint
+from .prospective_qualification import _fingerprint, _utc
+from .chart_reader import validate_closed_bars
 
 
 def prepare_wave_review_tasks(cohort:dict[str,Any])->dict[str,Any]:
@@ -55,12 +56,23 @@ def prepare_wave_review_tasks(cohort:dict[str,Any])->dict[str,Any]:
                 or trial.get("symbol")!=seal.get("symbol")
                 or not isinstance(seal.get("as_of"),str)
                 or seal.get("as_of")!=src.get("as_of")
-                or bars[-1].get("close_time")!=src.get("as_of")
-                or seal.get("history_sha256")!=_fingerprint(bars)
-                or any(b.get("closed") is not True
-                       or b.get("close_time")>src["as_of"]
-                       for b in bars)):
+                or seal.get("history_sha256")!=_fingerprint(bars)):
             raise ValueError("UNSEALED_FUTURE_OR_INCONSISTENT_CHART")
+        # A hash only certifies unchanged bytes, not that the bytes describe
+        # legal, contiguous, time-aligned candles. Lexical ISO comparisons
+        # can miss future candles disguised by non-UTC timezone offsets.
+        try:
+            parsed,gaps=validate_closed_bars(bars,"H1",src["as_of"])
+            cutoff=_utc(src["as_of"])
+            contiguous=all(
+                (parsed[k].at-parsed[k-1].at).total_seconds()==3600
+                for k in range(1,len(parsed))
+            )
+            if (gaps or not contiguous or not parsed
+                    or parsed[-1].at!=cutoff):
+                raise ValueError("INVALID_CLOSED_H1_PREFIX")
+        except (ValueError,KeyError,TypeError,OverflowError) as exc:
+            raise ValueError("UNSEALED_FUTURE_OR_INCONSISTENT_CHART") from exc
         seen.add(symbol)
         edition,page=pages[i%len(pages)]
         case_id=f"{symbol}-H1-{seal['history_sha256'][:20]}"
