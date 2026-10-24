@@ -77,8 +77,21 @@ def signal_conditioned_outcomes(
     if gaps:
         raise ValueError("GAPPED_HISTORY_BLOCKS_TRADE_EXPERIENCES")
     ind = indicators(bars)
-    source_hash = hashlib.sha256(
-        json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    # A growing live market archive must NOT invalidate past already
+    # closed/settled research records. Prefix SHA-256 at each resolution
+    # excludes any bars that are added later after an earlier outcome.
+    config = json.dumps({
+        "horizon":horizon,"tick_size":tick_size,"fee_bps":fee_bps,
+        "slippage_bps":slippage_bps,"assumption":"NEXT_BAR_TRIGGER_STOP_FIRST",
+    },sort_keys=True,separators=(",", ":"))
+    chain = hashlib.sha256(config.encode("utf8"))
+    prefix_hashes = []
+    for row in rows:
+        chain.update(json.dumps(row,sort_keys=True,
+                                separators=(",", ":")).encode("utf8"))
+        chain.update(b"\\n")
+        prefix_hashes.append(chain.hexdigest())
+    source_hash = prefix_hashes[-1]
     result: list[Outcome] = []
     fired: dict[str, int] = {"WM1":0,"WM2":0,"WM3":0}
     missed = 0
@@ -137,7 +150,7 @@ def signal_conditioned_outcomes(
                 outcome = Outcome(
                     symbol, interval, side,
                     bars[i].at.isoformat(), bars[end_idx].at.isoformat(),
-                    feat, float(net), stopped, source_hash,
+                    feat, float(net), stopped, prefix_hashes[end_idx],
                     setup=setup, rule_id=sig["source_rule"])
                 result.append(outcome)
                 fired[setup] += 1
