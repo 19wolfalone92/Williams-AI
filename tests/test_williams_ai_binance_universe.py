@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import json
 import unittest
 
-from williams_ai.binance_universe import discover_universe,write_universe_snapshot
+from williams_ai.binance_universe import discover_universe,write_universe_snapshot,read_universe_snapshot
 from williams_ai.binance_wave_history import HistoryUnavailable
 
 NOW=1_800_000_000_000
@@ -37,6 +37,16 @@ class UniverseProofTests(unittest.TestCase):
             self.assertEqual(json.loads(file.read_text())["eligible_symbols_count"],3)
             with self.assertRaises(FileExistsError):
                 write_universe_snapshot(result,file)
+            reopened=read_universe_snapshot(file,venue="PUBLIC_USDM")
+            self.assertEqual(reopened.instruments,result.instruments)
+            with self.assertRaises(HistoryUnavailable):
+                read_universe_snapshot(file,venue="DEMO_USDM")
+            invalid=json.loads(file.read_text())
+            invalid["eligible_symbols"]=["SOLUSDT","BTCUSDT"]
+            other=Path(d)/"fake.json"
+            other.write_text(json.dumps(invalid))
+            with self.assertRaises(HistoryUnavailable):
+                read_universe_snapshot(other,venue="PUBLIC_USDM")
 
     def test_mismatched_clock_duplicate_symbol_and_http451_rejected(self):
         with self.assertRaisesRegex(HistoryUnavailable,"CLOCK"):
