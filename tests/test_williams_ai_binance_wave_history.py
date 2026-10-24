@@ -78,15 +78,15 @@ class WaveHistoryTests(unittest.TestCase):
     def test_rejects_unfinished_invalid_prices_and_holes(self):
         hour=floor_open_ms(NOW,"1h")
         self.assertIsNone(parse_closed_candle(_raw(hour,"1h"),"1h",server_ms=NOW))
-        p=_raw(hour-3600000,"1h")
+        p=_raw(hour-2*3600000,"1h")
         p[2]="89"
         with self.assertRaises(HistoryUnavailable):
             parse_closed_candle(p,"1h",server_ms=NOW)
-        p=_raw(hour-3600000,"1h")
+        p=_raw(hour-2*3600000,"1h")
         p[9]="50"
         with self.assertRaisesRegex(HistoryUnavailable,"TAKER_VOLUME"):
             parse_closed_candle(p,"1h",server_ms=NOW)
-        p=_raw(hour-3600000,"1h")
+        p=_raw(hour-2*3600000,"1h")
         p[6]-=1
         with self.assertRaisesRegex(HistoryUnavailable,"BOUNDARIES"):
             parse_closed_candle(p,"1h",server_ms=NOW)
