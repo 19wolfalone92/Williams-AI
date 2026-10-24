@@ -25,6 +25,11 @@ class FakeVenue:
         self.open_orders = []
         self.open_algo_orders = []
         self.v3_empty_when_flat = False
+        self.stop_cancels_after_entry = False
+        self.emergency_order_id = 43
+        self.last_close_qty = None
+        self.last_close_id = None
+        self.close_recheck_is_forged = False
 
     def __call__(self, method, path, body, headers):
         self.calls.append((method, path, parse_qs(body), headers))
@@ -63,7 +68,10 @@ class FakeVenue:
                 "symbol": "ETHUSDT", "side": "SELL",
                 "positionSide":"BOTH","workingType":"MARK_PRICE",
                 "orderType": "STOP_MARKET", "closePosition": True,
-                "triggerPrice": "95", "algoStatus": "NEW" if self.stop_ok else "CANCELED"
+                "triggerPrice": "95", "algoStatus": (
+                    "CANCELED" if not self.stop_ok or
+                    (self.stop_cancels_after_entry and self.position_qty!="0")
+                    else "NEW")
             }
         if method == "POST" and path == "/fapi/v1/order":
             self.market_submissions += 1
@@ -73,7 +81,13 @@ class FakeVenue:
             qty=data.get("quantity",["0"])[0]
             self.entry_client_id=data.get("newClientOrderId",[None])[0]
             self.last_order_qty=qty
-            if data.get("reduceOnly")!=["true"]:
+            if data.get("reduceOnly")==["true"]:
+                self.last_close_qty=qty
+                self.last_close_id=data.get("newClientOrderId",[None])[0]
+                self.position_qty="0"
+                return {"symbol":"ETHUSDT","orderId":self.emergency_order_id,
+                        "status":"FILLED","executedQty":qty}
+            else:
                 self.position_qty=(
                     qty if data.get("side")==["BUY"] else "-"+qty)
             if self.fake_partial_fill:
@@ -82,6 +96,13 @@ class FakeVenue:
             return {"symbol": "ETHUSDT", "orderId": 42, "status": "FILLED",
                     "executedQty":qty}
         if method=="GET" and path=="/fapi/v1/order":
+            if parse_qs(body).get("orderId")==[str(self.emergency_order_id)]:
+                return {"symbol":"ETHUSDT","orderId":self.emergency_order_id,
+                        "clientOrderId":(
+                            "FORGED_CLOSE" if self.close_recheck_is_forged
+                            else self.last_close_id),
+                        "side":"SELL","positionSide":"BOTH",
+                        "status":"FILLED","executedQty":self.last_close_qty}
             if self.signed_order_reconciliation_fails:
                 return {"symbol":"ETHUSDT","orderId":42,
                         "status":"NEW","executedQty":"0"}
@@ -205,6 +226,43 @@ class DemoGatewayTests(unittest.TestCase):
         self.assertGreaterEqual(self.venue.market_submissions,1)
         with self.assertRaises(DemoSafetyError):
             self.engine.execute(proposal.ticket,confirmation="PLACE_DEMO_ORDER")
+
+    def test_post_entry_stop_loss_disappears_closes_only_verified_own_position(self):
+        self.venue.stop_cancels_after_entry=True
+        p=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        writes=[(method,path,data) for method,path,data,*_ in self.venue.calls
+                if method in ("POST","DELETE")]
+        market=[(method,path,data) for method,path,data in writes
+                if path=="/fapi/v1/order"]
+        self.assertEqual(len(market),2)
+        self.assertEqual(market[-1][2].get("reduceOnly"),["true"])
+        self.assertEqual(market[-1][2].get("side"),["SELL"])
+        self.assertEqual(self.venue.position_qty,"0")
+        self.assertFalse(any(method=="DELETE" for method,path,*_ in writes))
+        with self.assertRaises(DemoSafetyError):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+
+    def test_unknown_signed_entry_identity_never_triggers_blind_close(self):
+        self.venue.forge_entry_id=True
+        p=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        posts=[row for row in self.venue.calls
+               if row[0]=="POST" and row[1]=="/fapi/v1/order"]
+        self.assertEqual(len(posts),1)
+        self.assertIsNone(self.venue.last_close_id)
+
+    def test_lost_position_ack_does_not_guess_emergency_close_quantity(self):
+        self.venue.position_reconciliation_fails=True
+        p=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(p.ticket,confirmation="PLACE_DEMO_ORDER")
+        posts=[row for row in self.venue.calls
+               if row[0]=="POST" and row[1]=="/fapi/v1/order"]
+        self.assertEqual(len(posts),1)
+        self.assertIsNone(self.venue.last_close_id)
 
     def test_no_order_when_risk_exceeded_or_stop_wrong(self):
         with self.assertRaisesRegex(DemoSafetyError, "Стоп LONG"):
