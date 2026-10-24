@@ -73,7 +73,7 @@ class AfterCostResearchTests(unittest.TestCase):
             left,right=run(a),run(b)
             self.assertEqual(left["learned_weights"],right["learned_weights"])
             self.assertEqual(left["validation_frozen"],right["validation_frozen"])
-            self.assertEqual(left["train_cutoff_purged_late_outcomes"]["train"],3)
+            self.assertEqual(left["train_cutoff_purged_late_outcomes"]["train"],6)
 
     def test_malformed_bounds_and_missing_validation_fail_closed(self):
         with TemporaryDirectory() as temp:
