@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from .binance_wave_history import DurableWaveHistory, INTERVAL_MS, VENUES
-from .binance_universe import discover_universe, write_universe_snapshot
+from .binance_universe import discover_universe, write_universe_snapshot, read_universe_snapshot
 from .causal_paper_lab import frozen_markets
 from .continual_trader import PrivateExperience, learn_from_private_experience
 from .williams_signal_experience import signal_conditioned_outcomes
@@ -140,6 +140,10 @@ def main() -> None:
     p.add_argument("--history-db",type=Path)
     p.add_argument("--venue",choices=tuple(VENUES),default="PUBLIC_USDM")
     p.add_argument("--symbols",nargs="+")
+    p.add_argument("--from-universe-snapshot",type=Path,
+                   help="Process all exchange-verified USDT perpetual pairs in bounded batches")
+    p.add_argument("--universe-batch-offset",type=int,default=0)
+    p.add_argument("--universe-batch-size",type=int,default=25)
     p.add_argument("--intervals",nargs="+",default=["1h"])
     p.add_argument("--window",type=int,default=30000)
     p.add_argument("--horizon",type=int,default=12)
@@ -158,6 +162,11 @@ def main() -> None:
         p.error("Learning requires a local private journal")
     if args.frozen_fixture == bool(args.history_db):
         p.error("Provide either --frozen-fixture or --history-db, not both/neither")
+    if (args.from_universe_snapshot and (args.frozen_fixture or args.symbols)):
+        p.error("--from-universe-snapshot requires a historical DB and no explicit symbols")
+    if (args.universe_batch_offset<0 or
+            not 1<=args.universe_batch_size<=100):
+        p.error("Universe batches require a nonnegative offset and 1..100 symbols")
     if not 250<=args.window<=50000 or not 1<=args.horizon<=48:
         p.error("Invalid research history window or fixed valuation horizon")
     if args.frozen_fixture:
@@ -171,8 +180,17 @@ def main() -> None:
         dataset="PREVIOUSLY_REVIEWED_15PAIR_REAL_USDM_H1_NOT_BLIND"
     else:
         assert args.history_db is not None
+        if args.from_universe_snapshot:
+            snapshot=read_universe_snapshot(
+                args.from_universe_snapshot,venue=args.venue)
+            chosen=list(snapshot.instruments)[
+                args.universe_batch_offset:
+                args.universe_batch_offset+args.universe_batch_size]
+            if not chosen:
+                p.error("Selected all-token universe batch is empty")
+            args.symbols=chosen
         if not args.symbols:
-            p.error("--symbols must explicitly match your recorded source snapshot")
+            p.error("--symbols OR --from-universe-snapshot must specify source")
         if not args.intervals or any(t not in SUPPORTED for t in args.intervals):
             p.error("Only currently book-signal-tested native 15m/1h/4h/1d")
         store=DurableWaveHistory(args.history_db)
@@ -191,6 +209,17 @@ def main() -> None:
                     horizon=args.horizon,goal=args.goal)
     result["dataset_type"]=dataset
     result["historical_futures_venue"]=args.venue
+    result["universe_is_live_listing_snapshot_not_delisted_history"]=(
+        bool(args.from_universe_snapshot))
+    result["universe_batch_offset"]=args.universe_batch_offset
+    result["universe_batch_size_requested"]=args.universe_batch_size
+    result["all_available_binance_tokens_were_tested"]=False
+    if args.from_universe_snapshot:
+        result["universe_total_current_perpetual_symbols"]=len(snapshot.instruments)
+        result["universe_batch_symbols"]=args.symbols
+        result["universe_remaining_after_batch"]=max(
+            0,len(snapshot.instruments)-
+            (args.universe_batch_offset+len(args.symbols)))
     print(json.dumps(result,ensure_ascii=False,indent=2,allow_nan=False))
 
 
