@@ -358,8 +358,13 @@ def main()->None:
             state={s["interval"]:s.get("sync_state","NOT_CHECKED_THIS_RUN")
                    for s in statuses}
             report["per_tf_sync_state"]=state
-            report["full_historical_backfill_completed_for_every_tf"]=all(
+            report["up_to_latest_snapshot_caught_up_for_every_tf"]=all(
                 state[tf]=="AT_LATEST_CLOSED_BAR" for tf in intervals)
+            # Catching up to the latest candle is NOT a proof of the
+            # oldest exchange listing candle, nor of every available
+            # archived price source. Never claim full historical coverage.
+            report["full_historical_backfill_completed_for_every_tf"]=False
+            report["independent_listing_origin_completeness_verified"]=False
             reports.append(report)
             print("WILLIAMS_AI_ALL_TF_WAVE_STUDY",
                   json.dumps(report,sort_keys=True,ensure_ascii=False),flush=True)
