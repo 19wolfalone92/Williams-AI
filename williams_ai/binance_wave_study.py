@@ -76,12 +76,25 @@ def analyze_all_cached(
     if not intervals or len(set(intervals))!=len(intervals) or (
             any(tf not in INTERVAL_MS for tf in intervals)):
         raise ValueError("UNKNOWN_OR_DUPLICATE_BINANCE_TIMEFRAME")
+    # Choose ONE immutable historical cut for the entire visual/AI view.
+    # Native M1 may have newer closed bars than H1; using those directly
+    # would leak minutes from H1's future into its wave interpretation.
+    metadata={tf:store.status(venue,symbol,tf) for tf in intervals}
+    if "1h" in metadata and metadata["1h"]["last_closed_ms"] is not None:
+        common_as_of_ms=metadata["1h"]["last_closed_ms"]
+        source_of_common_clock="LATEST_CACHED_H1_CLOSE"
+    else:
+        closes=[m["last_closed_ms"] for m in metadata.values()
+                if m["last_closed_ms"] is not None]
+        common_as_of_ms=max(closes) if closes else None
+        source_of_common_clock="LATEST_SELECTED_NATIVE_TF_CLOSE_OR_EMPTY"
     matrix={}
     views={}
     for native in intervals:
         analysis_tf=ANALYSIS_TFS[native]
-        rows=store.recent(venue,symbol,native,limit=window)
-        meta=store.status(venue,symbol,native)
+        rows=store.recent(venue,symbol,native,limit=window,
+                          as_of_ms=common_as_of_ms)
+        meta=metadata[native]
         if len(rows)<45:
             matrix[native]={
                 "study_status":"INSUFFICIENT_HISTORY",
@@ -161,6 +174,9 @@ def analyze_all_cached(
         "venue":venue,
         "symbol":symbol,
         "coverage_native_intervals":len(intervals),
+        "shared_historical_as_of_ms":common_as_of_ms,
+        "shared_historical_clock_source":source_of_common_clock,
+        "source_tf_closes_after_shared_cut_are_not_visible_to_model":True,
         "observed_intervals":sum(x.get("study_status")=="OBSERVED_CLOSED_BARS"
                                   for x in matrix.values()),
         "all_intervals_have_usable_wave_indicators":all(
