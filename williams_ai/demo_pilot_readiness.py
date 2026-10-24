@@ -225,7 +225,8 @@ class OneCampaignReservation:
 
     Atomic SQLite BEGIN IMMEDIATE and UNIQUE symbol prevent duplicate pilots
     from two processes, including after crash. SQLite or disk failure is fatal.
-    No API key, secret or account identifier is persisted. Non-secret\n    deterministic client order IDs ARE persisted for exchange reconciliation.
+    No API key, secret or account identifier is persisted. Non-secret
+    deterministic client order IDs ARE persisted for exchange reconciliation.
     """
     def __init__(self,path:str|Path):
         self.path=Path(path).expanduser()
@@ -255,15 +256,26 @@ class OneCampaignReservation:
                 reserved_at_ms INTEGER NOT NULL,
                 state TEXT NOT NULL CHECK(state = 'UNKNOWN_UNTIL_EXCHANGE_RECONCILED')
             )""")
-            conn.execute("""CREATE TABLE IF NOT EXISTS pilot_client_ids(\n                symbol TEXT PRIMARY KEY,\n                expected_stop_client_algo_id TEXT NOT NULL,\n                expected_entry_client_order_id TEXT NOT NULL,\n                FOREIGN KEY (symbol) REFERENCES pilot_once(symbol)\n            )""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS pilot_client_ids(
+                symbol TEXT PRIMARY KEY,
+                expected_stop_client_algo_id TEXT NOT NULL,
+                expected_entry_client_order_id TEXT NOT NULL,
+                expected_stop_price TEXT NOT NULL,
+                FOREIGN KEY (symbol) REFERENCES pilot_once(symbol)
+            )""")
 
-    def reserve_once(self,proposal:dict[str,Any],*,now_ms:int|None=None,\n                     ticket:str|None=None)->None:
+    def reserve_once(self,proposal:dict[str,Any],*,now_ms:int|None=None,
+                     ticket:str|None=None)->None:
         if (not isinstance(proposal,dict) or proposal.get("symbol")!=PAIR
             or proposal.get("mode")!="SINGLE_PAIR_DEMO_PREVIEW_ONLY"
             or proposal.get("execution_allowed") is not False
             or proposal.get("trade_action","INVALID") is not None):
             raise DemoSafetyError("UNTRUSTED_MANUAL_PILOT_PROPOSAL")
-        if ticket is not None and (not isinstance(ticket,str) or\n                re.fullmatch(r"[0-9a-f]{32}",ticket) is None):\n            raise DemoSafetyError("INVALID_DEMO_INTENT_TICKET")\n        now=int(time.time()*1000) if now_ms is None else now_ms\n        if isinstance(now,bool) or not isinstance(now,int) or now<=0:
+        if ticket is not None and (not isinstance(ticket,str) or
+                re.fullmatch(r"[0-9a-f]{32}",ticket) is None):
+            raise DemoSafetyError("INVALID_DEMO_INTENT_TICKET")
+        now=int(time.time()*1000) if now_ms is None else now_ms
+        if isinstance(now,bool) or not isinstance(now,int) or now<=0:
             raise DemoSafetyError("INVALID_PILOT_RESERVATION_TIME")
         with self._connection() as conn:
             try:
@@ -274,9 +286,11 @@ class OneCampaignReservation:
                      "UNKNOWN_UNTIL_EXCHANGE_RECONCILED"),
                 )
                 if ticket is not None:
+                    sealed_stop=str(_dec(proposal.get("stop")))
                     conn.execute(
-                        "INSERT INTO pilot_client_ids VALUES(?,?,?)",
-                        (PAIR,"WAISL"+ticket[:23],"WAIEN"+ticket[:23]),
+                        "INSERT INTO pilot_client_ids VALUES(?,?,?,?)",
+                        (PAIR,"WAISL"+ticket[:23],"WAIEN"+ticket[:23],
+                         sealed_stop),
                     )
                 conn.execute("COMMIT")
             except sqlite3.IntegrityError as exc:
@@ -290,20 +304,21 @@ class OneCampaignReservation:
         """Non-secret exchange IDs atomically sealed before any DEMO order."""
         with self._connection() as conn:
             rows=conn.execute(
-                "SELECT expected_stop_client_algo_id,expected_entry_client_order_id "
+                "SELECT expected_stop_client_algo_id,expected_entry_client_order_id,expected_stop_price "
                 "FROM pilot_client_ids WHERE symbol=?", (PAIR,)
             ).fetchall()
         if len(rows)>1:
             raise DemoSafetyError("AMBIGUOUS_BOUND_DEMO_ORDER_IDS")
         if not rows:
             return None  # Old/legacy reservation: fail closed for attribution.
-        stop,entry=rows[0]
+        stop,entry,trigger=rows[0]
         if (not isinstance(stop,str) or not isinstance(entry,str) or
                 not re.fullmatch(r"WAISL[0-9a-f]{23}",stop) or
                 not re.fullmatch(r"WAIEN[0-9a-f]{23}",entry) or
                 stop[5:]!=entry[5:]):
             raise DemoSafetyError("CORRUPTED_BOUND_DEMO_ORDER_IDS")
-        return {"stop_client_algo_id":stop,"entry_client_order_id":entry}
+        return {"stop_client_algo_id":stop,"entry_client_order_id":entry,
+                "expected_stop_price":str(_dec(trigger))}
 
     def status(self)->dict[str,Any]:
         with self._connection() as conn:
