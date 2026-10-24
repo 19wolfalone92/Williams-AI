@@ -17,6 +17,10 @@ class FakeVenue:
         self.fake_partial_fill = False
         self.signed_order_reconciliation_fails = False
         self.position_reconciliation_fails = False
+        self.stop_client_id = None
+        self.entry_client_id = None
+        self.forge_stop_id = False
+        self.forge_entry_id = False
 
     def __call__(self, method, path, body, headers):
         self.calls.append((method, path, parse_qs(body), headers))
@@ -33,10 +37,14 @@ class FakeVenue:
             return [{"symbol": "ETHUSDT", "positionSide": "BOTH", "positionAmt":
                 "0" if self.position_reconciliation_fails else self.position_qty}]
         if method == "POST" and path == "/fapi/v1/algoOrder":
+            self.stop_client_id=parse_qs(body).get("clientAlgoId",[None])[0]
             return {"algoId": 99999, "algoStatus": "NEW"}
         if method == "GET" and path == "/fapi/v1/algoOrder":
             return {
+                "algoId":99999,
+                "clientAlgoId":("A_FOREIGN_STOP" if self.forge_stop_id else self.stop_client_id),
                 "symbol": "ETHUSDT", "side": "SELL",
+                "positionSide":"BOTH","workingType":"MARK_PRICE",
                 "orderType": "STOP_MARKET", "closePosition": True,
                 "triggerPrice": "95", "algoStatus": "NEW" if self.stop_ok else "CANCELED"
             }
@@ -46,6 +54,7 @@ class FakeVenue:
                 raise TimeoutError("fake exchange timeout")
             data=parse_qs(body)
             qty=data.get("quantity",["0"])[0]
+            self.entry_client_id=data.get("newClientOrderId",[None])[0]
             self.last_order_qty=qty
             if data.get("reduceOnly")!=["true"]:
                 self.position_qty=(
@@ -60,6 +69,8 @@ class FakeVenue:
                 return {"symbol":"ETHUSDT","orderId":42,
                         "status":"NEW","executedQty":"0"}
             return {"symbol":"ETHUSDT","orderId":42,
+                    "clientOrderId":("A_FOREIGN_ENTRY" if self.forge_entry_id else self.entry_client_id),
+                    "side":"BUY","positionSide":"BOTH",
                     "status":"FILLED","executedQty":self.last_order_qty}
         if method == "DELETE" and path == "/fapi/v1/algoOrder":
             return {"algoId": 99999, "algoStatus": "CANCELED"}
@@ -135,6 +146,22 @@ class DemoGatewayTests(unittest.TestCase):
         self.assertEqual(self.venue.market_submissions, 0)
         with self.assertRaisesRegex(DemoSafetyError, "заблокирована"):
             self.engine.execute(p.ticket, confirmation="PLACE_DEMO_ORDER")
+
+    def test_foreign_stop_on_same_symbol_cannot_authorize_new_entry(self):
+        self.venue.forge_stop_id=True
+        proposal=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(proposal.ticket,confirmation="PLACE_DEMO_ORDER")
+        self.assertEqual(self.venue.market_submissions,0)
+
+    def test_signed_get_foreign_filled_entry_is_not_authenticated(self):
+        self.venue.forge_entry_id=True
+        proposal=self.engine.propose("ETHUSDT","BUY","0.2","95")
+        with self.assertRaisesRegex(DemoSafetyError,"заблокирована"):
+            self.engine.execute(proposal.ticket,confirmation="PLACE_DEMO_ORDER")
+        self.assertGreaterEqual(self.venue.market_submissions,1)
+        with self.assertRaises(DemoSafetyError):
+            self.engine.execute(proposal.ticket,confirmation="PLACE_DEMO_ORDER")
 
     def test_no_order_when_risk_exceeded_or_stop_wrong(self):
         with self.assertRaisesRegex(DemoSafetyError, "Стоп LONG"):
