@@ -220,19 +220,43 @@ class DemoFutures:
             raise DemoSafetyError("Неполные ограничения Binance exchangeInfo")
 
     def _flat_one_way(self, symbol: str) -> None:
+        # Do NOT trust a separate signed-check done seconds earlier. This
+        # final independent gate runs inside the actual executor immediately
+        # before attempting any mutation. Other symbols' exposure can make
+        # even a tiny DEMO order undesirable while account state is unknown.
         dual = self._client.request("GET", "/fapi/v1/positionSide/dual", signed=True)
-        if dual.get("dualSidePosition") is not False:
+        if not isinstance(dual,dict) or dual.get("dualSidePosition") is not False:
             raise DemoSafetyError("Нужен режим One-way (BOTH), Hedge запрещён")
         positions = self._client.request(
-            "GET", "/fapi/v3/positionRisk", {"symbol": symbol}, signed=True
+            "GET", "/fapi/v3/positionRisk", signed=True
         )
-        if not isinstance(positions, list) or not positions:
-            raise DemoSafetyError("Не удалось подтвердить позиции на демо-бирже")
+        if not isinstance(positions,list) or not 1<=len(positions)<=3000:
+            raise DemoSafetyError("Не удалось подтвердить позиции всего DEMO-счёта")
+        seen=set()
         for pos in positions:
-            if pos.get("symbol") != symbol or pos.get("positionSide") != "BOTH":
+            if not isinstance(pos,dict):
+                raise DemoSafetyError("Недостоверный список позиций DEMO")
+            sym=pos.get("symbol")
+            if (not isinstance(sym,str) or len(sym)>30 or sym in seen
+                    or pos.get("positionSide")!="BOTH"):
                 raise DemoSafetyError("Неизвестная позиция или режим счёта")
-            if Decimal(str(pos["positionAmt"])) != 0:
-                raise DemoSafetyError("Позиция уже существует, новый вход запрещён")
+            seen.add(sym)
+            try:
+                amount=Decimal(str(pos.get("positionAmt")))
+            except (ValueError,TypeError,InvalidOperation) as exc:
+                raise DemoSafetyError("Неверный объём позиции DEMO") from exc
+            if not amount.is_finite() or amount != 0:
+                raise DemoSafetyError("Позиция уже существует на DEMO-счёте")
+        if symbol not in seen:
+            raise DemoSafetyError("Запрошенный символ не подтверждён DEMO")
+        orders=self._client.request(
+            "GET","/fapi/v1/openOrders",{"symbol":symbol},signed=True)
+        algos=self._client.request(
+            "GET","/fapi/v1/openAlgoOrders",{"symbol":symbol},signed=True)
+        if not isinstance(orders,list) or not isinstance(algos,list):
+            raise DemoSafetyError("Недостоверный список открытых DEMO-ордеров")
+        if orders or algos:
+            raise DemoSafetyError("На паре уже есть активные DEMO-ордера")
 
     def _stop_confirmed(self, algo_id: str, proposal: TradeProposal) -> bool:
         state = self._client.request(
