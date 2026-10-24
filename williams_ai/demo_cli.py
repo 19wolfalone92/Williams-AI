@@ -24,6 +24,10 @@ def main() -> None:
     parser.add_argument("--stop", required=True, help="Уровень защитного STOP_MARKET")
     parser.add_argument("--send", action="store_true", help="Разрешить попытку DEMO ордера после подтверждения")
     args = parser.parse_args()
+    # Legacy CLI has no durable crash/restart idempotency. It must NEVER
+    # bypass the supervised single-pair SQLite lock and smaller P0 limits.
+    if args.send:
+        parser.error("UNJOURNALED_DEMO_SEND_DISABLED: use python -m williams_ai.demo_pilot_cli supervised-send")
 
     if args.send and not sys.stdin.isatty():
         parser.error("Для размещения DEMO заявки нужен интерактивный терминал")
