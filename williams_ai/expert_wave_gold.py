@@ -206,3 +206,23 @@ def evaluate_blind_wave_gold(
         "trade_action":None,
         "execution_allowed":False,
     }
+
+
+def main()->None:
+    import argparse
+    parser=argparse.ArgumentParser(
+        description="Score double-expert reviewed closed-prefix wave classifications; NEVER certify trading")
+    parser.add_argument("--independent-reviews",type=Path,required=True)
+    parser.add_argument("--sealed-model-predictions",type=Path,required=True)
+    parser.add_argument("--min-agreed-cases",type=int,default=30)
+    parser.add_argument("--min-utc-days",type=int,default=8)
+    args=parser.parse_args()
+    result=evaluate_blind_wave_gold(
+        args.independent_reviews,args.sealed_model_predictions,
+        min_agreed_cases=args.min_agreed_cases,
+        min_utc_days=args.min_utc_days)
+    print(json.dumps(result,ensure_ascii=False,sort_keys=True,indent=2))
+
+
+if __name__=="__main__":
+    main()
