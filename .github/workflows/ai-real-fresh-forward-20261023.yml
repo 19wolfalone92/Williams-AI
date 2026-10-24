@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feature/real-forward-gguf-evaluation-20261023
-      - feature/continual-ai-trader-learning-20261024
   workflow_dispatch:
     inputs:
       mode:
