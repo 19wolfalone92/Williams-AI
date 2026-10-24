@@ -102,23 +102,15 @@ def main()->None:
     parser.add_argument("--book-index",type=Path,required=True)
     parser.add_argument("--study-memory",type=Path,required=True)
     parser.add_argument("--local-model",type=Path,required=True)
-    parser.add_argument("--expected-sha256",
-                        help="Optional pinned public GGUF checksum; if used it must match")
+    parser.add_argument("--expected-sha256",required=True,
+                        help="Externally verified expected GGUF SHA256; self-digest is not provenance")
     parser.add_argument("--batch-budget",type=int,default=30)
     parser.add_argument("--rounds",type=int,default=50)
     parser.add_argument("--gpu-layers",type=int,default=0)
     args=parser.parse_args()
     # Verify ordinary GGUF contents before claim of real model study.
     from .real_gguf_acceptance import actual_gguf_sha256
-    expected=args.expected_sha256
-    if expected is None:
-        import hashlib
-        with args.local_model.open("rb") as f:
-            digest=hashlib.sha256()
-            for block in iter(lambda:f.read(4*1024*1024),b""):
-                digest.update(block)
-        expected=digest.hexdigest()
-    actual_gguf_sha256(args.local_model,expected)
+    actual_gguf_sha256(args.local_model,args.expected_sha256)
     from .local_model import LocalWilliamsModel
     model=LocalWilliamsModel(args.local_model,n_ctx=8192,
                              gpu_layers=args.gpu_layers)
