@@ -105,6 +105,14 @@ def evaluate_historical_thought(
         from .tc2_trade_lifecycle_coach import teach_tc2_trade_lifecycle
         evidence["tc2_trade_lifecycle_lesson"]=teach_tc2_trade_lifecycle(
             evidence,prefix,tick_size=tick_size)
+    # Independently reconstruct a practical, source-specific "what facts
+    # would confirm or falsify my hypothesis?" lesson for the SAME chart
+    # prefix. This is how book knowledge reaches the real Qwen decision
+    # step, rather than staying a detached theoretical curriculum.
+    if model is not None:
+        from .practical_market_teacher import rehearse_trade_reasoning
+        evidence["practical_market_teacher"]=rehearse_trade_reasoning(
+            symbol,"H1",prefix,edition=edition,tick_size=tick_size)
     # The GGUF can review only PAPER outcome feedback already resolved by
     # this closed H1 timestamp; the notebook must never act as book proof.
     experience_notes=None
@@ -204,6 +212,8 @@ def evaluate_historical_thought(
         "book_mastery_percent":None,
         "tc2_entry_management_exit_source_lesson_supplied":(
             edition=="TC2" and model is not None),
+        "independent_practical_decision_teacher_supplied":model is not None,
+        "competing_market_hypotheses_rehearsed":5 if model is not None else 0,
         "model_explanation":reason[:600] if isinstance(reason,str) else "",
         "audit":result,
         "trade_action":None,"execution_allowed":False,
