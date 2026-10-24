@@ -29,7 +29,9 @@ class FifteenTimeframeResearchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             store=DurableWaveHistory(Path(d)/"research.db")
             for interval in INTERVAL_MS:
-                source=Venue(interval=interval,n=65,start=1_500_000_000_000)
+                source=Venue(interval=interval,n=65,start=(
+                    1_785_000_000_000 if interval=="1h"
+                    else 1_500_000_000_000))
                 result=store.sync(
                     venue="PUBLIC_USDM",symbol=SYM,interval=interval,
                     since_ms=source.start,max_pages=6,page_size=20,
