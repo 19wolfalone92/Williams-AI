@@ -548,6 +548,57 @@ class LocalWilliamsModel:
             },
             "edition_evidence":edition_details,
         }
+        # This source-derived lesson is computed by the independent causal
+        # TC2 tutor, not composed by the model. Serialize ONLY allowlisted,
+        # compact safety facts: no private journal, executable instruction,
+        # raw book PDF or unverifiable claimed broker stop ever reaches GGUF.
+        if edition=="TC2":
+            lesson=chart_analysis.get("tc2_trade_lifecycle_lesson")
+            if lesson is not None:
+                if (not isinstance(lesson,dict)
+                        or lesson.get("mode")!="TC2_BOOK_GROUNDED_PAPER_LIFECYCLE_TUTOR"
+                        or lesson.get("edition")!="TC2"
+                        or lesson.get("symbol")!=chart_analysis.get("symbol")
+                        or lesson.get("as_of")!=chart_analysis.get("as_of")
+                        or lesson.get("execution_allowed") is not False
+                        or lesson.get("trade_action","INVALID") is not None
+                        or lesson.get("no_lookahead") is not True):
+                    raise ValueError("UNVERIFIED_TC2_LIFECYCLE_TEACHER")
+                observations=lesson.get("entry_observations")
+                if not isinstance(observations,list) or len(observations)>12:
+                    raise ValueError("INVALID_TC2_ENTRY_LESSON")
+                brief=[]
+                known_status={
+                    "REVERSAL_BAR_HUMAN_ANGLULATION_REVIEW_REQUIRED",
+                    "THIRD_AO_MOMENTUM_BAR_AWAIT_ACTUAL_PRICE_BREAK",
+                    "CONFIRMED_T_PLUS_2_FRACTAL_AWAIT_PRICE_BREAK",
+                    "CLOSED_BAR_TOUCH_NOT_EXCHANGE_FILL",
+                }
+                for obj in observations[-5:]:
+                    if (not isinstance(obj,dict)
+                            or obj.get("signal") not in ("WM1","WM2","WM3")
+                            or obj.get("side") not in ("LONG","SHORT")
+                            or obj.get("status") not in known_status
+                            or obj.get("exchange_fill_known") is not False):
+                        raise ValueError("INVALID_TC2_ENTRY_LESSON")
+                    brief.append({
+                        "wise_man":obj["signal"],"side":obj["side"],
+                        "stage":obj["status"],
+                        "exchange_fill_verified":False,
+                    })
+                observation["tc2_enter_manage_exit_source_lesson"]={
+                    "guide":"TC2 chapters 9-12; review not trade authority",
+                    "entry_signals_and_uncertainty":brief,
+                    "inverse_pyramid_book_example_not_position_size":[1,5,4,3,2],
+                    "scale_only_after_verified_profitable_campaign_and_protected_risk":True,
+                    "trail_behind_3_to_5_closed_bars_only_tighten":True,
+                    "opposite_wise_man_observation_alone_never_closes":True,
+                    "valid_reversal_requires_independently_filled_opposite_trigger":True,
+                    "first_wise_man_can_be_WM1_WM2_or_WM3":True,
+                    "any_emergency_exit_requires_separate_broker_proof":True,
+                    "never_claim_real_fill_from_OHLC":True,
+                    "wave_degree_still_unverified":True,
+                }
         pages=[]
         if primary_pages is not None:
             if not isinstance(primary_pages,list) or len(primary_pages)>3:
@@ -686,6 +737,11 @@ class LocalWilliamsModel:
             "Собственные конспекты из памяти — неподтверждённые гипотезы, "
             "не используй их вместо конкретных проверенных страниц и правил. "
             "Не утверждай исполнение заявки или SL по OHLC. "
+            "В TC2 вход WM1/WM2/WM3 требует пробоя цены, сопровождение "
+            "требует подтверждённой защиты; обратная пирамида допустима "
+            "только при прибыли и соблюдении общего риска. Противоположный "
+            "сигнал мудреца без исполненного встречного триггера НЕ закрывает "
+            "позицию; перенос SL только в сторону уменьшения риска. "
             "Не превращай непроверенные волны в подтверждённые. "
             "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
             "Пять Волшебных Пуль TC1 — дивергенция W3/W5, целевая зона, "
