@@ -220,6 +220,51 @@ class PrivateExperience:
                         bool(h), i, setup, rule)
                 for a, b, c, d, e, f, g, h, i, setup, rule in rows]
 
+    def past_feedback(self, *, symbol: str, as_of: str,
+                      min_same_setup: int = 8) -> dict[str, Any]:
+        """Empirical prior resolved feedback for GGUF, never future labels.
+
+        This is an observed research history, NOT a confidence guarantee.
+        Unknown or tiny cohorts must not be extrapolated into advice.
+        """
+        if not isinstance(symbol,str) or not symbol.endswith("USDT"):
+            raise ValueError("Known Binance futures symbol required")
+        cutoff = _time(as_of).isoformat()
+        history = [x for x in self.samples(resolved_before=cutoff)
+                   if x.symbol == symbol and
+                   _seconds(x.resolved_at) <= _seconds(cutoff) and
+                   x.setup in {"WM1","WM2","WM3"}]
+        groups = {}
+        for setup in ("WM1","WM2","WM3"):
+            for side in ("LONG","SHORT"):
+                past = [x for x in history if x.setup == setup and
+                        x.side == side]
+                if len(past) < min_same_setup:
+                    state = {"count":len(past),"status":"INSUFFICIENT_RESOLVED_EXPERIENCE"}
+                else:
+                    state = {
+                        "count":len(past),
+                        "status":"PAST_CAUSAL_PAPER_OUTCOMES_UNVERIFIED_FOR_TRADING",
+                        "past_positive_fraction":round(
+                            sum(x.net_return > 0 for x in past)/len(past),5),
+                        "past_mean_net_return":round(
+                            sum(x.net_return for x in past)/len(past),7),
+                        "resolved_through":max(x.resolved_at for x in past),
+                        "not_future_profit_probability":True,
+                    }
+                groups[f"{setup}:{side}"]=state
+        return {
+            "mode":"REAL_CAUSAL_PRIOR_TC2_SIGNAL_PROXY_FEEDBACK",
+            "symbol":symbol,"as_of":cutoff,
+            "source_evidence_type":"SIMULATED_WM_SIGNAL_CONDITIONED_12BAR_OR_SL",
+            "past_examples_used":len(history),
+            "by_wise_man_and_direction":groups,
+            "expert_verified_wave_labels":0,
+            "GGUF_weights_modified":False,
+            "book_compliance_certified":False,
+            "execution_allowed":False,"trade_action":None,
+        }
+
     def policies(self) -> list[dict[str, Any]]:
         with self._connect() as db:
             rows = db.execute(
