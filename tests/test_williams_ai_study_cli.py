@@ -10,6 +10,7 @@ import unittest
 from williams_ai.book_index import index_pages
 from williams_ai.book_rules import registry
 from williams_ai.study_cli import train_private_curriculum,_model_identity
+from williams_ai.study import study_report
 
 
 class FakeBookStudent:
@@ -69,6 +70,30 @@ class FourBookStudyCLITests(unittest.TestCase):
         self.assertEqual(second["new_study_chunks"],0)
         self.assertEqual(len(model.calls),8)
         self.assertFalse(second["progress"]["weights_retrained"])
+
+    def test_two_different_models_cannot_share_claimed_book_coverage(self):
+        first=train_private_curriculum(
+            self.books,self.study,FakeBookStudent(),model_id="model-alpha",
+            editions=("TC2",),budget_per_book=1,rounds=1)
+        second=train_private_curriculum(
+            self.books,self.study,FakeBookStudent(),model_id="model-beta",
+            editions=("TC2",),budget_per_book=1,rounds=1)
+        self.assertEqual(first["new_study_chunks"],1)
+        self.assertEqual(second["new_study_chunks"],1)
+        alpha=study_report(self.books,self.study,model_id="model-alpha")
+        beta=study_report(self.books,self.study,model_id="model-beta")
+        a=next(x for x in alpha["books"] if x["edition"]=="TC2")
+        b=next(x for x in beta["books"] if x["edition"]=="TC2")
+        self.assertEqual(a["studied_chunks"],1)
+        self.assertEqual(b["studied_chunks"],1)
+        self.assertFalse(a["model_has_reviewed_all_pdf_page_text"])
+        unscoped=study_report(self.books,self.study)
+        t=next(x for x in unscoped["books"] if x["edition"]=="TC2")
+        self.assertIsNone(t["studied_chunks"])
+        self.assertEqual(t["per_model_progress"]["model-alpha"]["studied_chunks"],1)
+        self.assertEqual(t["per_model_progress"]["model-beta"]["studied_chunks"],1)
+        self.assertTrue(unscoped["unscoped_progress_not_summed_across_models"])
+        self.assertFalse(alpha["weights_retrained"])
 
     def test_wrong_quote_cannot_be_laundered_into_accepted_memory(self):
         student=FakeBookStudent(wrong=True)
