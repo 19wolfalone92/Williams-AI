@@ -69,6 +69,7 @@ class DeliberateBookModel:
             raise ValueError("Books and learning memory must be separate")
         self.model, self.model_id = model, model_id
         self.latest: dict[str, Any] | None = None
+        self._private_question = ""
 
     def _public_rules(self, edition: str, focused: list[str]) -> list[dict[str,str]]:
         cards={x["id"]:x for x in registry()["rule_cards"]
@@ -87,10 +88,15 @@ class DeliberateBookModel:
                 edition TEXT NOT NULL, case_sha256 TEXT NOT NULL,
                 cutoff TEXT NOT NULL, recorded_at TEXT NOT NULL,
                 diagnostics_json TEXT NOT NULL)""")
+            private_trace={**self.latest}
+            if self._private_question:
+                # Search data, never an asserted fact. It can quote private
+                # material, so retain it only locally, not in latest/report.
+                private_trace["private_learning_question"]=self._private_question
             db.execute("INSERT INTO decision_study_events VALUES(?,?,?,?,?,?,?)",
                 (uuid.uuid4().hex, self.model_id, edition, case,
                  observation["as_of"], datetime.now(timezone.utc).isoformat(),
-                 json.dumps(self.latest, ensure_ascii=False, allow_nan=False)))
+                 json.dumps(private_trace, ensure_ascii=False, allow_nan=False)))
 
     def propose_chart_reasoning(self, observation: dict[str, Any], *,
                                 edition: str = "TC2", **kwargs: Any) -> dict[str, Any]:
@@ -100,6 +106,7 @@ class DeliberateBookModel:
             raise ValueError("Gap-free read-only observations required")
         if self.public_rules_only and kwargs.get("primary_pages"):
             raise ValueError("Public rule mode cannot masquerade as private PDF reading")
+        self._private_question=""
         self.latest = trace = {
             "mode": "SOURCE_DERIVED_DECISION_LEARNING_NOT_WEIGHT_TRAINING",
             "first_failures": [], "learning_need": "NONE",
@@ -113,6 +120,7 @@ class DeliberateBookModel:
             "source_sha256": next(x["sha256"] for x in registry()["books"] if x["id"]==edition),
             "prior_reading_rules": [], "prior_reading_pages": [],
             "prior_reading_public_references": [],
+            "prior_question_reused": False,
             "prior_reading_requests": 0, "learning_question_sha256": None,
             "needs_independent_topic_review": False,
             "source_kind": self.source_kind, "public_rule_references": [],
@@ -131,7 +139,7 @@ class DeliberateBookModel:
                     trace["needs_independent_topic_review"]=True
                 remembered=([] if self.public_rules_only else verified_private_book_pages(self.book_index,edition,
                     rule_ids=tuple(agenda["rule_ids"]),
-                    question=_QUERIES.get(agenda["topic"],_QUERIES["ENTRY"]),limit=2))
+                    question=agenda["question"] or _QUERIES.get(agenda["topic"],_QUERIES["ENTRY"]),limit=2))
                 existing=initial_args.get("primary_pages") or []
                 combined=[]
                 for page in remembered+existing:
@@ -147,6 +155,7 @@ class DeliberateBookModel:
                 trace["prior_reading_pages"]=[x["source"] for x in remembered]
                 trace["private_original_pages_read"]=bool(remembered)
                 trace["prior_reading_requests"]=agenda["past_requests"]
+                trace["prior_question_reused"]=bool(agenda["question"]) and not self.public_rules_only
         except (ValueError,OSError,sqlite3.DatabaseError):
             trace["prior_reading_unavailable"]=True
         try:
@@ -164,6 +173,7 @@ class DeliberateBookModel:
                 raise ValueError("INVALID_MODEL_LEARNING_QUESTION")
             if question.strip():
                 trace["learning_question_sha256"]=hashlib.sha256(question.encode()).hexdigest()
+                self._private_question=question.strip()
             trace["learning_need"] = need
             trace["first_failures"] = checked["hard_failures"]
         except (ValueError, TypeError, KeyError) as exc:

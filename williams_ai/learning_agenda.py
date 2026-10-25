@@ -28,7 +28,7 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
     known = _known_book(edition)
     allowed = {x["id"] for x in registry()["rule_cards"]
                if x["source"] == edition and x["status"] == "REVIEWED_PAGES"}
-    result = {"rule_ids": [], "topic": "NONE", "past_requests": 0,
+    result = {"rule_ids": [], "topic": "NONE", "question": "", "past_requests": 0,
               "source_sha256": known["sha256"],
               "unverified_summaries_used": False, "mastery_certified": False}
     path = _private_database(memory_path)
@@ -48,6 +48,7 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
     counts: dict[str, Counter[str]] = {}
     recency: dict[tuple[str,str], float] = {}
     topics: Counter[str] = Counter()
+    questions: dict[str,tuple[float,str]] = {}
     seen: set[str] = set()
     for case, at, raw in rows:
         when = _as_utc(at)
@@ -75,6 +76,10 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
         topic=need if need != "NONE" else "ENTRY"
         topics[topic] += 1
         counts.setdefault(topic,Counter())
+        question=event.get("private_learning_question","")
+        if (isinstance(question,str) and 0<len(question.strip())<=400
+                and (topic not in questions or when>questions[topic][0])):
+            questions[topic]=(when,question.strip())
         for rule in set(rules):
             counts[topic][rule] += 1
             recency[(topic,rule)] = max(recency.get((topic,rule), when), when)
@@ -82,6 +87,7 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
     if topics:
         topic=sorted(topics, key=lambda x: (-topics[x], x))[0]
         result["topic"] = topic
+        result["question"]=questions.get(topic,(0,""))[1]
         chosen=counts[topic]
         result["rule_ids"] = sorted(chosen, key=lambda x: (-chosen[x], -recency[(topic,x)], x))[:2]
     return result

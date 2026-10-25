@@ -242,12 +242,22 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertEqual(wrapper.latest["status"],"READ_UNREVIEWED_TOPIC_REQUIRES_INDEPENDENT_REVIEW")
         self.assertEqual(student.calls[1][1]["prior_lessons"],[])
         self.assertNotIn(wave,json.dumps(wrapper.latest))
+        self.assertNotIn("Elliott nested degree correction",json.dumps(wrapper.latest))
+        with sqlite3.connect(self.notes) as db:
+            event=json.loads(db.execute("SELECT diagnostics_json FROM decision_study_events").fetchone()[0])
+            self.assertEqual(event["private_learning_question"],"Elliott nested degree correction")
+        # A later, generic wave chapter must not replace the precise topic
+        # which this model actually requested before the current cutoff.
+        with sqlite3.connect(self.books) as db:
+            db.execute("INSERT INTO excerpts VALUES('TC2',176,?,'UNVERIFIED_EXTRACTION')",
+                ("волна степень вложенность коррекция "*10,))
         later=deepcopy(self.obs);later["as_of"]=self.market["bars"][924]["close_time"]
         resumed=Student();resumed.first={}
         later_wrapper=self.wrap(resumed)
         later_wrapper.propose_chart_reasoning(later)
         self.assertEqual(len(resumed.calls),1)
         self.assertEqual(later_wrapper.latest["prior_reading_pages"],["TC2: PDF 175"])
+        self.assertTrue(later_wrapper.latest["prior_question_reused"])
         self.assertTrue(later_wrapper.latest["needs_independent_topic_review"])
         self.assertEqual(later_wrapper.latest["status"],"PAST_UNREVIEWED_TOPIC_REQUIRES_INDEPENDENT_REVIEW")
 
