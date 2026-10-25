@@ -62,7 +62,7 @@ jobs:
               {'at':opened,'type':'OPEN_FILL','side':'LONG',
                'price':float(bars[250]['close']),'exchange_confirmed':True},
               {'at':opened,'type':'STOP_ACK',
-               'stop_price':round(float(bars[299]['close'])/2,4),'exchange_confirmed':True}]}
+               'stop_price':round(float(bars[250]['close'])/2,2),'exchange_confirmed':True}]}
           # These flags are hypothetical PAPER claims, never signed evidence.
           report = {'mode':'ACTUAL_GGUF_REAL_CLOSED_PRICES_WITH_HYPOTHETICAL_PAPER_CAMPAIGN',
               'model_sha256':os.environ['GGUF_SHA256'],'source_commit':os.environ['GITHUB_SHA'],
