@@ -176,17 +176,17 @@ def teach_tc2_trade_lifecycle(
                 or journal.get("as_of")!=as_of):
             raise ValueError("TC2_JOURNAL_CHART_CUTOFF_MISMATCH")
         audit=audit_campaign(journal)
+        critical=[x["code"] for x in audit["findings"]
+                  if x["severity"]=="CRITICAL"]
+        management.update({"journal_only_not_broker_verified":True,
+                           "campaign_audit_critical_findings":critical})
         if audit["position"]["status"]=="OPEN":
             state = "CLAIMED_OPEN_POSITION_REQUIRE_EXCHANGE_RECONCILIATION"
             side=audit["position"]["side"]
             sl=audit["position"]["stop_price"]
-            critical=[x["code"] for x in audit["findings"]
-                      if x["severity"]=="CRITICAL"]
             opposing=[x["signal"] for x in actions if x["side"]!=side]
             management.update({
                 "side":side, "opposing_signals_observed_only":opposing,
-                "journal_only_not_broker_verified":True,
-                "campaign_audit_critical_findings":critical,
             })
             if sl is None or critical:
                 management["status"]="HALT_FOR_PROTECTION_OR_FILL_AUDIT"
@@ -225,7 +225,8 @@ def teach_tc2_trade_lifecycle(
                         "execution_allowed":False,"trade_action":None})
         else:
             state="CLAIMED_FLAT_REQUIRES_EXCHANGE_RECONCILIATION"
-            management["status"]="NO_OPEN_POSITION_IN_SUPPLIED_JOURNAL"
+            management["status"]=("HALT_FOR_CAMPAIGN_AUDIT" if critical else
+                                  "NO_OPEN_POSITION_IN_SUPPLIED_JOURNAL")
     # The numbers 1--5--4--3--2 are a book example, NEVER mandatory live
     # contracts: hard portfolio risk and confirmed improving trade must gate
     # every add. This teaching artifact is not a position-size proposal.

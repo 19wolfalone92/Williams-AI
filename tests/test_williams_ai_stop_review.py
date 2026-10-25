@@ -207,6 +207,29 @@ class CampaignStopIntegrationTests(unittest.TestCase):
         self.assertFalse(report["research_reasoning_consistent"])
         self.assertEqual(report["campaign_stop_review"]["audit"]["verdict"],"HALT_FOR_RECONCILIATION")
 
+    def test_closing_position_does_not_erase_a_critical_campaign_violation(self):
+        journal=self.journal()
+        at=journal["events"][-1]["at"]
+        journal["events"].extend([
+            {"at":at,"type":"STOP_REPLACE_ACK","stop_price":90,"exchange_confirmed":True},
+            {"at":at,"type":"CLOSE_FILL","reason":"MANUAL","exchange_confirmed":True}])
+        student=self.student();report=self.run_case(student,journal)
+        self.assertEqual(student.stop_calls,[])
+        self.assertFalse(report["research_reasoning_consistent"])
+        review=report["campaign_stop_review"]
+        self.assertIn("PROTECTIVE_STOP_WIDENED",review["campaign_audit_critical_findings"])
+        self.assertIn("CAMPAIGN_AUDIT_HAS_CRITICAL_FINDINGS",review["audit"]["hard_failures"])
+        self.assertEqual(student.chart["tc2_trade_lifecycle_lesson"]["management"]["status"],
+                         "HALT_FOR_CAMPAIGN_AUDIT")
+
+    def test_empty_flat_journal_is_not_misreported_as_missing_open_position_protection(self):
+        journal=self.journal();journal["events"]=[]
+        student=self.student();report=self.run_case(student,journal)
+        self.assertEqual(student.stop_calls,[])
+        self.assertTrue(report["research_reasoning_consistent"])
+        self.assertEqual(report["campaign_stop_review"]["audit"],
+                         {"hard_failures":[],"verdict":"NO_OPEN_CAMPAIGN"})
+
     def test_future_journal_event_rejected_before_any_inference(self):
         journal=self.journal();journal["events"][-1]["at"]=self.market["bars"][300]["close_time"]
         student=self.student()

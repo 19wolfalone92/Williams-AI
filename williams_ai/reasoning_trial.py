@@ -206,10 +206,15 @@ def evaluate_historical_thought(
             from .stop_review import review_with_model
             stop_review=review_with_model(model,context)
         else:
-            flat=lesson["campaign_state"]=="CLAIMED_FLAT_REQUIRES_EXCHANGE_RECONCILIATION"
+            critical=lesson["management"].get("campaign_audit_critical_findings",[])
+            flat=(lesson["campaign_state"]=="CLAIMED_FLAT_REQUIRES_EXCHANGE_RECONCILIATION"
+                  and not critical)
             stop_review={"mode":"TC2_CAMPAIGN_STOP_REVIEW_NOT_CALLED",
                 "model_called":False,
-                "audit":{"hard_failures":[] if flat else ["CAMPAIGN_REQUIRES_PROTECTION_OR_MODEL_REVIEW"],
+                "campaign_audit_critical_findings":critical,
+                "audit":{"hard_failures":([] if flat else
+                    ["CAMPAIGN_AUDIT_HAS_CRITICAL_FINDINGS"] if critical else
+                    ["CAMPAIGN_REQUIRES_PROTECTION_OR_MODEL_REVIEW"]),
                          "verdict":"NO_OPEN_CAMPAIGN" if flat else "HALT_FOR_RECONCILIATION"},
                 "execution_allowed":False,"trade_action":None}
     reason=submitted.get("reason","") if isinstance(submitted,dict) else ""
