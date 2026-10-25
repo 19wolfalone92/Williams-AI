@@ -29,10 +29,10 @@ _GAPS = {
     "TC2": {"ENTRY": ("TC2.WM1.TRIGGER", "TC2.WM3"),
             "MANAGEMENT": ("TC2.CAMPAIGN", "TC2.WM1.STOP"),
             "EXIT": ("TC2.CAMPAIGN", "TC2.REVERSE"),
-            "WAVE": ("TC2.WM1.ANG",)},
+            "WAVE": ()},
     "NTD": {"ENTRY": ("NTD.FRACTAL", "NTD.AO"),
             "MANAGEMENT": ("NTD.ZONE.ADDED", "NTD.EXITS"),
-            "EXIT": ("NTD.EXITS",), "WAVE": ("NTD.ALLIGATOR",)},
+            "EXIT": ("NTD.EXITS",), "WAVE": ()},
     "TC1": {"ENTRY": ("TC1.FRACTAL",),
             "MANAGEMENT": ("TC1.PSY.PLAN",),
             "EXIT": ("TC1.W5", "TC1.MAGIC.DIVERGENCE"),
@@ -120,6 +120,14 @@ class DeliberateBookModel:
             return first
         cards = {x["id"]: x for x in registry()["rule_cards"]
                  if x["source"] == edition and x["status"] == "REVIEWED_PAGES"}
+        if trace["learning_need"]=="WAVE" and not _GAPS[edition]["WAVE"]:
+            # Angulation/Alligator are not substitutes for reviewed Elliott
+            # degree rules. Relevant wave cards exist in TC1 and COURSE;
+            # do not silently replace the selected source or certify them
+            # as a TC2/NTD rule. Keep this edition's gap visible.
+            trace["status"]="NO_REVIEWED_RULE_FOR_TOPIC_IN_SELECTED_EDITION"
+            self._remember(observation,edition)
+            return first
         focused = []
         for failure in trace["first_failures"]:
             if failure in LESSONS and LESSONS[failure][0] in cards:

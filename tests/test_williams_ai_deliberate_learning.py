@@ -103,6 +103,16 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertEqual(student.passages,[])
         self.assertFalse(model.latest["reconsideration_performed"])
 
+    def test_wave_gap_is_not_replaced_by_an_unrelated_angulation_rule(self):
+        student=Student(first={"setup":"UNKNOWN","need":"WAVE"})
+        model=self.wrap(student)
+        result=model.propose_chart_reasoning(self.obs)
+        self.assertEqual(result["setup"],"UNKNOWN")
+        self.assertEqual(len(student.calls),1)
+        self.assertEqual(student.passages,[])
+        self.assertEqual(model.latest["source_rules"],[])
+        self.assertEqual(model.latest["status"],"NO_REVIEWED_RULE_FOR_TOPIC_IN_SELECTED_EDITION")
+
     def test_critic_detects_unsupported_claim_even_without_declared_gap(self):
         student=Student(first={"setup":"WM2"})
         model=self.wrap(student)
