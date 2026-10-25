@@ -34,6 +34,7 @@ def evaluate_historical_thought(
     study_memory:Path|None=None,
     experience_journal:Path|None=None,
     deliberate_study:bool=True,
+    campaign_journal:dict[str,Any]|None=None,
 )->dict[str,Any]:
     """bar_index is a 0-based last closed bar, not next bar to trade.
 
@@ -102,10 +103,12 @@ def evaluate_historical_thought(
     # Teach the genuine local Qwen prompt distinct TC2 entry, campaign
     # management and exit rules, using ONLY the historical H1 prefix. This
     # always remains a source-grounded lesson, NOT an execution signal.
+    if campaign_journal is not None and edition!="TC2":
+        raise ValueError("Campaign stop review currently requires TC2")
     if edition=="TC2":
         from .tc2_trade_lifecycle_coach import teach_tc2_trade_lifecycle
         evidence["tc2_trade_lifecycle_lesson"]=teach_tc2_trade_lifecycle(
-            evidence,prefix,tick_size=tick_size)
+            evidence,prefix,tick_size=tick_size,journal=campaign_journal)
     # Independently reconstruct a practical, source-specific "what facts
     # would confirm or falsify my hypothesis?" lesson for the SAME chart
     # prefix. This is how book knowledge reaches the real Qwen decision
@@ -195,6 +198,20 @@ def evaluate_historical_thought(
     else:
         submitted=proposal
     result=audit_reasoning(evidence,submitted)
+    stop_review=None
+    if campaign_journal is not None:
+        lesson=evidence["tc2_trade_lifecycle_lesson"]
+        context=lesson["management"]["stop_review_context"]
+        if context is not None and model is not None:
+            from .stop_review import review_with_model
+            stop_review=review_with_model(model,context)
+        else:
+            flat=lesson["campaign_state"]=="CLAIMED_FLAT_REQUIRES_EXCHANGE_RECONCILIATION"
+            stop_review={"mode":"TC2_CAMPAIGN_STOP_REVIEW_NOT_CALLED",
+                "model_called":False,
+                "audit":{"hard_failures":[] if flat else ["CAMPAIGN_REQUIRES_PROTECTION_OR_MODEL_REVIEW"],
+                         "verdict":"NO_OPEN_CAMPAIGN" if flat else "HALT_FOR_RECONCILIATION"},
+                "execution_allowed":False,"trade_action":None}
     reason=submitted.get("reason","") if isinstance(submitted,dict) else ""
     return {
         "mode":"LOCAL_BLINDED_REASONING_TRIAL",
@@ -221,6 +238,9 @@ def evaluate_historical_thought(
         "competing_market_hypotheses_rehearsed":5 if model is not None else 0,
         "model_explanation":reason[:600] if isinstance(reason,str) else "",
         "audit":result,
+        "campaign_stop_review":stop_review,
+        "research_reasoning_consistent":not result["hard_failures"] and
+            (stop_review is None or not stop_review["audit"]["hard_failures"]),
         "deliberate_book_learning":learner.latest if model is not None and learner else None,
         "trade_action":None,"execution_allowed":False,
     }
@@ -244,6 +264,8 @@ def main()->None:
                    help="Disable bounded read-study-reconsider loop for an unassisted baseline")
     p.add_argument("--experience-journal",type=Path,
                    help="Private resolved TC2 WM1/2/3 feedback for real local GGUF")
+    p.add_argument("--campaign-journal",type=Path,
+                   help="Private bounded TC2 campaign JSON, claims not broker authentication")
     group=p.add_mutually_exclusive_group(required=True)
     group.add_argument("--local-model",type=Path)
     group.add_argument("--proposal-file",type=Path)
@@ -260,6 +282,14 @@ def main()->None:
     else:
         proposal=json.loads(a.proposal_file.read_text(encoding="utf-8"))
     x=markets[a.symbol]
+    campaign=None
+    if a.campaign_journal:
+        from .book_index import ROOT
+        path=a.campaign_journal.expanduser().resolve()
+        if (a.edition!="TC2" or ROOT in path.parents or path==ROOT
+                or not path.is_file() or path.stat().st_size>1_000_000):
+            p.error("--campaign-journal must be a private TC2 JSON outside the repository, <=1MB")
+        campaign=json.loads(path.read_text(encoding="utf-8"))
     if a.coach_notebook and a.local_model is None:
         p.error("--coach-notebook requires --local-model")
     if a.study_memory and a.local_model is None:
@@ -279,7 +309,8 @@ def main()->None:
         coach_notebook=a.coach_notebook,model_id=model_id,
         study_memory=a.study_memory,
         experience_journal=a.experience_journal,
-        deliberate_study=not a.no_deliberate_study)
+        deliberate_study=not a.no_deliberate_study,
+        campaign_journal=campaign)
     print(json.dumps(output,ensure_ascii=False,indent=2))
 
 

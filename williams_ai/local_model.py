@@ -599,6 +599,14 @@ class LocalWilliamsModel:
                     "never_claim_real_fill_from_OHLC":True,
                     "wave_degree_still_unverified":True,
                 }
+                context=lesson.get("management",{}).get("stop_review_context")
+                if context is not None:
+                    from .stop_review import normalize_context
+                    context=normalize_context(context)
+                    if (context["symbol"]!=chart_analysis["symbol"]
+                            or _as_utc(context["as_of"])!=cutoff):
+                        raise ValueError("STOP_REVIEW_CONTEXT_CHART_MISMATCH")
+                    observation["claimed_campaign_stop_observations"]=context
         # Actual inference receives the causal, practical rehearsal from
         # independent OHLCV reanalysis. The prompt is a bounded whitelist;
         # no future outcomes, broker instructions or claimed probabilities.
@@ -1007,6 +1015,54 @@ class LocalWilliamsModel:
         if isinstance(proposal.get("reason"),str):
             proposal["reason"]=proposal["reason"][:600]
         return proposal
+
+    def review_protective_stop(self, context:dict[str,Any])->dict[str,Any]:
+        """Numerical research assessment, not a request to move an order."""
+        from .stop_review import normalize_context, RISK_POLICY, OUTPUT_KEYS
+        from .book_rules import registry
+        context=normalize_context(context)
+        card=next(c for c in registry()["rule_cards"] if c["id"]=="TC2.CAMPAIGN")
+        def enum(*values):return {"type":"string","enum":list(values)}
+        properties={
+            "level_relation":enum("LOWER","HIGHER","EQUAL","UNKNOWN"),
+            "risk_direction":enum("TIGHTER","WIDER","UNCHANGED","UNKNOWN"),
+            "candidate_protects_side":{"type":"boolean"},
+            "assessment":enum("KEEP_PROTECTION","REVIEW_TIGHTENING",
+                              "HALT_FOR_RECONCILIATION","UNKNOWN"),
+            "reason":{"type":"string","minLength":1,"maxLength":300},
+        }
+        response=self._learning_completion(
+            messages=[{"role":"system","content":SYSTEM_INSTRUCTIONS+
+                " Это проверка ЧИСЛОВОГО рассуждения о защите, не торговая команда. "
+                "Сначала сравни candidate_stop с current_stop ЧИСЛОВО: LOWER/HIGHER/EQUAL. "
+                "Затем оцени номинальное изменение защиты для LONG/SHORT: TIGHTER/WIDER/UNCHANGED. "
+                "Отдельно проверь сторону candidate_stop относительно last_closed_price. "
+                "Если существующий стоп уже на цене или за ней, HALT_FOR_RECONCILIATION: "
+                "дальнейший перенос требует проверки биржевого состояния. "
+                "Иначе REVIEW_TIGHTENING только при более тесной защите и правильной стороне цены; "
+                "при равном, более широком или неверно расположенном кандидате KEEP_PROTECTION. "
+                "Направление TIGHTER само по себе не делает кандидат допустимым. "
+                "Журнал не аутентифицирован. Не придумывай уровней или подтверждений биржи. "
+                "Верни только JSON с level_relation, risk_direction, candidate_protects_side, "
+                "assessment и кратким reason. При непонимании выбирай UNKNOWN."},
+                {"role":"user","content":json.dumps({
+                    "paper_observations":context,
+                    "book_source":{"rule_id":card["id"],"pdf_pages":card["pdf_pages"],
+                        "kind":"PUBLIC_REVIEWED_PARAPHRASE_NOT_ORIGINAL_PDF",
+                        "summary":card["summary"]},
+                    "independent_engineering_risk_policy":RISK_POLICY},ensure_ascii=False)}],
+            schema={"type":"object","properties":properties,
+                    "required":list(properties),"additionalProperties":False},max_tokens=500)
+        choices=response.get("choices",[])
+        if choices and choices[0].get("finish_reason")=="length":
+            raise ValueError("LOCAL_STOP_REVIEW_OUTPUT_TRUNCATED")
+        raw=choices[0].get("message",{}).get("content","") if choices else ""
+        if not isinstance(raw,str) or not raw.strip():
+            raise ValueError("EMPTY_MODEL_STOP_REVIEW")
+        answer=json.loads(raw)
+        if not isinstance(answer,dict) or set(answer)!=OUTPUT_KEYS:
+            raise ValueError("INVALID_MODEL_STOP_REVIEW_OUTPUT")
+        return answer
 
     def propose_24h_research_forecast(
         self, chart_analysis: dict[str, Any],
