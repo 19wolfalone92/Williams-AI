@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mobile-qwen-practice-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   actual-qwen-source-practice:
     runs-on: ubuntu-24.04

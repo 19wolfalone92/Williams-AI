@@ -102,7 +102,7 @@ object BookPractice {
         val correct = if (answer == null) -1 else if (answer.choice == case.correct) 1 else 0
         open(memory).use { db -> db.execSQL("INSERT OR IGNORE INTO book_practice " +
             "(source_key,model_id,book,page,case_id,rule_id,choice,correct,attempted_at) VALUES(?,?,?,?,?,?,?,?,?)",
-            arrayOf(p.key,modelId,p.book,p.page,case.key,case.rule,answer?.choice,correct,System.currentTimeMillis())) }
+            arrayOf<Any?>(p.key,modelId,p.book,p.page,case.key,case.rule,answer?.choice,correct,System.currentTimeMillis())) }
     }
 
     /** Resume practice if the process stopped after saving a reading card. */
@@ -140,8 +140,12 @@ object BookPractice {
                       question: String, cases: List<Case>): List<BookKnowledge.BookExcerpt> {
         if (!memory.isFile || !books.isFile) return emptyList()
         BookKnowledge.validate(books)
+        val generic = setOf("как","что","это","когда","почему","чего","какой","какая","какие","какую",
+            "можно","нужно","для","при","или","про","пожалуйста","расскажи","покажи","объясни",
+            "the","and","what","when","how","tc1","tc2","ntd","course")
         val words = Regex("[\\p{L}\\p{N}]{3,}").findAll(question.lowercase(Locale.ROOT))
-            .map { it.value }.distinct().take(12).toList()
+            .map { it.value }.filter { it !in generic }.distinct().take(12).toList()
+        if (words.isEmpty()) return emptyList()
         val byId = cases.filter { it.book == edition }.associateBy { it.key }
         val mistakes = open(memory).use { db ->
             db.rawQuery("SELECT p.source_key,p.case_id FROM book_practice p WHERE p.model_id=? AND p.book=? " +

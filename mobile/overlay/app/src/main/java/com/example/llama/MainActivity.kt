@@ -49,6 +49,9 @@ class MainActivity : AppCompatActivity() {
     private var modelReady = false
     private var studying = false
     private var busy = true
+    private var lastChatScope: Pair<String,String>? = null
+    private var lastChatQuestion = ""
+    private var lastChatAnswer = ""
     private val messages = mutableListOf<Message>()
     private val adapter = MessageAdapter(messages)
     private val response = StringBuilder()
@@ -282,6 +285,9 @@ class MainActivity : AppCompatActivity() {
         try {
             val engine = inference ?: error("Локальный движок ещё не запущен")
             withContext(Dispatchers.Default) { engine.loadModel(file.absolutePath) }
+            lastChatScope = null
+            lastChatQuestion = ""
+            lastChatAnswer = ""
             modelReady = true
             setStatus("Williams AI — готов. Режим OFFLINE.\nМодель: " +
                 file.name.take(12) + "…\nПоиск доступен по согласию. Ордеров Binance нет.")
@@ -333,11 +339,19 @@ class MainActivity : AppCompatActivity() {
         val edition = studyEdition.selectedItem.toString()
         val modelId = getPreferences(MODE_PRIVATE).getString("gguf_name", null)
             ?: error("Не выбран локальный GGUF")
+        val followUp = lastChatScope == (modelId to edition) && question.length <= 120 &&
+            Regex("(?iu)^(а\\s|почему|подробнее|объясни|дальше|что это|продолжи)").containsMatchIn(question)
+        val lookupQuestion = question + if(followUp) " " + lastChatQuestion else ""
+        val conversationContext = if(followUp)
+            "\nПредыдущий обмен для понимания ссылки, НЕ источник рыночных фактов или книжных правил. " +
+                "Прошлый ответ модели может быть неверен.\nВопрос: " + lastChatQuestion +
+                "\nПрошлый ответ: " + lastChatAnswer + "\nПриоритет у текущих источников и текущего среза.\n"
+            else ""
         val memory = File(filesDir, "study-memory.db")
         var bookExtracts = try {
             withContext(Dispatchers.IO) {
-                val recalled = BookPractice.recallSources(memory,privateBooks,modelId,edition,question,BookPractice.load(applicationContext))
-                (recalled + BookKnowledge.retrieve(privateBooks, question, edition = edition))
+                val recalled = BookPractice.recallSources(memory,privateBooks,modelId,edition,lookupQuestion,BookPractice.load(applicationContext))
+                (recalled + BookKnowledge.retrieve(privateBooks, lookupQuestion, edition = edition))
                     .distinctBy { Triple(it.book,it.page,it.excerpt) }.take(3)
             }
         } catch (e: CancellationException) {
@@ -349,7 +363,7 @@ class MainActivity : AppCompatActivity() {
             "Библиотека книг не подключена или по вопросу не найден источник."
         } else BookKnowledge.cite(bookExtracts)
         val nativeMarketContext = withContext(Dispatchers.IO) {
-            NativeWaveStudy.prompt(applicationContext,question)
+            NativeWaveStudy.prompt(applicationContext,lookupQuestion)
         }
         var learnedContext = withContext(Dispatchers.IO) {
             StudyMemory.retrieve(memory, question, modelId, privateBooks, edition)
@@ -379,7 +393,7 @@ class MainActivity : AppCompatActivity() {
             "\nИзмеренные локально данные Binance (только закрытые, НЕ биржевые позиции):\n" +
             nativeMarketContext +
             "\nУчебные заметки проекта, НЕ цитаты из книг:\n" + curriculum +
-            "\nНепроверенная учебная память:\n" + learnedContext + "\nВопрос: " + question
+            "\nНепроверенная учебная память:\n" + learnedContext + conversationContext + "\nВопрос: " + question
                 collectAnswer(engine, prompt, visible = true)
                 // One source consultation, one checkpointed lesson, ONE
                 // reconsideration of the SAME market snapshot. Never keep
@@ -387,8 +401,9 @@ class MainActivity : AppCompatActivity() {
                 val topic = BookKnowledge.reviewTopic(response.toString())
                     ?: if (!BookKnowledge.citationsSupported(response.toString(), bookExtracts)) "ENTRY" else null
                 if (topic != null) {
+                    val failedAnswer = BookKnowledge.finalAnswer(response.toString()).take(600)
                     val focused = withContext(Dispatchers.IO) {
-                        BookKnowledge.retrieve(privateBooks, BookKnowledge.reviewQuery(question, topic),
+                        BookKnowledge.retrieve(privateBooks, BookKnowledge.reviewQuery(lookupQuestion, topic),
                             limit = 2, edition = edition)
                     }
                     if (focused.isNotEmpty()) {
@@ -420,7 +435,8 @@ class MainActivity : AppCompatActivity() {
                             "Не придумывай отсутствующие свечи, позиции, ордера или точную степень волны. " +
                             "Если правило всё ещё непонятно, сохрани [НУЖНА КНИГА: " + topic + "]. " +
                             "Нет новых рыночных данных — не изображай подтверждённый вход. " +
-                            "Вопрос: " + question + "\nПервоисточник:\n" + bookContext +
+                            conversationContext + "\nПрошлый непроверенный ответ по этому же срезу:\n" + failedAnswer +
+                            "\nВопрос: " + question + "\nПервоисточник:\n" + bookContext +
                             "\nТот же закрытый рыночный срез:\n" + nativeMarketContext +
                             "\nНепроверенная память именно этой модели:\n" + learnedContext,
                             visible = true)
@@ -453,7 +469,7 @@ class MainActivity : AppCompatActivity() {
                             "\nНепроверенная учебная память:\n" + learnedContext +
                             "\nУчебные заметки проекта, НЕ цитаты из книг:\n" + curriculum +
                             "\nИзмеренный закрытый рыночный срез:\n" + nativeMarketContext +
-                            "\nВопрос: " + question + "\nИнтернет-источники:\n" +
+                            conversationContext + "\nВопрос: " + question + "\nИнтернет-источники:\n" +
                             WebResearch.evidence(evidence)
                         response.clear()
                         collectAnswer(engine, grounded, visible = true)
@@ -485,6 +501,9 @@ class MainActivity : AppCompatActivity() {
                 val finalRow = messages.lastIndex
                 messages[finalRow] = messages[finalRow].copy(content = response.toString())
                 adapter.notifyItemChanged(finalRow)
+                lastChatScope = modelId to edition
+                lastChatQuestion = question.take(300)
+                lastChatAnswer = BookKnowledge.finalAnswer(response.toString()).take(500)
             } catch (_: CancellationException) {
                 // Cancelled when activity goes to background.
             } catch (e: Exception) {

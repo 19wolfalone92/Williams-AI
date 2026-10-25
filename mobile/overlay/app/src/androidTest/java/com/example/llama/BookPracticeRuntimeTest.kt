@@ -25,7 +25,7 @@ class BookPracticeRuntimeTest {
                 db.execSQL("CREATE TABLE excerpts(book TEXT,pdf_page INTEGER,content TEXT)")
                 hashes.forEach { (ed,hash) ->
                     val pages=when(ed){"TC1"->140;"NTD"->156;"TC2"->224;else->122}
-                    db.execSQL("INSERT INTO volumes VALUES(?,?,?,1,?)",arrayOf(ed,hash,pages,pages-1))
+                    db.execSQL("INSERT INTO volumes VALUES(?,?,?,1,?)",arrayOf<Any>(ed,hash,pages,pages-1))
                     db.execSQL("INSERT INTO excerpts VALUES(?,10,?)",arrayOf(ed,"Фрактал подтверждается по закрытым свечам. Это синтетический источник теста."))
                 }
             }
@@ -68,6 +68,7 @@ class BookPracticeRuntimeTest {
         assertEquals(0,BookPractice.score(memory,"model-a").correct)
         assertEquals(1,BookPractice.score(memory,"model-a").graded)
         assertTrue(BookPractice.recallSources(memory,books,"model-a","TC2","фрактал",listOf(c)).isNotEmpty())
+        assertTrue(BookPractice.recallSources(memory,books,"model-a","TC2","Когда начинать?",listOf(c)).isEmpty())
         assertTrue(BookPractice.recallSources(memory,books,"model-b","TC2","фрактал",listOf(c)).isEmpty())
         assertTrue(BookPractice.recallSources(memory,books,"model-a","NTD","фрактал",listOf(c)).isEmpty())
         assertTrue(BookPractice.recallSources(memory,books,"model-a","TC2","фрактал",listOf(c.copy(correct="B"))).isEmpty())

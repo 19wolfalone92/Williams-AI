@@ -26,6 +26,7 @@ def main():
         "runtime":version('llama-cpp-python'),"actual_model_loads":1,"cases":len(cases),
         "original_private_books_used":False,"source_mode":"PUBLIC_PROJECT_PARAPHRASES",
         "project_practice_cases_not_independent_holdout":True,
+        "grading_scope":"CHOICE_SELECTION_ONLY_REASONS_NOT_EXPERT_GRADED",
         "same_questions_compared_with_and_without_source":True,
         "actual_phone_hardware_tested":False,"model_weights_updated":False,
         "lora_loaded":False,"execution_allowed":False,"trade_action":None,"results":[]}
