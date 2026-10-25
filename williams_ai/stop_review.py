@@ -51,6 +51,7 @@ def normalize_context(value: Any) -> dict[str, Any]:
             or value.get("schema") != SCHEMA or value.get("source") != SOURCE
             or value.get("execution_allowed") is not False
             or value.get("trade_action") is not None
+            or not isinstance(value.get("side"),str)
             or value.get("side") not in {"LONG", "SHORT"}):
         raise ValueError("INVALID_READ_ONLY_STOP_REVIEW_CONTEXT")
     symbol = value["symbol"]
@@ -78,6 +79,18 @@ def _response_shape(value: Any) -> bool:
         value["assessment"] in {"KEEP_PROTECTION","REVIEW_TIGHTENING","HALT_FOR_RECONCILIATION","UNKNOWN"} and
         type(value.get("candidate_protects_side")) is bool and
         isinstance(value.get("reason"), str) and 1<=len(value["reason"])<=300)
+
+
+def _call_metadata(model: Any) -> dict[str, Any] | None:
+    raw=getattr(model,"latest_stop_review_call",None)
+    if not isinstance(raw,dict) or raw.get("mode")!="SCHEMA_CONSTRAINED_STOP_REVIEW":
+        return None
+    usage=raw.get("usage",{})
+    return {"mode":"SCHEMA_CONSTRAINED_STOP_REVIEW",
+        "finish_reason":raw.get("finish_reason") if raw.get("finish_reason") in {"stop","length"} else "UNKNOWN",
+        "usage":{key:usage[key] for key in ("prompt_tokens","completion_tokens","total_tokens")
+            if isinstance(usage,dict) and type(usage.get(key)) is int and usage[key]>=0},
+        "case_specific_answer_enums_supplied":False if raw.get("case_specific_answer_enums_supplied") is False else None}
 
 
 def audit_stop_review(context: dict[str, Any], response: Any) -> dict[str, Any]:
@@ -139,6 +152,7 @@ def review_with_model(model: Any, context: dict[str, Any]) -> dict[str, Any]:
             "model_response":safe_response, "audit":audit,
             "source_rule_id":"TC2.CAMPAIGN",
             "risk_policy_id":"MONOTONIC_PROTECTION_V1",
+            "model_call_metadata":_call_metadata(model),
             "needs_source_or_reasoning_review":bool(audit["hard_failures"]),
             "model_weights_updated":False, "execution_allowed":False,
             "trade_action":None}
@@ -176,6 +190,7 @@ def diagnose_model(model: Any) -> dict[str, Any]:
             "results":results, "synthetic_arithmetic_not_market_charts":True,
             "explicit_risk_policy_supplied_not_unassisted_exam":True,
             "different_protocol_not_comparable_to_previous_mcq_score":True,
+            "schema_constrained_decoder_not_a_correctness_oracle":True,
             "expected_case_answers_not_supplied_to_model":True,
             "model_weights_updated":False, "market_profitability_proven":False,
             "execution_allowed":False, "trade_action":None}

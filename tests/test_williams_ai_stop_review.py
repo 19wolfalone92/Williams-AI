@@ -71,7 +71,7 @@ class StopReviewTests(unittest.TestCase):
             with self.subTest(value=value),self.assertRaises(ValueError):
                 normalize_context(context)
         for patch in ({"source":"SIGNED_BINANCE_VERIFIED"},{"execution_allowed":True},
-                      {"trade_action":"CANCEL_STOP"},{"as_of":"not-a-time"}):
+                      {"trade_action":"CANCEL_STOP"},{"as_of":"not-a-time"},{"side":[]}):
             with self.assertRaises(ValueError):
                 normalize_context({**diagnostic_cases()[0]["context"],**patch})
 
@@ -94,6 +94,16 @@ class StopReviewTests(unittest.TestCase):
             self.assertEqual(report["audit"]["verdict"],"MODEL_STOP_REVIEW_ERROR")
             self.assertNotIn("PRIVATE_BOOK_OR_PATH_TEST_VALUE",json.dumps(report))
 
+    def test_model_metadata_is_allowlisted_without_private_extension_fields(self):
+        class Student:
+            latest_stop_review_call={"mode":"SCHEMA_CONSTRAINED_STOP_REVIEW",
+                "finish_reason":"stop","api_key":"SECRET_METADATA_MARKER",
+                "usage":{"prompt_tokens":7,"private_path":"SECRET_METADATA_MARKER"}}
+            def review_protective_stop(self,context):return response(EXPECTED["LONG_WIDER"])
+        result=review_with_model(Student(),diagnostic_cases()[0]["context"])
+        self.assertNotIn("SECRET_METADATA_MARKER",json.dumps(result))
+        self.assertEqual(result["model_call_metadata"]["usage"],{"prompt_tokens":7})
+
     def test_model_receives_raw_context_not_reference_answer(self):
         class Runtime:
             def __init__(self,**kwargs):self.calls=[]
@@ -110,6 +120,13 @@ class StopReviewTests(unittest.TestCase):
             self.assertNotIn("reference",payload)
             self.assertIn("independent_engineering_risk_policy",payload)
             self.assertEqual(payload["book_source"]["kind"],"PUBLIC_REVIEWED_PARAPHRASE_NOT_ORIGINAL_PDF")
+            schema=model._model.calls[0]["response_format"]["schema"]
+            self.assertEqual(set(schema["properties"]),
+                {"level_relation","risk_direction","candidate_protects_side","assessment","reason"})
+            model.review_protective_stop(diagnostic_cases()[2]["context"])
+            self.assertEqual(schema,model._model.calls[1]["response_format"]["schema"])
+            self.assertIn("REVIEW_TIGHTENING",schema["properties"]["assessment"]["enum"])
+            self.assertIn("KEEP_PROTECTION",schema["properties"]["assessment"]["enum"])
 
     def test_diagnostic_does_not_call_safe_constant_a_skilled_trader(self):
         class Constant:

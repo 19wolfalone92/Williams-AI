@@ -135,6 +135,7 @@ class LocalWilliamsModel:
                                     learning_mode == "auto" and architecture.startswith("qwen3"))
         self._reasoning_budget = reasoning_budget
         self.latest_learning_call: dict[str, Any] | None = None
+        self.latest_stop_review_call: dict[str, Any] | None = None
 
     def _learning_completion(self, *, messages: list[dict[str, Any]],
                              schema: dict[str, Any], max_tokens: int) -> dict[str, Any]:
@@ -1031,7 +1032,11 @@ class LocalWilliamsModel:
                               "HALT_FOR_RECONCILIATION","UNKNOWN"),
             "reason":{"type":"string","minLength":1,"maxLength":300},
         }
-        response=self._learning_completion(
+        self.latest_stop_review_call=None
+        # Free-thinking _learning_completion intentionally omits a decoding
+        # grammar. This typed interface needs the same actual JSON grammar
+        # for EVERY case; it never restricts enums to the correct answer.
+        response=self._model.create_chat_completion(
             messages=[{"role":"system","content":SYSTEM_INSTRUCTIONS+
                 " Это проверка ЧИСЛОВОГО рассуждения о защите, не торговая команда. "
                 "Сначала сравни candidate_stop с current_stop ЧИСЛОВО: LOWER/HIGHER/EQUAL. "
@@ -1044,16 +1049,25 @@ class LocalWilliamsModel:
                 "Направление TIGHTER само по себе не делает кандидат допустимым. "
                 "Журнал не аутентифицирован. Не придумывай уровней или подтверждений биржи. "
                 "Верни только JSON с level_relation, risk_direction, candidate_protects_side, "
-                "assessment и кратким reason. При непонимании выбирай UNKNOWN."},
+                "assessment и reason до 300 символов. При непонимании выбирай UNKNOWN. /no_think"},
                 {"role":"user","content":json.dumps({
                     "paper_observations":context,
                     "book_source":{"rule_id":card["id"],"pdf_pages":card["pdf_pages"],
                         "kind":"PUBLIC_REVIEWED_PARAPHRASE_NOT_ORIGINAL_PDF",
                         "summary":card["summary"]},
                     "independent_engineering_risk_policy":RISK_POLICY},ensure_ascii=False)}],
-            schema={"type":"object","properties":properties,
-                    "required":list(properties),"additionalProperties":False},max_tokens=500)
+            response_format={"type":"json_object","schema":{
+                "type":"object","properties":properties,
+                "required":list(properties),"additionalProperties":False}},
+            temperature=0.0,max_tokens=650,stream=False)
         choices=response.get("choices",[])
+        finish=choices[0].get("finish_reason") if choices else None
+        usage=response.get("usage",{})
+        self.latest_stop_review_call={"mode":"SCHEMA_CONSTRAINED_STOP_REVIEW",
+            "finish_reason":finish if finish in {"stop","length"} else "UNKNOWN",
+            "usage":{key:usage[key] for key in ("prompt_tokens","completion_tokens","total_tokens")
+                if isinstance(usage,dict) and type(usage.get(key)) is int and usage[key]>=0},
+            "case_specific_answer_enums_supplied":False}
         if choices and choices[0].get("finish_reason")=="length":
             raise ValueError("LOCAL_STOP_REVIEW_OUTPUT_TRUNCATED")
         raw=choices[0].get("message",{}).get("content","") if choices else ""
