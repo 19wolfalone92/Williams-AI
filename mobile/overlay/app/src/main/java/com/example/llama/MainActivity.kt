@@ -339,8 +339,7 @@ class MainActivity : AppCompatActivity() {
         val edition = studyEdition.selectedItem.toString()
         val modelId = getPreferences(MODE_PRIVATE).getString("gguf_name", null)
             ?: error("Не выбран локальный GGUF")
-        val followUp = lastChatScope == (modelId to edition) && question.length <= 120 &&
-            Regex("(?iu)^(а\\s|почему|подробнее|объясни|дальше|что это|продолжи)").containsMatchIn(question)
+        val followUp = lastChatScope == (modelId to edition) && QwenSession.isFollowUp(question)
         val lookupQuestion = question + if(followUp) " " + lastChatQuestion else ""
         val conversationContext = if(followUp)
             "\nПредыдущий обмен для понимания ссылки, НЕ источник рыночных фактов или книжных правил. " +

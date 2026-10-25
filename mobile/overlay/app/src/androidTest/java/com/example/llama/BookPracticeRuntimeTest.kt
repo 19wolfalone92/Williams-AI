@@ -71,7 +71,8 @@ class BookPracticeRuntimeTest {
         assertTrue(BookPractice.recallSources(memory,books,"model-a","TC2","Когда начинать?",listOf(c)).isEmpty())
         assertTrue(BookPractice.recallSources(memory,books,"model-b","TC2","фрактал",listOf(c)).isEmpty())
         assertTrue(BookPractice.recallSources(memory,books,"model-a","NTD","фрактал",listOf(c)).isEmpty())
-        assertTrue(BookPractice.recallSources(memory,books,"model-a","TC2","фрактал",listOf(c.copy(correct="B"))).isEmpty())
+        val revised=BookPractice.Case(c.id,c.book,c.rule,c.pages,c.question,c.choices,"B")
+        assertTrue(BookPractice.recallSources(memory,books,"model-a","TC2","фрактал",listOf(revised)).isEmpty())
         SQLiteDatabase.openDatabase(books.absolutePath,null,SQLiteDatabase.OPEN_READWRITE).use { db ->
             db.execSQL("UPDATE excerpts SET content='Исправленный OCR фрактала' WHERE book='TC2'")
         }

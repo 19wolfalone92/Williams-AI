@@ -7,7 +7,10 @@ class MobileTutorTests(unittest.TestCase):
         cases=practice_cases()
         self.assertEqual(len(cases),8)
         self.assertEqual({c['edition'] for c in cases},{'TC1','NTD','TC2','COURSE'})
-        for c in cases:
+        all_cases=practice_cases(None)
+        self.assertEqual(len(all_cases),46)
+        self.assertEqual(len({c['id'] for c in all_cases}),46)
+        for c in all_cases:
             altered={**c,'correct':'LABEL_LEAK_CANARY','feedback':'FEEDBACK_LEAK_CANARY'}
             self.assertEqual(prompt(c,public_source(c)),prompt(altered,public_source(c)))
             self.assertTrue(prompt(c,None).endswith('/no_think'))

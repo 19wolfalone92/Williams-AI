@@ -16,8 +16,8 @@ from .local_model import _final_learning_json
 INSTRUCTIONS = Path(__file__).resolve().parents[1] / "knowledge/MOBILE_TUTOR_PROMPT_RU.txt"
 
 
-def practice_cases(per_edition: int = 2) -> tuple[dict, ...]:
-    if type(per_edition) is not int or not 1 <= per_edition <= 4:
+def practice_cases(per_edition: int | None = 2) -> tuple[dict, ...]:
+    if per_edition is not None and (type(per_edition) is not int or not 1 <= per_edition <= 4):
         raise ValueError("BOUNDED_MOBILE_PRACTICE_REQUIRED")
     all_cases = learning_cases()
     return tuple(c for ed in ("TC1", "NTD", "TC2", "COURSE")

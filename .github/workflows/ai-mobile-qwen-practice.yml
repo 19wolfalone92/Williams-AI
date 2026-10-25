@@ -21,10 +21,26 @@ jobs:
   actual-qwen-source-practice:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - size: '1.7B'
+            model_repo: unsloth/Qwen3-1.7B-GGUF
+            revision: b2d17796e6fd93c353a0415a3abd8b7f801701de
+            sha: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+          - size: '4B'
+            model_repo: Qwen/Qwen3-4B-GGUF
+            revision: bc640142c66e1fdd12af0bd68f40445458f3869b
+            sha: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
     env:
       HF_HUB_DISABLE_TELEMETRY: '1'
       SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-      GGUF_MODEL_PATH: /tmp/mobile-qwen/Qwen3-1.7B-Q4_K_M.gguf
+      GGUF_MODEL_PATH: /tmp/mobile-qwen/Qwen3-${{ matrix.size }}-Q4_K_M.gguf
+      GGUF_SHA256: ${{ matrix.sha }}
+      MODEL_SIZE: ${{ matrix.size }}
+      MODEL_REPO: ${{ matrix.model_repo }}
+      MODEL_REVISION: ${{ matrix.revision }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,17 +54,18 @@ jobs:
       - name: Download identical public pinned weights, no private books
         run: |
           python - <<'PY'
+          import os
           from huggingface_hub import hf_hub_download
-          hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
-              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
-              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/mobile-qwen')
+          hf_hub_download(repo_id=os.environ['MODEL_REPO'],
+              revision=os.environ['MODEL_REVISION'],
+              filename='Qwen3-' + os.environ['MODEL_SIZE'] + '-Q4_K_M.gguf',local_dir='/tmp/mobile-qwen')
           PY
-      - name: Actual eight public practice questions, with and without source memory
+      - name: Actual 46 public practice questions, with and without source memory
         run: python -u scripts/mobile_qwen_practice_diagnostic.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: actual-mobile-qwen-practice-not-weight-training
+          name: actual-mobile-qwen-practice-${{ matrix.size }}-not-weight-training
           path: /tmp/mobile_qwen_practice.json
           if-no-files-found: error
           retention-days: 7

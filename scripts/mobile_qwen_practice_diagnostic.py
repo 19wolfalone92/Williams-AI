@@ -16,13 +16,15 @@ def main():
     from williams_ai.mobile_tutor import practice_cases, public_source, prompt, parse_answer
     from williams_ai.real_gguf_acceptance import actual_gguf_sha256
     model=Path(os.environ["GGUF_MODEL_PATH"])
-    expected="dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366"
+    expected=os.environ["GGUF_SHA256"]
     actual_gguf_sha256(model,expected)
     llm=Llama(model_path=str(model),n_ctx=8192,n_gpu_layers=0,verbose=False)
-    cases=practice_cases()
+    cases=practice_cases(None)
+    pilot_ids={c['id'] for c in practice_cases()}
     output=Path('/tmp/mobile_qwen_practice.json')
     report={"mode":"ACTUAL_QWEN_MOBILE_SOURCE_ASSISTED_PRACTICE",
         "source_commit":os.environ["SOURCE_HEAD"],"model_sha256":expected,
+        "model_size":os.environ["MODEL_SIZE"],
         "runtime":version('llama-cpp-python'),"actual_model_loads":1,"cases":len(cases),
         "original_private_books_used":False,"source_mode":"PUBLIC_PROJECT_PARAPHRASES",
         "project_practice_cases_not_independent_holdout":True,
@@ -76,6 +78,9 @@ def main():
     before={r['case']:r['correct'] for r in report['results'] if r['mode']=='without_source'}
     after={r['case']:r['correct'] for r in report['results'] if r['mode']!='without_source'}
     report.update(scores=scores,newly_correct=sum(after[k] and not before[k] for k in before),
+        pilot_scores={mode:sum(r['correct'] for r in report['results']
+            if r['mode']==mode and r['case'] in pilot_ids)
+            for mode in ('without_source','with_reopened_source_memory')},
         regressed=sum(before[k] and not after[k] for k in before),
         protocol_failures=sum(r['error'] is not None for r in report['results']),
         trading_skill_proven=False,book_mastery_percent=None)

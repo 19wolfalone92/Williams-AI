@@ -9,6 +9,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class QwenSessionTest {
+    @Test fun explicitNewQuestionDoesNotInheritUnrelatedPreviousTopic() {
+        for (question in listOf("Почему?", "А подробнее!", "Объясни", "Что это?", "Продолжи"))
+            assertTrue(question,QwenSession.isFollowUp(question))
+        for (question in listOf("Объясни ангуляцию", "Почему AO положительный?", "А BTCUSDT?", "Дальше разберём другой рынок"))
+            assertFalse(question,QwenSession.isFollowUp(question))
+    }
+
     private class Engine : InferenceEngine {
         override val state = MutableStateFlow<InferenceEngine.State>(InferenceEngine.State.ModelReady)
         var resets = 0; var loads = 0; val seen = arrayListOf<Pair<String,Int>>()

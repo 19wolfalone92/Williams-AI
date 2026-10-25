@@ -61,7 +61,14 @@ p = Path(sys.argv[1])
 data = p.read_text()
 needle = 'applicationId = "com.example.llama.aichat"'
 assert data.count(needle) == 1, "Upstream changed: review before patching"
-p.write_text(data.replace(needle, 'applicationId = "com.williamsai.offline"'))
+data = data.replace(needle, 'applicationId = "com.williamsai.offline"')
+# Instrumented tests call APIs the application itself may not call. A shrunk
+# target removes those methods before tests are compiled (NoSuchMethodError).
+# Keep the debug APK and its tested target identical, with normal debug symbols.
+debug = '        debug {\n            isMinifyEnabled = true\n            isShrinkResources = true'
+assert data.count(debug) == 1, "Upstream debug build changed: review before patching"
+data = data.replace(debug, debug.replace('= true', '= false'))
+p.write_text(data)
 PY
 
 python3 - "$project/app/src/main/AndroidManifest.xml" <<'PY'

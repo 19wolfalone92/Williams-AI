@@ -46,6 +46,10 @@ def patch(project: Path):
     text = replace(text, "            if (_cancelGeneration) {",
         '            if (!_cancelGeneration && wasGenerationTruncated()) throw IOException("MODEL_OUTPUT_TRUNCATED")\n'
         "            if (_cancelGeneration) {")
+    text = replace(text, "        llamaScope.cancel()\n    }\n}",
+        "        _state.value = InferenceEngine.State.Uninitialized\n"
+        "        llamaScope.cancel()\n"
+        "        synchronized(Companion) { if (instance === this) instance = null }\n    }\n}")
     changed[implementation] = text
     text = replace(originals[native], "static llama_pos stop_generation_position;",
         "static llama_pos stop_generation_position;\nstatic bool generation_truncated = false;")
@@ -71,6 +75,9 @@ def patch(project: Path):
         "stop_generation_position = current_position + n_predict;")
     text = replace(text, "    if (current_position >= stop_generation_position) {",
         "    if (current_position >= stop_generation_position) {\n        generation_truncated = true;")
+    text = replace(text, "    llama_model_free(g_model);\n}",
+        "    llama_model_free(g_model);\n"
+        "    g_sampler = nullptr;\n    g_context = nullptr;\n    g_model = nullptr;\n}")
     changed[native] = text
     for name, text in changed.items():
         (project / name).write_text(text)

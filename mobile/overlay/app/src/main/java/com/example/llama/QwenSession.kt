@@ -5,6 +5,11 @@ import kotlinx.coroutines.flow.collect
 
 /** One loaded Qwen, bounded independent tasks; durable memory lives in SQLite. */
 object QwenSession {
+    /** Only an elliptical request may inherit the previous topic. */
+    fun isFollowUp(question: String): Boolean = Regex(
+        "(?iu)^\\s*(?:а\\s+)?(?:почему|подробнее|объясни|поясни|дальше|что это|продолжи|и что дальше)[\\s?!.,]*$"
+    ).matches(question)
+
     suspend fun answer(engine: InferenceEngine, prompt: String, tokens: Int, maxChars: Int,
                        onToken: suspend (String) -> Unit = {}): String {
         require(prompt.isNotBlank() && tokens in 32..2048 && maxChars in 128..16000)

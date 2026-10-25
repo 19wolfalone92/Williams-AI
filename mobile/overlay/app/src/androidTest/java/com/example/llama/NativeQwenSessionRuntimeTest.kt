@@ -55,6 +55,13 @@ class NativeQwenSessionRuntimeTest {
             assertTrue(engine.state.value is InferenceEngine.State.ModelReady)
             one("Once upon a time")
             // Exactly one loadModel above; reset does not unload/reload weights.
-        } finally { engine.cleanUp();model.delete() }
+        } finally { engine.destroy();model.delete() }
+        // Activity recreation must get a fresh initialized singleton rather
+        // than the destroyed engine with stale state and cancelled scope.
+        val reopened=AiChat.getInferenceEngine(ctx)
+        try {
+            assertNotSame(engine,reopened)
+            withTimeout(30000) { reopened.state.first { it is InferenceEngine.State.Initialized } }
+        } finally { reopened.destroy() }
     }
 }
