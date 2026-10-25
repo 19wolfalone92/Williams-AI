@@ -103,6 +103,7 @@ class UnifiedRuntimeTests(unittest.TestCase):
         self.assertTrue(result["unified_ai"]["effective_model"]["adapter_loaded"])
         self.assertEqual(result["unified_ai"]["effective_model"]["model_id"],study["model_fingerprint_id"])
         self.assertTrue(result["private_research_material_refs_used"])
+        self.assertEqual(result["deliberate_book_learning"]["past_study_sources_reread"],["TC2: PDF 10"])
         prompt=json.loads(runtime.calls[-1]["messages"][1]["content"])
         self.assertTrue(prompt["retained_research_materials_not_authoritative_rules"])
         self.assertNotIn("Непроверенный учебный вывод",json.dumps(prompt,ensure_ascii=False))
@@ -126,6 +127,18 @@ class UnifiedRuntimeTests(unittest.TestCase):
             book_index=self.books),[])
         self.assertEqual(newer.status()["memory_counts"]["study_notes"],1)
         self.assertEqual(newer.status()["book_study"]["books"][2]["studied_chunks"],0)
+
+    def test_old_study_pointer_reloads_original_and_rejects_changed_ocr(self):
+        from williams_ai.study import recalled_source_pages
+        brain=self.brain();brain.study(editions=("TC2",),budget_per_book=1)
+        pages=recalled_source_pages(self.books,self.db,"фрактал стоп",edition="TC2",model_id=brain.identity["model_id"])
+        self.assertEqual([x["source"] for x in pages],["TC2: PDF 10"])
+        self.assertIn("Фрактал и защитный стоп",pages[0]["excerpt"])
+        self.assertNotIn("требуют проверки исходной страницы",pages[0]["excerpt"])
+        with sqlite3.connect(self.books) as db:
+            db.execute("UPDATE excerpts SET content='Исправленный OCR фрактал стоп' WHERE book='TC2' AND pdf_page=10")
+        self.assertEqual(recalled_source_pages(self.books,self.db,"фрактал стоп",edition="TC2",
+            model_id=brain.identity["model_id"]),[])
 
     def test_missing_mixed_or_changed_adapter_stops_before_native_loader(self):
         for key,value in (("base_sha256","0"*64),("adapter_sha256","1"*64),

@@ -23,7 +23,7 @@ from .book_rules import registry, lookup_rules
 from .grounded_inference import verified_private_book_pages
 from .guided_retry import LESSONS, safe_error_code
 from .learning_agenda import prior_reading_focus
-from .study import memory, recall, study_batch
+from .study import memory, recall, study_batch, recalled_source_pages
 
 LEARNING_NEEDS = {"NONE", "ENTRY", "MANAGEMENT", "EXIT", "WAVE"}
 _GAPS = {
@@ -172,12 +172,25 @@ class DeliberateBookModel:
             "needs_independent_topic_review": False,
             "source_kind": self.source_kind, "public_rule_references": [],
             "private_original_pages_read": False,
+            "past_study_sources_reread": [],
         }
         first = None
         first_error = None
         initial_args={**kwargs}
         if "study_lessons" in initial_args:
             initial_args["study_lessons"]=[]
+        if not self.public_rules_only:
+            try:
+                pointers = recalled_source_pages(self.book_index,self.study_memory,
+                    " ".join(_QUERIES.values()),edition=edition,model_id=self.model_id)
+                trace["past_study_sources_reread"] = [x["source"] for x in pointers]
+                trace["private_original_pages_read"] = bool(pointers)
+                existing = initial_args.get("primary_pages") or []
+                initial_args["primary_pages"] = (pointers + [page for page in existing
+                    if not any(x["source"]==page["source"] and x["excerpt"]==page["excerpt"]
+                               for x in pointers)])[:3]
+            except (ValueError,OSError,sqlite3.DatabaseError):
+                trace["past_study_source_unavailable"] = True
         try:
             agenda=prior_reading_focus(self.study_memory,model_id=self.model_id,
                 edition=edition,as_of=observation["as_of"],source_kind=self.source_kind)
@@ -202,7 +215,7 @@ class DeliberateBookModel:
                         self._public_rules(edition,agenda["rule_ids"])]
                 trace["prior_reading_rules"]=agenda["rule_ids"]
                 trace["prior_reading_pages"]=[x["source"] for x in remembered]
-                trace["private_original_pages_read"]=bool(remembered)
+                trace["private_original_pages_read"]=trace["private_original_pages_read"] or bool(remembered)
                 trace["prior_reading_requests"]=agenda["past_requests"]
                 trace["prior_question_reused"]=bool(agenda["question"]) and not self.public_rules_only
         except (ValueError,OSError,sqlite3.DatabaseError):
