@@ -1,0 +1,65 @@
+name: Williams AI actual Qwen correction before and after
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/local_model.py'
+      - 'williams_ai/deliberate_learning.py'
+      - 'williams_ai/decision_contract.py'
+      - 'scripts/ai_qwen_correction_diagnostic.py'
+      - '.github/workflows/ai-qwen-correction.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-qwen-debugging-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: [baseline, candidate]
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      DIAGNOSTIC_ARM: ${{ matrix.arm }}
+      BASELINE_SHA: f8cee62fd6a076c96f4677e57057475dff4b9338
+      SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      GGUF_MODEL_PATH: /tmp/qwen_correction_model/Qwen3-1.7B-Q4_K_M.gguf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pin the same native runtime for both arms
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python==0.3.36 huggingface_hub==1.33.0
+      - name: Retrieve identical pinned public Qwen weights
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/qwen_correction_model')
+          PY
+      - name: Prepare exact previous source for the baseline
+        if: matrix.arm == 'baseline'
+        run: |
+          mkdir -m 700 /tmp/williams_correction_baseline
+          git archive "$BASELINE_SHA" | tar -x -C /tmp/williams_correction_baseline
+          echo "WILLIAMS_DIAGNOSTIC_SOURCE_ROOT=/tmp/williams_correction_baseline" >> "$GITHUB_ENV"
+          echo "SOURCE_HEAD=$BASELINE_SHA" >> "$GITHUB_ENV"
+      - name: Actual model answers; same closed candles and unchanged critic
+        run: python -u scripts/ai_qwen_correction_diagnostic.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-qwen-correction-${{ matrix.arm }}-not-independent-exam
+          path: /tmp/qwen_correction_diagnostic.json
+          if-no-files-found: error
+          retention-days: 7

@@ -8,6 +8,7 @@ Independent algorithm_guard MUST re-check every model response.
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from typing import Any
 
 
@@ -78,3 +79,37 @@ def contract_for_model(chart:dict[str,Any],edition:str)->dict[str,Any]:
     if edition=="TC2":
         result["wm3_valid_setup_side_entry_state_combinations"]=legal_wm3_discussion_states(chart)
     return result
+
+
+def previous_decision_review(chart:dict[str,Any], proposal:dict[str,Any],
+                             edition:str)->dict[str,Any]:
+    """Return critic diagnostics, never a replacement answer or future label.
+
+    The proposal is untrusted prior model output, not source knowledge. The
+    critic is rerun here instead of accepting caller-supplied failure codes.
+    """
+    if (not isinstance(proposal,dict) or proposal.get("symbol")!=chart.get("symbol")
+            or proposal.get("edition")!=edition
+            or _as_utc(proposal.get("as_of")) is None
+            or _as_utc(proposal.get("as_of"))!=_as_utc(chart.get("as_of"))):
+        raise ValueError("PREVIOUS_DECISION_MUST_MATCH_CURRENT_CLOSED_CHART")
+    try:
+        raw=json.dumps(proposal,ensure_ascii=False,allow_nan=False)
+    except (TypeError,ValueError) as exc:
+        raise ValueError("BOUNDED_PREVIOUS_DECISION_REQUIRED") from exc
+    if len(raw)>6000:
+        raise ValueError("BOUNDED_PREVIOUS_DECISION_REQUIRED")
+    for field,limit in (("reason",600),("learning_question",400)):
+        if field in proposal and (not isinstance(proposal[field],str) or len(proposal[field])>limit):
+            raise ValueError("BOUNDED_PREVIOUS_DECISION_TEXT_REQUIRED")
+    from .algorithm_guard import audit_reasoning
+    review=audit_reasoning(chart,proposal)
+    fields=("symbol","as_of","edition","setup","side","entry_state","rule_ids",
+            "exit_basis","reason","learning_need","learning_question",
+            "exchange_fill_confirmed","exchange_sl_confirmed","wave_degree_verified")
+    return {"previous_model_answer_unverified":{k:proposal[k] for k in fields if k in proposal},
+            "independent_critic_failures":review["hard_failures"],
+            "independent_critic_uncertainties":review["uncertainties"],
+            "same_closed_market_cutoff":True,"correct_answer_supplied":False,
+            "previous_answer_is_not_market_or_book_evidence":True,
+            "execution_allowed":False,"trade_action":None}
