@@ -135,6 +135,7 @@ class LocalWilliamsModel:
                                     learning_mode == "auto" and architecture.startswith("qwen3"))
         self._reasoning_budget = reasoning_budget
         self.latest_learning_call: dict[str, Any] | None = None
+        self.latest_stop_review_call: dict[str, Any] | None = None
 
     def _learning_completion(self, *, messages: list[dict[str, Any]],
                              schema: dict[str, Any], max_tokens: int) -> dict[str, Any]:
@@ -599,6 +600,14 @@ class LocalWilliamsModel:
                     "never_claim_real_fill_from_OHLC":True,
                     "wave_degree_still_unverified":True,
                 }
+                context=lesson.get("management",{}).get("stop_review_context")
+                if context is not None:
+                    from .stop_review import normalize_context
+                    context=normalize_context(context)
+                    if (context["symbol"]!=chart_analysis["symbol"]
+                            or _as_utc(context["as_of"])!=cutoff):
+                        raise ValueError("STOP_REVIEW_CONTEXT_CHART_MISMATCH")
+                    observation["claimed_campaign_stop_observations"]=context
         # Actual inference receives the causal, practical rehearsal from
         # independent OHLCV reanalysis. The prompt is a bounded whitelist;
         # no future outcomes, broker instructions or claimed probabilities.
@@ -1007,6 +1016,72 @@ class LocalWilliamsModel:
         if isinstance(proposal.get("reason"),str):
             proposal["reason"]=proposal["reason"][:600]
         return proposal
+
+    def review_protective_stop(self, context:dict[str,Any])->dict[str,Any]:
+        """Numerical research assessment, not a request to move an order."""
+        from .stop_review import normalize_context, RISK_POLICY, OUTPUT_KEYS, numeric_teaching_examples
+        context=normalize_context(context)
+        examples=numeric_teaching_examples()
+        def enum(*values):return {"type":"string","enum":list(values)}
+        properties={
+            "level_relation":enum("LOWER","HIGHER","EQUAL","UNKNOWN"),
+            "risk_direction":enum("TIGHTER","WIDER","UNCHANGED","UNKNOWN"),
+            "candidate_protects_side":{"type":"boolean"},
+            "assessment":enum("KEEP_PROTECTION","REVIEW_TIGHTENING",
+                              "HALT_FOR_RECONCILIATION","UNKNOWN"),
+            "reason":{"type":"string","minLength":1,"maxLength":300},
+        }
+        self.latest_stop_review_call=None
+        # Free-thinking _learning_completion intentionally omits a decoding
+        # grammar. This typed interface needs the same actual JSON grammar
+        # for EVERY case; it never restricts enums to the correct answer.
+        response=self._model.create_chat_completion(
+            messages=[{"role":"system","content":
+                "Ты решаешь ограниченную ЧИСЛОВУЮ УЧЕБНУЮ задачу. "
+                "Все переданные числа — условия гипотетической задачи, не заявления о реальном счёте. "
+                "Их можно сравнивать без биржевого подтверждения. Не оценивай достоверность "
+                "счёта: аутентификацию отдельно выполняет внешний контроллер. "
+                "Это не торговая команда, реальные ордера и подтверждения биржи запрещены. "
+                "Изучи worked_examples и реши ПОСЛЕДНИЙ numeric_hypothesis. "
+                "Бери числа для ответа только из последнего условия, не из примеров. "
+                "Сначала сравни candidate_stop с current_stop ЧИСЛОВО: LOWER/HIGHER/EQUAL. "
+                "Затем оцени номинальное изменение защиты для LONG/SHORT: TIGHTER/WIDER/UNCHANGED. "
+                "Отдельно проверь сторону candidate_stop относительно last_closed_price. "
+                "Если существующий стоп уже на цене или за ней, HALT_FOR_RECONCILIATION: "
+                "дальнейший перенос требует проверки биржевого состояния. "
+                "Иначе REVIEW_TIGHTENING только при более тесной защите и правильной стороне цены; "
+                "при равном, более широком или неверно расположенном кандидате KEEP_PROTECTION. "
+                "Направление TIGHTER само по себе не делает кандидат допустимым. "
+                "Используй только заданные условные числа, не придумывай новых уровней. "
+                "Верни только JSON с level_relation, risk_direction, candidate_protects_side, "
+                "assessment и reason до 300 символов. При непонимании выбирай UNKNOWN. /no_think"},
+                {"role":"user","content":json.dumps({
+                    "independent_engineering_risk_policy":RISK_POLICY,
+                    "worked_examples":examples,
+                    "numeric_hypothesis":{key:context[key] for key in
+                        ("side","current_stop","candidate_stop","last_closed_price")}},ensure_ascii=False)}],
+            response_format={"type":"json_object","schema":{
+                "type":"object","properties":properties,
+                "required":list(properties),"additionalProperties":False}},
+            temperature=0.0,max_tokens=650,stream=False)
+        choices=response.get("choices",[])
+        finish=choices[0].get("finish_reason") if choices else None
+        usage=response.get("usage",{})
+        self.latest_stop_review_call={"mode":"SCHEMA_CONSTRAINED_STOP_REVIEW",
+            "finish_reason":finish if finish in {"stop","length"} else "UNKNOWN",
+            "usage":{key:usage[key] for key in ("prompt_tokens","completion_tokens","total_tokens")
+                if isinstance(usage,dict) and type(usage.get(key)) is int and usage[key]>=0},
+            "worked_examples_count":len(examples),
+            "case_specific_answer_enums_supplied":False}
+        if choices and choices[0].get("finish_reason")=="length":
+            raise ValueError("LOCAL_STOP_REVIEW_OUTPUT_TRUNCATED")
+        raw=choices[0].get("message",{}).get("content","") if choices else ""
+        if not isinstance(raw,str) or not raw.strip():
+            raise ValueError("EMPTY_MODEL_STOP_REVIEW")
+        answer=json.loads(raw)
+        if not isinstance(answer,dict) or set(answer)!=OUTPUT_KEYS:
+            raise ValueError("INVALID_MODEL_STOP_REVIEW_OUTPUT")
+        return answer
 
     def propose_24h_research_forecast(
         self, chart_analysis: dict[str, Any],

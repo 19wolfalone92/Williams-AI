@@ -1,0 +1,68 @@
+name: Williams AI actual Qwen numerical stop review
+
+on:
+  push:
+    branches: [feature/ai-grounded-stop-review-20261025]
+    paths:
+      - '.github/workflows/ai-stop-review-qwen.yml'
+      - 'williams_ai/stop_review.py'
+      - 'williams_ai/local_model.py'
+      - 'williams_ai/reasoning_trial.py'
+      - 'williams_ai/tc2_trade_lifecycle_coach.py'
+      - 'tests/test_williams_ai_stop_review.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qwen-numeric-stop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-qwen-numerical-stop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams_numeric_stop_qwen
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: All software regressions, not a neural skill score
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Install local CPU inference
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download and verify pinned public 1.7B weights
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          path = Path(hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/williams_numeric_stop_model'))
+          print(actual_gguf_sha256(path,os.environ['GGUF_SHA256']))
+          PY
+      - name: Actual Qwen on ten fixed synthetic stop comparisons with explicit risk policy
+        run: |
+          set -o pipefail
+          python -m williams_ai.stop_review \
+            --model /tmp/williams_numeric_stop_model/Qwen3-1.7B-Q4_K_M.gguf \
+            --expected-sha256 "$GGUF_SHA256" --ctx 8192 --reasoning-budget 1536 \
+            | tee /tmp/actual_qwen_numeric_stop_review.json
+      - name: Retain diagnostic only, no weights or private journals
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-qwen-numeric-stop-not-market-performance
+          path: /tmp/actual_qwen_numeric_stop_review.json
+          retention-days: 7
+          if-no-files-found: warn

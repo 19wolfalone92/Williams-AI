@@ -1,0 +1,91 @@
+name: Williams AI actual Qwen closed-chart campaign review
+
+on:
+  push:
+    branches: [feature/ai-grounded-stop-review-20261025]
+    paths:
+      - '.github/workflows/ai-stop-campaign-qwen.yml'
+      - 'williams_ai/stop_review.py'
+      - 'williams_ai/local_model.py'
+      - 'williams_ai/reasoning_trial.py'
+      - 'williams_ai/tc2_trade_lifecycle_coach.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qwen-paper-stop-campaign-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-qwen-closed-paper-campaign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams_paper_campaign_qwen
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Causal campaign and stop handoff regressions
+        run: python -m unittest discover -s tests -p 'test_williams_ai_stop_review.py' -v
+      - name: Install local CPU inference
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Actual model chart and stop review on real closed prices with a hypothetical paper journal
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          from williams_ai.local_model import LocalWilliamsModel
+          from williams_ai.causal_paper_lab import frozen_markets
+          from williams_ai.reasoning_trial import evaluate_historical_thought
+          import json, os
+          path = Path(hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/williams_campaign_model'))
+          actual_gguf_sha256(path,os.environ['GGUF_SHA256'])
+          model = LocalWilliamsModel(path,n_ctx=8192,use_decision_schema=True,
+              learning_mode='auto',reasoning_budget=1536)
+          market = frozen_markets()['ETHUSDT']
+          bars = market['bars']
+          cutoff = bars[299]['close_time']
+          opened = bars[250]['close_time']
+          journal = {'symbol':'ETHUSDT','edition':'TC2','as_of':cutoff,'events':[
+              {'at':opened,'type':'OPEN_FILL','side':'LONG',
+               'price':float(bars[250]['close']),'exchange_confirmed':True},
+              {'at':opened,'type':'STOP_ACK',
+               'stop_price':round(float(bars[250]['close'])/2,2),'exchange_confirmed':True}]}
+          # These flags are hypothetical PAPER claims, never signed evidence.
+          report = {'mode':'ACTUAL_GGUF_REAL_CLOSED_PRICES_WITH_HYPOTHETICAL_PAPER_CAMPAIGN',
+              'model_sha256':os.environ['GGUF_SHA256'],'source_commit':os.environ['GITHUB_SHA'],
+              'journal_is_synthetic_paper_assumption':True,'signed_broker_data_used':False,
+              'untouched_market_holdout':False,'market_profitability_proven':False,
+              'model_weights_updated':False,'execution_allowed':False,'trade_action':None}
+          try:
+              report['reasoning'] = evaluate_historical_thought('ETHUSDT',bars,
+                  tick_size=market['tick_size'],bar_index=299,model=model,
+                  campaign_journal=journal,include_topdown=False)
+              report['pipeline_error'] = None
+          except (ValueError,RuntimeError,TypeError,KeyError):
+              report['reasoning'] = None
+              report['pipeline_error'] = 'MODEL_OR_PIPELINE_FAILED_NO_FAKE_SAFE_ANSWER'
+          output = json.dumps(report,ensure_ascii=False,indent=2)
+          Path('/tmp/actual_qwen_paper_campaign_stop.json').write_text(output,encoding='utf-8')
+          print(output)
+          PY
+      - name: Retain public result only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-qwen-paper-campaign-not-real-execution
+          path: /tmp/actual_qwen_paper_campaign_stop.json
+          retention-days: 7
+          if-no-files-found: warn

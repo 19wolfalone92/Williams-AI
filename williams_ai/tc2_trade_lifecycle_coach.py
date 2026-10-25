@@ -166,6 +166,7 @@ def teach_tc2_trade_lifecycle(
         "opposite_wise_man_signal_alone_is_not_an_exit":True,
         "stop_must_never_be_widened":True,
         "unconfirmed_wave_hypotheses_are_not_exit_orders":True,
+        "stop_review_context":None,
     }
     audit = None
     if journal is not None:
@@ -175,17 +176,17 @@ def teach_tc2_trade_lifecycle(
                 or journal.get("as_of")!=as_of):
             raise ValueError("TC2_JOURNAL_CHART_CUTOFF_MISMATCH")
         audit=audit_campaign(journal)
+        critical=[x["code"] for x in audit["findings"]
+                  if x["severity"]=="CRITICAL"]
+        management.update({"journal_only_not_broker_verified":True,
+                           "campaign_audit_critical_findings":critical})
         if audit["position"]["status"]=="OPEN":
             state = "CLAIMED_OPEN_POSITION_REQUIRE_EXCHANGE_RECONCILIATION"
             side=audit["position"]["side"]
             sl=audit["position"]["stop_price"]
-            critical=[x["code"] for x in audit["findings"]
-                      if x["severity"]=="CRITICAL"]
             opposing=[x["signal"] for x in actions if x["side"]!=side]
             management.update({
                 "side":side, "opposing_signals_observed_only":opposing,
-                "journal_only_not_broker_verified":True,
-                "campaign_audit_critical_findings":critical,
             })
             if sl is None or critical:
                 management["status"]="HALT_FOR_PROTECTION_OR_FILL_AUDIT"
@@ -203,15 +204,29 @@ def teach_tc2_trade_lifecycle(
                 tighter=(candidate>old_sl if side=="LONG" else candidate<old_sl)
                 valid=(candidate<current_price if side=="LONG"
                        else candidate>current_price)
-                management["status"]=("REVIEW_MONOTONIC_TRAILING_STOP"
+                current_valid=(old_sl<current_price if side=="LONG" else old_sl>current_price)
+                management["status"]=("HALT_FOR_STOP_RECONCILIATION" if not current_valid else
+                    "REVIEW_MONOTONIC_TRAILING_STOP"
                     if tighter and valid else "HOLD_PROTECTIVE_STOP")
                 management["trailing_stop_paper_reference"]=(
-                    str(candidate) if tighter and valid else None)
+                    str(candidate) if tighter and valid and current_valid else None)
                 management["existing_journal_stop"]=str(old_sl)
                 management["opposite_signal_alone_must_not_flatten"]=True
+                if candidate>0:
+                    from .stop_review import SCHEMA, SOURCE, normalize_context
+                    # Preserve even a rejected candidate as an observation.
+                    # The LLM must compare it; never provide the teacher's
+                    # expected assessment as the model's own answer.
+                    management["stop_review_context"]=normalize_context({
+                        "schema":SCHEMA,"symbol":symbol,"as_of":as_of,
+                        "side":side,"current_stop":str(old_sl),
+                        "candidate_stop":str(candidate),
+                        "last_closed_price":str(current_price),"source":SOURCE,
+                        "execution_allowed":False,"trade_action":None})
         else:
             state="CLAIMED_FLAT_REQUIRES_EXCHANGE_RECONCILIATION"
-            management["status"]="NO_OPEN_POSITION_IN_SUPPLIED_JOURNAL"
+            management["status"]=("HALT_FOR_CAMPAIGN_AUDIT" if critical else
+                                  "NO_OPEN_POSITION_IN_SUPPLIED_JOURNAL")
     # The numbers 1--5--4--3--2 are a book example, NEVER mandatory live
     # contracts: hard portfolio risk and confirmed improving trade must gate
     # every add. This teaching artifact is not a position-size proposal.
