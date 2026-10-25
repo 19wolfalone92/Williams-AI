@@ -211,6 +211,9 @@ def evaluate_historical_thought(
         if context is not None and model is not None:
             from .stop_review import review_with_model
             stop_review=review_with_model(model,context)
+            if learner is not None:
+                stop_review["next_reading_agenda_updated"] = learner.remember_stop_review(
+                    evidence, context, stop_review)
         else:
             critical=lesson["management"].get("campaign_audit_critical_findings",[])
             flat=(lesson["campaign_state"]=="CLAIMED_FLAT_REQUIRES_EXCHANGE_RECONCILIATION"
@@ -251,7 +254,10 @@ def evaluate_historical_thought(
         "model_explanation":reason[:600] if isinstance(reason,str) else "",
         "audit":result,
         "campaign_stop_review":stop_review,
+        "book_question_resolved":submitted.get("learning_need", "NONE") == "NONE"
+            and submitted.get("setup") != "UNKNOWN",
         "research_reasoning_consistent":not result["hard_failures"] and
+            submitted.get("learning_need", "NONE") == "NONE" and submitted.get("setup") != "UNKNOWN" and
             not (model is not None and learner and learner.latest and
                  learner.latest.get("needs_independent_topic_review")) and
             (stop_review is None or not stop_review["audit"]["hard_failures"]),

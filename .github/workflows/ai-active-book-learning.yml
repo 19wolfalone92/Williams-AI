@@ -18,7 +18,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: active-book-learning-${{ github.ref }}
+  # Preserve an in-flight actual-model baseline when code changes; only
+  # duplicate attempts at the SAME source commit supersede one another.
+  group: active-book-learning-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -110,6 +112,18 @@ jobs:
                   'error':None if result is not None else failure,
                   'result':result})
               print('FINISH_CLOSED_CHART',cutoff_index,'actual_result_available',result is not None,flush=True)
+          available = [x['result'] for x in results if x['result'] is not None]
+          summary = {
+              'chart_results_available':len(available),
+              'pipeline_failures':sum(x['result'] is None for x in results),
+              'book_questions_resolved':sum(x['book_question_resolved'] for x in available),
+              'research_reasoning_consistent':sum(x['research_reasoning_consistent'] for x in available),
+              'numeric_stop_errors_queued':sum(bool((x['campaign_stop_review'] or {}).get(
+                  'next_reading_agenda_updated')) for x in available),
+              'numeric_failure_priority_recalled':sum(bool(x['deliberate_book_learning'].get(
+                  'prior_numeric_stop_review_pending')) for x in available),
+              'model_qualified_for_autonomous_trading':False,
+          }
           report = {'mode':'ACTUAL_GGUF_PERSISTENT_SOURCE_LEARNING_DIAGNOSTIC',
               'model_sha256':os.environ['GGUF_SHA256'],'model_size':os.environ['MODEL_SIZE'],
               'source_commit':os.environ['GITHUB_SHA'],'fresh_process_per_chart':True,
@@ -118,7 +132,7 @@ jobs:
               'untouched_holdout':False,'journal_is_hypothetical_paper_assumption':True,
               'signed_exchange_evidence_used':False,'model_weights_updated':False,
               'market_profitability_proven':False,'workflow_success_is_not_skill_approval':True,
-              'execution_allowed':False,'trade_action':None,'results':results}
+              'execution_allowed':False,'trade_action':None,'summary':summary,'results':results}
           output = json.dumps(report,ensure_ascii=False,indent=2)
           Path('/tmp/actual_persistent_book_learning.json').write_text(output,encoding='utf-8')
           print(output)

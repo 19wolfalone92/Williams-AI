@@ -29,6 +29,8 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
     allowed = {x["id"] for x in registry()["rule_cards"]
                if x["source"] == edition and x["status"] == "REVIEWED_PAGES"}
     result = {"rule_ids": [], "topic": "NONE", "question": "", "past_requests": 0,
+              "needs_independent_topic_review": False,
+              "numeric_stop_review_pending": False,
               "source_sha256": known["sha256"],
               "unverified_summaries_used": False, "mastery_certified": False}
     path = _private_database(memory_path)
@@ -49,10 +51,11 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
     recency: dict[tuple[str,str], float] = {}
     topics: Counter[str] = Counter()
     questions: dict[str,tuple[float,str]] = {}
-    seen: set[str] = set()
+    latest_numeric: tuple[float, bool] | None = None
+    seen: set[tuple[str, str]] = set()
     for case, at, raw in rows:
         when = _as_utc(at)
-        if when is None or when >= cutoff or case in seen or not isinstance(raw, str) or len(raw) > 20000:
+        if when is None or when >= cutoff or not isinstance(raw, str) or len(raw) > 20000:
             continue
         try:
             event = json.loads(raw)
@@ -66,14 +69,31 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
         rules = event.get("source_rules")
         need = event.get("learning_need")
         failures = event.get("first_failures")
+        if (event.get("risk_policy_id") == "MONOTONIC_PROTECTION_V1"
+                and event.get("status") in {
+                    "NUMERIC_STOP_ERROR_REQUIRES_SOURCE_AND_RISK_REVIEW",
+                    "NUMERIC_STOP_RESEARCH_CONSISTENT_NOT_MASTERY"}):
+            failed = event["status"] == "NUMERIC_STOP_ERROR_REQUIRES_SOURCE_AND_RISK_REVIEW"
+            if latest_numeric is None or when > latest_numeric[0]:
+                latest_numeric = (when, failed)
+            elif when == latest_numeric[0]:
+                latest_numeric = (when, latest_numeric[1] or failed)
         if (not isinstance(rules, list) or len(rules) > 2
                 or any(not isinstance(x, str) or x not in allowed for x in rules)
                 or not isinstance(need,str) or need not in {"NONE", "ENTRY", "MANAGEMENT", "EXIT", "WAVE"}
                 or not isinstance(failures, list) or len(failures) > 80
                 or not (failures or need != "NONE") or not (rules or need == "WAVE")):
             continue
-        seen.add(case)
         topic=need if need != "NONE" else "ENTRY"
+        # A different reading priority cannot clear a prior unresolved wave
+        # review. Multiple independent critics can find different gaps in
+        # the same closed chart; deduplicate within a topic, not across it.
+        if event.get("needs_independent_topic_review") is True:
+            result["needs_independent_topic_review"] = True
+        identity = (case, topic)
+        if identity in seen:
+            continue
+        seen.add(identity)
         topics[topic] += 1
         counts.setdefault(topic,Counter())
         question=event.get("private_learning_question","")
@@ -90,4 +110,10 @@ def prior_reading_focus(memory_path: Path, *, model_id: str, edition: str,
         result["question"]=questions.get(topic,(0,""))[1]
         chosen=counts[topic]
         result["rule_ids"] = sorted(chosen, key=lambda x: (-chosen[x], -recency[(topic,x)], x))[:2]
+    if latest_numeric is not None and latest_numeric[1] and edition == "TC2":
+        # A frequent generic entry question must not crowd out the latest
+        # numerical protection failure. A later consistent numeric check
+        # removes this priority; it does not certify mastery of stop policy.
+        result["numeric_stop_review_pending"] = True
+        result["rule_ids"] = list(dict.fromkeys(["TC2.CAMPAIGN"] + result["rule_ids"]))[:2]
     return result

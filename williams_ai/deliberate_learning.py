@@ -19,7 +19,7 @@ import uuid
 
 from .algorithm_guard import audit_reasoning
 from .book_index import _private_database
-from .book_rules import registry
+from .book_rules import registry, lookup_rules
 from .grounded_inference import verified_private_book_pages
 from .guided_retry import LESSONS, safe_error_code
 from .learning_agenda import prior_reading_focus
@@ -77,7 +77,8 @@ class DeliberateBookModel:
         return [{"source":f"{edition}:RULE:{rule}","excerpt":cards[rule]["summary"][:450]}
                 for rule in focused]
 
-    def _remember(self, observation: dict[str, Any], edition: str) -> None:
+    def _remember(self, observation: dict[str, Any], edition: str,
+                  *, diagnostics: dict[str, Any] | None = None) -> None:
         # Store diagnostics and source IDs, never raw book text, a generated
         # "correct answer", future outcomes, or an expert approval.
         case = hashlib.sha256(json.dumps(observation, sort_keys=True,
@@ -88,8 +89,8 @@ class DeliberateBookModel:
                 edition TEXT NOT NULL, case_sha256 TEXT NOT NULL,
                 cutoff TEXT NOT NULL, recorded_at TEXT NOT NULL,
                 diagnostics_json TEXT NOT NULL)""")
-            private_trace={**self.latest}
-            if self._private_question:
+            private_trace={**(self.latest if diagnostics is None else diagnostics)}
+            if diagnostics is None and self._private_question:
                 # Search data, never an asserted fact. It can quote private
                 # material, so retain it only locally, not in latest/report.
                 private_trace["private_learning_question"]=self._private_question
@@ -97,6 +98,52 @@ class DeliberateBookModel:
                 (uuid.uuid4().hex, self.model_id, edition, case,
                  observation["as_of"], datetime.now(timezone.utc).isoformat(),
                  json.dumps(private_trace, ensure_ascii=False, allow_nan=False)))
+
+    def remember_stop_review(self, observation: dict[str, Any],
+                                    context: dict[str, Any],
+                                    review: dict[str, Any]) -> bool:
+        """Queue a critic's actual numeric error, never its answer as expertise.
+
+        The chapter guides campaign reading. Decimal risk comparisons remain
+        a separate engineering policy; a book cannot authenticate a broker.
+        Runtime/interface failures do not become invented conceptual lessons.
+        """
+        from .decision_contract import _as_utc
+        from .stop_review import audit_stop_review, normalize_context
+        checked = normalize_context(context)
+        digest = hashlib.sha256(json.dumps(checked, sort_keys=True,
+            separators=(",", ":")).encode()).hexdigest()
+        if (observation.get("execution_allowed") is not False
+                or observation.get("symbol") != checked["symbol"]
+                or _as_utc(observation.get("as_of")) != _as_utc(checked["as_of"])
+                or review.get("mode") != "INDEPENDENT_NUMERIC_STOP_RESEARCH_REVIEW"
+                or review.get("context_sha256") != digest
+                or _as_utc(review.get("cutoff")) != _as_utc(checked["as_of"])
+                or review.get("execution_allowed") is not False
+                or review.get("trade_action") is not None):
+            raise ValueError("STOP_REVIEW_LEARNING_CONTEXT_MISMATCH")
+        if review.get("model_response") is None:
+            return False
+        audit = audit_stop_review(checked, review["model_response"])
+        failed = bool(audit["hard_failures"])
+        diagnostics = {
+            "mode": "SOURCE_DERIVED_DECISION_LEARNING_NOT_WEIGHT_TRAINING",
+            "source_kind": self.source_kind,
+            "source_sha256": next(x["sha256"] for x in registry()["books"] if x["id"] == "TC2"),
+            "learning_need": "MANAGEMENT" if failed else "NONE",
+            "source_rules": ["TC2.CAMPAIGN"] if failed else [],
+            "first_failures": audit["hard_failures"],
+            "context_sha256": digest, "risk_policy_id": "MONOTONIC_PROTECTION_V1",
+            "status": "NUMERIC_STOP_ERROR_REQUIRES_SOURCE_AND_RISK_REVIEW" if failed
+                else "NUMERIC_STOP_RESEARCH_CONSISTENT_NOT_MASTERY",
+            "engineering_risk_policy_is_not_a_book_quotation": True,
+            "model_weights_updated": False, "independent_review_completed": False,
+            "execution_allowed": False, "trade_action": None,
+        }
+        self._remember(observation, "TC2", diagnostics=diagnostics)
+        if self.latest is not None:
+            self.latest["numeric_stop_review_learning_queued"] = failed
+        return failed
 
     def propose_chart_reasoning(self, observation: dict[str, Any], *,
                                 edition: str = "TC2", **kwargs: Any) -> dict[str, Any]:
@@ -134,6 +181,8 @@ class DeliberateBookModel:
         try:
             agenda=prior_reading_focus(self.study_memory,model_id=self.model_id,
                 edition=edition,as_of=observation["as_of"],source_kind=self.source_kind)
+            trace["needs_independent_topic_review"] = agenda["needs_independent_topic_review"]
+            trace["prior_numeric_stop_review_pending"] = agenda["numeric_stop_review_pending"]
             if agenda["rule_ids"] or agenda["topic"]=="WAVE":
                 if agenda["topic"]=="WAVE" and not _GAPS[edition]["WAVE"] and not agenda["rule_ids"]:
                     trace["needs_independent_topic_review"]=True
@@ -202,14 +251,19 @@ class DeliberateBookModel:
                       and isinstance(first,dict) and first.get("setup")=="AC" else LESSONS[failure][0])
                 focused.append(rule)
         need = trace["learning_need"]
-        focused.extend(_GAPS[edition].get(need, ()))
         if not unreviewed_wave and isinstance(first, dict) and isinstance(first.get("rule_ids"), list):
             focused.extend(x for x in first["rule_ids"] if isinstance(x, str) and x in cards)
+        requested=first.get("learning_question","") if isinstance(first,dict) else ""
+        if not unreviewed_wave and isinstance(requested,str) and 0<len(requested.strip())<=400:
+            focused.extend(x["rule_id"] for x in lookup_rules(requested,edition=edition,max_cards=1)
+                           if x["rule_id"] in cards)
+        # Specific critic/model questions must not be crowded out by two
+        # generic entry chapters (e.g. Super AO incorrectly sent to WM1/3).
+        focused.extend(_GAPS[edition].get(need, ()))
         if not focused and not unreviewed_wave:
             focused.extend(_GAPS[edition]["ENTRY"])
         focused = list(dict.fromkeys(focused))[:2]
         trace["source_rules"] = focused
-        requested=first.get("learning_question","") if isinstance(first,dict) else ""
         query=(requested.strip() if isinstance(requested,str) and 0<len(requested.strip())<=400
                else _QUERIES.get(need,_QUERIES["ENTRY"]))
         try:
