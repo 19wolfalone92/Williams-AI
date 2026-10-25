@@ -181,7 +181,6 @@ class DeliberateBookModel:
             "past_study_sources_reread": [],
         }
         first = None
-        first_error = None
         initial_args={**kwargs}
         if "study_lessons" in initial_args:
             initial_args["study_lessons"]=[]
@@ -245,8 +244,14 @@ class DeliberateBookModel:
             trace["learning_need"] = need
             trace["first_failures"] = checked["hard_failures"]
         except (ValueError, TypeError, KeyError) as exc:
-            first_error = exc
             trace["first_failures"] = [safe_error_code(exc)]
+            # A context/grammar or malformed-output failure is not
+            # a conceptual book question. Reading another chapter cannot
+            # repair the inference interface, and wastes another model call.
+            trace["status"] = "MODEL_INTERFACE_FAILURE_NO_BOOK_STUDY"
+            trace["final_failures"] = list(trace["first_failures"])
+            self._remember(observation, edition)
+            raise ValueError(trace["first_failures"][0]) from None
         # UNKNOWN is a request for clarification; NO_SETUP can be a perfectly
         # competent wait. Missing price data cannot be supplied by a book.
         if (not trace["first_failures"] and trace["learning_need"] == "NONE"
@@ -291,15 +296,11 @@ class DeliberateBookModel:
         except (ValueError, OSError, sqlite3.DatabaseError):
             trace["status"] = "SOURCE_UNAVAILABLE_OR_IDENTITY_REJECTED"
             self._remember(observation, edition)
-            if first_error:
-                raise ValueError("DELIBERATE_STUDY_SOURCE_UNAVAILABLE_AFTER_MODEL_ERROR") from first_error
             return first
         if not pages and (not self.public_rules_only or not focused):
             trace["status"] = ("NO_REVIEWED_RULE_FOR_TOPIC_IN_SELECTED_EDITION"
                 if unreviewed_wave else "SOURCE_TEXT_MISSING_VISUAL_REVIEW_REQUIRED")
             self._remember(observation, edition)
-            if first_error:
-                raise ValueError("DELIBERATE_STUDY_SOURCE_TEXT_MISSING_AFTER_MODEL_ERROR") from first_error
             return first
         trace["source_pages"] = [x["source"] for x in pages]
         trace["private_original_pages_read"]=trace["private_original_pages_read"] or bool(pages)
