@@ -84,6 +84,11 @@ def audit_reasoning(
         note("MODEL_REQUESTED_BOOK_CLARIFICATION")
         if setup not in _NONENTRY_SETUPS:
             fail("ENTRY_CLAIM_WHILE_BOOK_RULE_NOT_UNDERSTOOD")
+    question=proposal.get("learning_question","")
+    if not isinstance(question,str) or len(question)>400:
+        fail("INVALID_MODEL_LEARNING_QUESTION")
+    elif question.strip() and need=="NONE":
+        fail("BOOK_QUESTION_WITHOUT_DECLARED_TOPIC")
 
     if decision_time!=as_of:
         fail("DECISION_CHART_CUTOFF_MISMATCH")

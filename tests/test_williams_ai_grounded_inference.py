@@ -54,6 +54,17 @@ class LocalSourceGroundingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"fingerprint"):
             verified_private_book_pages(self.books,"TC2")
 
+    def test_precise_question_overrides_generic_topics_and_keeps_original_chunk_hash(self):
+        import hashlib
+        content="Nested Elliott degree correction вложенность степени коррекции. "*2
+        with sqlite3.connect(self.books) as db:
+            db.execute("INSERT INTO excerpts VALUES('TC2',170,?,'UNVERIFIED_EXTRACTION')",(content,))
+        result=verified_private_book_pages(self.books,"TC2",question="Nested Elliott degree",limit=1)
+        self.assertEqual(result[0]["pdf_page"],170)
+        self.assertEqual(result[0]["chunk_sha256"],hashlib.sha256(content.encode()).hexdigest())
+        self.assertEqual(verified_private_book_pages(self.books,"TC2",
+            question="zzzzmissingchapter",selected_setup="WM1"),[])
+
     def test_private_pages_in_model_prompt_but_never_public_report(self):
         class Engine:
             def __init__(self,**kwargs):
