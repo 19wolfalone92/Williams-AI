@@ -8,6 +8,7 @@ import unittest
 from williams_ai.stop_review import (
     audit_stop_review, diagnostic_cases, diagnose_model, normalize_context,
     review_with_model, INPUT_KEYS,
+    numeric_teaching_examples,
 )
 from williams_ai.local_model import LocalWilliamsModel
 from williams_ai.causal_paper_lab import frozen_markets
@@ -34,6 +35,19 @@ def response(values):
 
 
 class StopReviewTests(unittest.TestCase):
+    def test_worked_examples_are_fixed_verified_and_do_not_contain_exam_inputs(self):
+        examples=numeric_teaching_examples()
+        self.assertEqual(len(examples),6)
+        self.assertEqual(examples,numeric_teaching_examples())
+        vectors=lambda x:tuple(x[k] for k in ("side","current_stop","candidate_stop","last_closed_price"))
+        exam={vectors(x["context"]) for x in diagnostic_cases()}
+        self.assertTrue(all(vectors(x["numeric_hypothesis"]) not in exam for x in examples))
+        self.assertEqual(examples[0]["worked_response"]["risk_direction"],"WIDER")
+        self.assertEqual(examples[2]["worked_response"]["candidate_protects_side"],False)
+        self.assertEqual(examples[3]["worked_response"]["assessment"],"HALT_FOR_RECONCILIATION")
+        self.assertEqual(examples[4]["worked_response"]["risk_direction"],"UNCHANGED")
+        self.assertEqual(examples[5]["worked_response"]["assessment"],"REVIEW_TIGHTENING")
+
     def test_hand_specified_long_short_boundaries(self):
         for case in diagnostic_cases():
             with self.subTest(case=case["id"]):
@@ -122,6 +136,8 @@ class StopReviewTests(unittest.TestCase):
             self.assertIn("independent_engineering_risk_policy",payload)
             self.assertNotIn("source",payload["numeric_hypothesis"])
             self.assertNotIn("book_source",payload)
+            self.assertEqual(len(payload["worked_examples"]),6)
+            self.assertEqual(list(payload)[-1],"numeric_hypothesis")
             schema=model._model.calls[0]["response_format"]["schema"]
             self.assertEqual(set(schema["properties"]),
                 {"level_relation","risk_direction","candidate_protects_side","assessment","reason"})

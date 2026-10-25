@@ -90,6 +90,8 @@ def _call_metadata(model: Any) -> dict[str, Any] | None:
         "finish_reason":raw.get("finish_reason") if raw.get("finish_reason") in {"stop","length"} else "UNKNOWN",
         "usage":{key:usage[key] for key in ("prompt_tokens","completion_tokens","total_tokens")
             if isinstance(usage,dict) and type(usage.get(key)) is int and usage[key]>=0},
+        "worked_examples_count":raw.get("worked_examples_count") if
+            type(raw.get("worked_examples_count")) is int and 0<=raw["worked_examples_count"]<=12 else 0,
         "case_specific_answer_enums_supplied":False if raw.get("case_specific_answer_enums_supplied") is False else None}
 
 
@@ -158,6 +160,31 @@ def review_with_model(model: Any, context: dict[str, Any]) -> dict[str, Any]:
             "trade_action":None}
 
 
+def numeric_teaching_examples() -> list[dict[str, Any]]:
+    """Fixed code-verified engineering lessons, not generated book knowledge.
+
+    No current case is accepted as an argument. Teaching inputs differ from
+    all diagnostic inputs; assessment is computed only for THESE examples.
+    They are supplied openly as few-shot assistance, never a blind score.
+    """
+    rows=(("LONG","30","28","44"), ("SHORT","80","78","70"),
+          ("LONG","40","42","41"), ("SHORT","25","22","30"),
+          ("LONG","1.20","1.20","1.40"), ("LONG","2","3","5"))
+    result=[]
+    for side,old,new,close in rows:
+        context=normalize_context({"schema":SCHEMA,"symbol":"BTCUSDT",
+            "as_of":"2026-10-01T00:00:00+00:00","side":side,
+            "current_stop":old,"candidate_stop":new,"last_closed_price":close,
+            "source":SOURCE,"execution_allowed":False,"trade_action":None})
+        reference=audit_stop_review(context,None)["reference"]
+        result.append({"numeric_hypothesis":{key:context[key] for key in
+            ("side","current_stop","candidate_stop","last_closed_price")},
+            "worked_response":{**reference,"reason":
+                f"current_stop={old}; candidate_stop={new}; last_closed_price={close}. "
+                f"{reference['level_relation']}; {reference['risk_direction']}; {reference['assessment']}."}})
+    return result
+
+
 def diagnostic_cases() -> list[dict[str, Any]]:
     # Frozen synthetic arithmetic examples, NOT historical market holdouts.
     rows = (
@@ -191,6 +218,7 @@ def diagnose_model(model: Any) -> dict[str, Any]:
             "explicit_risk_policy_supplied_not_unassisted_exam":True,
             "different_protocol_not_comparable_to_previous_mcq_score":True,
             "schema_constrained_decoder_not_a_correctness_oracle":True,
+            "few_shot_examples_are_explicit_assistance_not_weight_training":True,
             "expected_case_answers_not_supplied_to_model":True,
             "model_weights_updated":False, "market_profitability_proven":False,
             "execution_allowed":False, "trade_action":None}
