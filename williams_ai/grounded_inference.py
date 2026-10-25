@@ -7,6 +7,7 @@ against the four pinned source fingerprints and is never exposed as a trade.
 from __future__ import annotations
 from pathlib import Path
 import sqlite3
+import hashlib
 from typing import Any
 
 from .book_index import _private_database, _known_book, search_pages
@@ -69,17 +70,26 @@ def verified_private_book_pages(
                     score=sum(min(4,lower.count(token)) for token in tokens)
                     offsets=[lower.find(t) for t in tokens if t in lower]
                     start=max(0,min(offsets)-120) if offsets else 0
-                    found.append((priority,-score,int(page),text[start:start+650]))
+                    found.append((priority,-score,int(page),text[start:start+650],
+                                  hashlib.sha256(text.encode()).hexdigest()))
             found.sort(key=lambda x:(x[0],x[1],x[2]))
             selected=[]
             seen=set()
-            for _,_,page,text in found:
+            # Reserve one slot per requested rule before filling additional
+            # excerpts. A long campaign chapter must not crowd out initial SL.
+            first_per_rule=[]
+            priorities=set()
+            for item in found:
+                if item[0] not in priorities:
+                    first_per_rule.append(item)
+                    priorities.add(item[0])
+            for _,_,page,text,chunk_sha in first_per_rule+found:
                 if (page,text) in seen:
                     continue
                 seen.add((page,text))
                 selected.append({"source":f"{edition}: PDF {page}","excerpt":text,
                     "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
-                    "pdf_page":page})
+                    "pdf_page":page,"chunk_sha256":chunk_sha})
                 if len(selected)==limit:
                     break
             return selected

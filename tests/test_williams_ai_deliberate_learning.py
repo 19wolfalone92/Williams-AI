@@ -167,6 +167,25 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertEqual(wrapper.latest["status"],"SOURCE_UNAVAILABLE_OR_IDENTITY_REJECTED")
         self.assertEqual(student.passages,[])
 
+    def test_exact_matching_chunk_not_unrelated_first_fragment_is_studied(self):
+        from williams_ai.study import fingerprint
+        irrelevant="This first fragment contains general introductory material only."
+        relevant="Сопровождение стоп перенос: stop trailing pyramid. Проверить завершённые бары. "*2
+        with sqlite3.connect(self.books) as db:
+            db.execute("DELETE FROM excerpts WHERE pdf_page=161")
+            db.execute("INSERT INTO excerpts VALUES('TC2',161,?,'UNVERIFIED_EXTRACTION')",(irrelevant,))
+            db.execute("INSERT INTO excerpts VALUES('TC2',161,?,'UNVERIFIED_EXTRACTION')",(relevant,))
+            db.execute("INSERT INTO excerpts VALUES('TC2',162,?,'UNVERIFIED_EXTRACTION')",(relevant+" Extra.",))
+        student=Student()
+        model=self.wrap(student)
+        model.propose_chart_reasoning(self.obs)
+        self.assertEqual(set(model.latest["source_pages"]),{"TC2: PDF 161","TC2: PDF 131"})
+        self.assertNotIn(irrelevant,[text for text,_ in student.passages])
+        with sqlite3.connect(self.notes) as db:
+            rows=db.execute("SELECT page,chunk_sha FROM study_notes").fetchall()
+            self.assertIn((161,fingerprint(relevant)),rows)
+            self.assertTrue(any(page==131 for page,_ in rows))
+
     def test_historical_entry_point_invokes_learning_before_final_audit(self):
         student=Student()
         result=evaluate_historical_thought("DOGEUSDT",self.market["bars"],

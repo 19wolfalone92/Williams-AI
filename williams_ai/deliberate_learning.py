@@ -13,6 +13,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sqlite3
 from typing import Any
 import uuid
 
@@ -135,7 +136,7 @@ class DeliberateBookModel:
         try:
             pages = verified_private_book_pages(self.book_index, edition,
                 rule_ids=tuple(focused), question=query, limit=2)
-        except (ValueError, OSError):
+        except (ValueError, OSError, sqlite3.DatabaseError):
             trace["status"] = "SOURCE_UNAVAILABLE_OR_IDENTITY_REJECTED"
             self._remember(observation, edition)
             if first_error:
@@ -150,7 +151,8 @@ class DeliberateBookModel:
         trace["source_pages"] = [x["source"] for x in pages]
         studied = study_batch(self.book_index, self.study_memory, edition, self.model,
             model_id=self.model_id, budget=2,
-            pdf_pages=tuple(dict.fromkeys(x["pdf_page"] for x in pages)))
+            pdf_pages=tuple(dict.fromkeys(x["pdf_page"] for x in pages)),
+            chunk_keys=tuple((x["pdf_page"],x["chunk_sha256"]) for x in pages))
         trace["studied_chunks"] = studied["studied_chunks"]
         trace["failed_study_chunks"] = studied["failed_chunks"]
         notes = recall(self.study_memory, query, edition=edition, limit=2,
