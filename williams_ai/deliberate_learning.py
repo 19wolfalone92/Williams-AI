@@ -49,6 +49,12 @@ _QUERIES = {
     "EXIT": "выход стоп закрытие противоположный сигнал exit stop",
     "WAVE": "волна степень коррекция вложенность wave degree correction",
 }
+_STUDY_RECALL = {
+    "TC1": "волна wave Elliott коррекция correction дивергенция divergence фрактал fractal magic bullets AO",
+    "NTD": "Аллигатор Alligator фрактал fractal Awesome Oscillator Acceleration Deceleration зона zone colors Balance Line баланс стоп stop",
+    "TC2": "Мудрец wise man ангуляция angulation фрактал fractal Super AO стоп stop сопровождение campaign",
+    "COURSE": "волна wave correction degree Hump Thumb Trading Partner фрактал fractal стоп stop",
+}
 
 
 class DeliberateBookModel:
@@ -182,7 +188,7 @@ class DeliberateBookModel:
         if not self.public_rules_only:
             try:
                 pointers = recalled_source_pages(self.book_index,self.study_memory,
-                    " ".join(_QUERIES.values()),edition=edition,model_id=self.model_id)
+                    _STUDY_RECALL[edition],edition=edition,model_id=self.model_id)
                 trace["past_study_sources_reread"] = [x["source"] for x in pointers]
                 trace["private_original_pages_read"] = bool(pointers)
                 existing = initial_args.get("primary_pages") or []

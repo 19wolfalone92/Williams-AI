@@ -140,6 +140,22 @@ class UnifiedRuntimeTests(unittest.TestCase):
         self.assertEqual(recalled_source_pages(self.books,self.db,"фрактал стоп",edition="TC2",
             model_id=brain.identity["model_id"]),[])
 
+    def test_ntd_zone_lesson_can_select_its_original_in_unified_chart_analysis(self):
+        brain=self.brain()
+        text="Zone colors green red gray depend on Awesome Oscillator and Acceleration."
+        with sqlite3.connect(self.books) as db:
+            db.execute("INSERT INTO excerpts VALUES('NTD',11,?,'UNVERIFIED_EXTRACTION')",(text,))
+        ed=next(x for x in registry()["books"] if x["id"]=="NTD")
+        with memory(self.db) as db:
+            result={"summary":"Zone colors green red gray.","claims":[],"questions":[],
+                    "status":"SOURCE_DERIVED_UNVERIFIED","trade_action":None}
+            db.execute("INSERT INTO study_notes VALUES(?,?,?,?,?,?,?)",('NTD',ed['sha256'],11,
+                hashlib.sha256(text.encode()).hexdigest(),brain.identity['model_id'],json.dumps(result),'2026-01-01'))
+        market=frozen_markets()["ETHUSDT"]
+        result=brain.analyze('ETHUSDT',market['bars'],tick_size=market['tick_size'],bar_index=299,
+            edition='NTD',include_topdown=False)
+        self.assertEqual(result['deliberate_book_learning']['past_study_sources_reread'],['NTD: PDF 11'])
+
     def test_missing_mixed_or_changed_adapter_stops_before_native_loader(self):
         for key,value in (("base_sha256","0"*64),("adapter_sha256","1"*64),
                           ("training_receipt_sha256","2"*64),("scale",True)):
