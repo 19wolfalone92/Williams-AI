@@ -1,0 +1,50 @@
+name: Williams AI real Qwen mobile source practice
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/mobile_tutor.py'
+      - 'scripts/mobile_qwen_practice_diagnostic.py'
+      - 'knowledge/MOBILE_TUTOR_PROMPT_RU.txt'
+      - 'mobile/overlay/app/src/main/java/com/example/llama/BookPractice.kt'
+      - '.github/workflows/ai-mobile-qwen-practice.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-qwen-source-practice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      GGUF_MODEL_PATH: /tmp/mobile-qwen/Qwen3-1.7B-Q4_K_M.gguf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pin actual CPU inference runtime
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python==0.3.36 huggingface_hub==1.33.0
+      - name: Download identical public pinned weights, no private books
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/mobile-qwen')
+          PY
+      - name: Actual eight public practice questions, with and without source memory
+        run: python -u scripts/mobile_qwen_practice_diagnostic.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-mobile-qwen-practice-not-weight-training
+          path: /tmp/mobile_qwen_practice.json
+          if-no-files-found: error
+          retention-days: 7

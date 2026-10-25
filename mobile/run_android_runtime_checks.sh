@@ -5,7 +5,7 @@ set -euo pipefail
 task_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$task_root/mobile/.build/llama.cpp/examples/llama.android"
 ./gradlew :app:connectedDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.example.llama.NativeMarketRuntimeTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.example.llama.NativeMarketRuntimeTest,com.example.llama.BookPracticeRuntimeTest,com.example.llama.NativeQwenSessionRuntimeTest \
   --no-daemon --max-workers=2
 
 # Gradle's connectedDebugAndroidTest may UNINSTALL its test APK after running.

@@ -20,6 +20,8 @@ for file in \
   app/src/main/java/com/example/llama/WebResearch.kt \
   app/src/main/java/com/example/llama/BookKnowledge.kt \
   app/src/main/java/com/example/llama/StudyMemory.kt \
+  app/src/main/java/com/example/llama/BookPractice.kt \
+  app/src/main/java/com/example/llama/QwenSession.kt \
   app/src/main/java/com/example/llama/NativeFuturesMetadata.kt \
   app/src/main/java/com/example/llama/NativeWaveHistory.kt \
   app/src/main/java/com/example/llama/NativeWaveStudy.kt \
@@ -35,12 +37,22 @@ done
 test_package="$project/app/src/test/java/com/example/llama"
 mkdir -p "$test_package"
 cp "$root/mobile/overlay/app/src/test/java/com/example/llama/NativeFuturesMetadataTest.kt" "$test_package/"
+cp "$root/mobile/overlay/app/src/test/java/com/example/llama/QwenSessionTest.kt" "$test_package/"
 instrumented_package="$project/app/src/androidTest/java/com/example/llama"
 mkdir -p "$instrumented_package"
 cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/NativeMarketRuntimeTest.kt" "$instrumented_package/"
+cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/BookPracticeRuntimeTest.kt" "$instrumented_package/"
+cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/NativeQwenSessionRuntimeTest.kt" "$instrumented_package/"
+mkdir -p "$project/app/src/androidTest/assets"
+cp "$root/mobile/overlay/app/src/androidTest/assets/mobile_tutor_golden.json" "$project/app/src/androidTest/assets/"
 
 mkdir -p "$project/app/src/main/assets"
 cp "$root/knowledge/LEARNING_CURRICULUM_RU.md" "$project/app/src/main/assets/LEARNING_CURRICULUM_RU.md"
+for asset in ADAPTIVE_TUTOR_PRACTICE_RU.json SOURCE_RULE_CARDS.json MOBILE_TUTOR_PROMPT_RU.txt; do
+  cp "$root/knowledge/$asset" "$project/app/src/main/assets/$asset"
+done
+python3 "$root/mobile/patch_native_session.py" "$project"
+python3 "$root/mobile/prepare_native_test_model.py" "$project"
 
 python3 - "$project/app/build.gradle.kts" <<'PY'
 from pathlib import Path

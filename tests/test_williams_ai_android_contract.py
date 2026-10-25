@@ -59,13 +59,16 @@ class AndroidOfflineContract(unittest.TestCase):
         for required in (
             "MessageDigest.getInstance", "SHA-256", "File.createTempFile",
             "contentResolver.openInputStream", "partial.renameTo(destination)",
-            "engine.sendUserPrompt", "AiChat.getInferenceEngine",
+            "QwenSession.answer", "AiChat.getInferenceEngine",
         ):
             self.assertIn(required, kotlin)
         self.assertIn("WebResearch.shouldLookup", kotlin)
         self.assertIn("BookKnowledge.retrieve", kotlin)
         self.assertIn("bookPicker", kotlin)
         self.assertIn("webToggle.isChecked", kotlin)
+        session = (MOBILE / "overlay/app/src/main/java/com/example/llama/QwenSession.kt").read_text()
+        self.assertIn("engine.resetSession()", session)
+        self.assertIn("engine.sendUserPrompt", session)
         for forbidden in (
             "BinanceFuturesClient", "api.binance.com", "OPENAI_API_KEY",
             "api.binance.com", "orderEndpoint", "POST /fapi",

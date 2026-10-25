@@ -335,7 +335,11 @@ class MainActivity : AppCompatActivity() {
             ?: error("Не выбран локальный GGUF")
         val memory = File(filesDir, "study-memory.db")
         var bookExtracts = try {
-            withContext(Dispatchers.IO) { BookKnowledge.retrieve(privateBooks, question, edition = edition) }
+            withContext(Dispatchers.IO) {
+                val recalled = BookPractice.recallSources(memory,privateBooks,modelId,edition,question,BookPractice.load(applicationContext))
+                (recalled + BookKnowledge.retrieve(privateBooks, question, edition = edition))
+                    .distinctBy { Triple(it.book,it.page,it.excerpt) }.take(3)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -498,12 +502,9 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun collectAnswer(engine: InferenceEngine, prompt: String,
                                       visible: Boolean = false, limit: Int = 16000): String {
-        val answer = StringBuilder()
         if (visible) response.clear()
-        withContext(Dispatchers.Default) {
-            engine.sendUserPrompt(prompt).collect { token ->
-                check(answer.length + token.length <= limit) { "Превышен размер ответа модели" }
-                answer.append(token)
+        return withContext(Dispatchers.Default) {
+            QwenSession.answer(engine,prompt,tokens=1024,maxChars=limit) { token ->
                 if (visible) withContext(Dispatchers.Main) {
                     response.append(token)
                     val row = messages.lastIndex
@@ -513,14 +514,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        return answer.toString()
     }
 
     private fun studyBooks() {
         if (busy || !modelReady) return
         val engine = inference ?: return
         val modelId = getPreferences(MODE_PRIVATE).getString("gguf_name", null) ?: return
-        val edition = studyEdition.selectedItem.toString()
+        val startEdition = studyEdition.selectedItem.toString()
         busy = true
         studying = true
         button.isEnabled = false
@@ -531,33 +531,62 @@ class MainActivity : AppCompatActivity() {
         webToggle.isEnabled = false
         generation = lifecycleScope.launch {
             var completed = 0
+            var processed = 0
             try {
                 val books = File(filesDir, "Williams_AI_Knowledge_Private.sqlite3")
                 val memory = File(filesDir, "study-memory.db")
-                // Study sequentially without asking the user to restart every few chunks.
-                // Explicit stop or leaving the foreground cancels the current passage.
-                while (completed < 10000) {
-                    val passage = withContext(Dispatchers.IO) {
-                        StudyMemory.next(books, memory, edition, modelId)
-                    } ?: run {
-                        setStatus("Доступные текстовые фрагменты " + edition + " обработаны. " +
-                            "Это не подтверждает понимание книги и её графиков.")
-                        return@launch
-                    }
-                    setStatus("Изучаю " + edition + ", PDF с. " + passage.page +
-                        ". Сохранено в этом запуске: " + completed)
-                    val lesson = StringBuilder()
-                    withContext(Dispatchers.Default) {
-                        engine.sendUserPrompt(StudyMemory.prompt(passage)).collect { token ->
-                            check(lesson.length + token.length <= 6000) { "Модель превысила размер карточки" }
-                            lesson.append(token)
+                val cases = withContext(Dispatchers.IO) { BookPractice.load(applicationContext) }
+                withContext(Dispatchers.IO) { StudyMemory.beginSession(memory,modelId) }
+                val instructions = withContext(Dispatchers.IO) { BookPractice.instructions(applicationContext) }
+                val editions = listOf(startEdition) + listOf("TC1","NTD","TC2","COURSE").filter { it != startEdition }
+                // Separate source/answer context for every task; one native model stays loaded.
+                while (processed < 10000) {
+                    var found = false
+                    for (edition in editions) {
+                        val passage = withContext(Dispatchers.IO) {
+                            StudyMemory.next(books,memory,edition,modelId)
+                                ?: BookPractice.pendingSource(books,memory,modelId,edition,cases)
+                        } ?: continue
+                        found = true; processed++
+                        setStatus("Изучаю " + edition + ", PDF с. " + passage.page + ". Сохранено: " + completed)
+                        try {
+                            require(passage.text.length <= 3000) { "SOURCE_FRAGMENT_TOO_LONG" }
+                            val saved = withContext(Dispatchers.IO) { StudyMemory.contains(memory,passage,modelId) }
+                            if (!saved) {
+                                val lesson = collectAnswer(engine,StudyMemory.prompt(passage),limit=6000)
+                                withContext(Dispatchers.IO) { StudyMemory.save(memory,passage,modelId,lesson) }
+                                completed++
+                            }
+                        } catch (e: CancellationException) { throw e
+                        } catch (_: Exception) {
+                            withContext(Dispatchers.IO) { StudyMemory.failed(memory,passage,modelId) }
+                            continue
                         }
+                        val exercise = withContext(Dispatchers.IO) { BookPractice.next(memory,modelId,passage,cases) }
+                        if (exercise != null) {
+                            val answer = try {
+                                val raw = withContext(Dispatchers.Default) {
+                                    QwenSession.answer(engine,BookPractice.prompt(instructions,exercise,passage),384,4000)
+                                }
+                                BookPractice.parse(raw)
+                            } catch (e: CancellationException) { throw e
+                            } catch (_: Exception) { null }
+                            val score = withContext(Dispatchers.IO) {
+                                BookPractice.record(memory,modelId,passage,exercise,answer)
+                                BookPractice.score(memory,modelId)
+                            }
+                            setStatus("Сохранено: " + completed + ". Практика с источником: " +
+                                score.correct + "/" + score.graded + "; сбоев ответа: " + score.protocolErrors)
+                        }
+                        if (processed >= 10000) break
                     }
-                    withContext(Dispatchers.IO) { StudyMemory.save(memory, passage, modelId, lesson.toString()) }
-                    completed++
+                    if (!found) break
                 }
-                setStatus("Сохранено " + completed + " фрагментов " + edition +
-                    ". Достигнут лимит сеанса. Выводы требуют проверки; веса GGUF не изменены.")
+                val deferred = withContext(Dispatchers.IO) { StudyMemory.deferred(memory,modelId) }
+                val score = withContext(Dispatchers.IO) { BookPractice.score(memory,modelId) }
+                setStatus("Четыре книги: новых карточек " + completed + ", отложено после ошибок: " + deferred +
+                    ". Практика с источником: " + score.correct + "/" + score.graded +
+                    "; сбоев ответа: " + score.protocolErrors + ". Веса не изменены; это не проверка торгового мастерства.")
             } catch (e: CancellationException) {
                 setStatus("Изучение остановлено. Сохранено фрагментов: " + completed +
                     ". Следующий запуск продолжит чтение.")
@@ -572,7 +601,7 @@ class MainActivity : AppCompatActivity() {
                 input.isEnabled = modelReady
                 bookButton.isEnabled = true
                 studyButton.isEnabled = modelReady
-                studyButton.text = "Изучать выбранную книгу"
+                studyButton.text = "Изучать 4 книги и практиковаться"
                 webToggle.isEnabled = true
             }
         }
