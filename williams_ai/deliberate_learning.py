@@ -179,6 +179,7 @@ class DeliberateBookModel:
             "source_kind": self.source_kind, "public_rule_references": [],
             "private_original_pages_read": False,
             "past_study_sources_reread": [],
+            "reconsideration_feedback_supplied": False,
         }
         first = None
         first_error = None
@@ -320,6 +321,12 @@ class DeliberateBookModel:
         args = {**kwargs, "primary_pages": pages,
                 "prior_lessons": self._public_rules(edition,focused),
                 "study_lessons":[], "model_id":self.model_id}
+        if first is not None and first_error is None:
+            # Previously the retry received another copy of the rules but
+            # neither its own failed answer nor the critic's diagnostics.
+            # Let the same model reconsider; never insert a corrected setup.
+            args["previous_decision"]=deepcopy(first)
+            trace["reconsideration_feedback_supplied"]=True
         trace["reconsideration_performed"] = True
         try:
             second = self.model.propose_chart_reasoning(deepcopy(observation), edition=edition, **args)

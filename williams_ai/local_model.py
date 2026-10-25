@@ -292,6 +292,7 @@ class LocalWilliamsModel:
         study_lessons: list[dict[str, str]] | None = None,
         model_id: str | None = None,
         research_materials: list[dict[str, Any]] | None = None,
+        previous_decision: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Local model's RESEARCH interpretation, never an executable order.
 
@@ -759,6 +760,10 @@ class LocalWilliamsModel:
             "edition_specific_study_obligations_not_trade_authority":curated,
             "source_cards":cards,"edition":edition,"chart":observation,
         }
+        if previous_decision is not None:
+            from .decision_contract import previous_decision_review
+            payload["previous_decision_review"]=previous_decision_review(
+                chart_analysis,previous_decision,edition)
         if research_materials is not None:
             if not isinstance(research_materials, list) or len(research_materials) > 3:
                 raise ValueError("BOUNDED_RESEARCH_MATERIALS_REQUIRED")
@@ -909,6 +914,19 @@ class LocalWilliamsModel:
             "CLOSED_BAR_TOUCH_ONLY — касание наблюдено именно сейчас. "
             "Нет подходящей тройки — WM3 не выбирай; это не исполненный Binance fill."
         )
+        if previous_decision is not None:
+            system+=(
+                " Это повторный разбор того же закрытого среза. В previous_decision_review "
+                "даны твой прошлый окончательный ответ и замечания независимого критика. "
+                "Прошлый ответ может быть ошибочным; не используй его как факт или правило. "
+                "Сверь каждое замечание с исходными правилами и наблюдениями и составь новый "
+                "согласованный JSON. Готового правильного ответа здесь нет. "
+                "Различай непонимание правила, отсутствие ценового подтверждения и отсутствие "
+                "биржевого журнала. Отсутствие fill/SL не означает непонимание книжного правила "
+                "и не запрещает обсуждать подтверждённого кандидата в ожидании триггера. "
+                "Learning_need — только оставшийся вопрос к правилу. Если правило всё ещё "
+                "непонятно, сохрани UNKNOWN и конкретный вопрос; не скрывай пробел ради проверки."
+            )
         # Optional llama.cpp JSON-Schema constrained decoding prevents weak
         # models from inventing timestamps, editions or a fake exchange fill.
         # It enforces OUTPUT SHAPE only; it does NOT prove market understanding.
