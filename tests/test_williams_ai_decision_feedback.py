@@ -9,6 +9,7 @@ from williams_ai.algorithm_guard import audit_reasoning
 from williams_ai.decision_contract import previous_decision_review
 from williams_ai.local_model import LocalWilliamsModel
 from williams_ai.deliberate_learning import DeliberateBookModel
+from williams_ai.guided_retry import safe_error_code
 import test_williams_ai_deliberate_learning as fixtures
 from test_williams_ai_deliberate_learning import Student, proposal
 
@@ -167,6 +168,14 @@ class DecisionFeedbackTests(unittest.TestCase):
             model=LocalWilliamsModel(path,loader=Runtime,learning_mode='auto')
             with self.assertRaises(ValueError):model.propose_chart_reasoning(self.obs)
         self.assertEqual(len(calls),1)
+
+    def test_chart_stage_errors_remain_specific_and_do_not_expose_runtime_text(self):
+        for code in ('GGUF_CHART_REASONING_OUTPUT_TRUNCATED',
+                     'GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED',
+                     'GGUF_CHART_FINAL_SUMMARY_INVALID'):
+            self.assertEqual(safe_error_code(ValueError(code)),code)
+        self.assertEqual(safe_error_code(ValueError('private page /home/user/book.pdf')),
+                         'UNCLASSIFIED_MODEL_ERROR')
 
 
 if __name__=='__main__':unittest.main()
