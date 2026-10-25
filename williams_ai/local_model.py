@@ -129,13 +129,22 @@ class LocalWilliamsModel:
             loader = Llama
         adapter_args = ({"lora_path": str(Path(lora_adapter).expanduser().resolve()),
                          "lora_scale": identity["adapter_scale"]} if lora_adapter is not None else {})
-        self._model = loader(
+        loaded = loader(
             model_path=str(path.resolve()),
             n_ctx=n_ctx,
             n_gpu_layers=gpu_layers,
             verbose=False,
             **adapter_args,
         )
+        try:
+            if runtime_identity(path, adapter=lora_adapter, manifest=lora_manifest) != identity:
+                raise ValueError("MODEL_OR_ADAPTER_CHANGED_DURING_NATIVE_LOAD")
+        except BaseException:
+            close = getattr(loaded, "close", None)
+            if callable(close):
+                close()
+            raise
+        self._model = loaded
         self.model_id = identity["model_id"]
         self.runtime_identity = {**identity, "adapter_loaded": lora_adapter is not None}
         self._decision_schema = bool(use_decision_schema)

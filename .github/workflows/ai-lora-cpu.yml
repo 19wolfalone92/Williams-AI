@@ -1,0 +1,43 @@
+name: Williams AI actual synthetic LoRA optimizer diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/*lora*.py'
+      - 'williams_ai/model_bundle.py'
+      - 'tests/test_williams_ai_lora*.py'
+      - 'scripts/ai_lora_cpu_diagnostic.py'
+      - 'requirements-lora.txt'
+      - '.github/workflows/ai-lora-cpu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-synthetic-lora-not-williams-training:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+      SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned CPU diagnostic dependencies
+        run: |
+          python -m pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-lora.txt
+      - name: Real gradients, best checkpoint, frozen base and adapter save/reload
+        run: python scripts/ai_lora_cpu_diagnostic.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-lora-software-diagnostic-not-trained-williams
+          path: /tmp/williams_lora_cpu_diagnostic.json
+          if-no-files-found: error
+          retention-days: 7
