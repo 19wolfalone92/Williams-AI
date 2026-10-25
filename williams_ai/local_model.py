@@ -1020,9 +1020,7 @@ class LocalWilliamsModel:
     def review_protective_stop(self, context:dict[str,Any])->dict[str,Any]:
         """Numerical research assessment, not a request to move an order."""
         from .stop_review import normalize_context, RISK_POLICY, OUTPUT_KEYS
-        from .book_rules import registry
         context=normalize_context(context)
-        card=next(c for c in registry()["rule_cards"] if c["id"]=="TC2.CAMPAIGN")
         def enum(*values):return {"type":"string","enum":list(values)}
         properties={
             "level_relation":enum("LOWER","HIGHER","EQUAL","UNKNOWN"),
@@ -1037,8 +1035,12 @@ class LocalWilliamsModel:
         # grammar. This typed interface needs the same actual JSON grammar
         # for EVERY case; it never restricts enums to the correct answer.
         response=self._model.create_chat_completion(
-            messages=[{"role":"system","content":SYSTEM_INSTRUCTIONS+
-                " Это проверка ЧИСЛОВОГО рассуждения о защите, не торговая команда. "
+            messages=[{"role":"system","content":
+                "Ты решаешь ограниченную ЧИСЛОВУЮ УЧЕБНУЮ задачу. "
+                "Все переданные числа — условия гипотетической задачи, не заявления о реальном счёте. "
+                "Их можно сравнивать без биржевого подтверждения. Не оценивай достоверность "
+                "счёта: аутентификацию отдельно выполняет внешний контроллер. "
+                "Это не торговая команда, реальные ордера и подтверждения биржи запрещены. "
                 "Сначала сравни candidate_stop с current_stop ЧИСЛОВО: LOWER/HIGHER/EQUAL. "
                 "Затем оцени номинальное изменение защиты для LONG/SHORT: TIGHTER/WIDER/UNCHANGED. "
                 "Отдельно проверь сторону candidate_stop относительно last_closed_price. "
@@ -1047,14 +1049,12 @@ class LocalWilliamsModel:
                 "Иначе REVIEW_TIGHTENING только при более тесной защите и правильной стороне цены; "
                 "при равном, более широком или неверно расположенном кандидате KEEP_PROTECTION. "
                 "Направление TIGHTER само по себе не делает кандидат допустимым. "
-                "Журнал не аутентифицирован. Не придумывай уровней или подтверждений биржи. "
+                "Используй только заданные условные числа, не придумывай новых уровней. "
                 "Верни только JSON с level_relation, risk_direction, candidate_protects_side, "
                 "assessment и reason до 300 символов. При непонимании выбирай UNKNOWN. /no_think"},
                 {"role":"user","content":json.dumps({
-                    "paper_observations":context,
-                    "book_source":{"rule_id":card["id"],"pdf_pages":card["pdf_pages"],
-                        "kind":"PUBLIC_REVIEWED_PARAPHRASE_NOT_ORIGINAL_PDF",
-                        "summary":card["summary"]},
+                    "numeric_hypothesis":{key:context[key] for key in
+                        ("side","current_stop","candidate_stop","last_closed_price")},
                     "independent_engineering_risk_policy":RISK_POLICY},ensure_ascii=False)}],
             response_format={"type":"json_object","schema":{
                 "type":"object","properties":properties,

@@ -115,11 +115,13 @@ class StopReviewTests(unittest.TestCase):
             model=LocalWilliamsModel(weights,loader=Runtime)
             model.review_protective_stop(diagnostic_cases()[0]["context"])
             payload=json.loads(model._model.calls[0]["messages"][1]["content"])
-            self.assertEqual(set(payload["paper_observations"]),INPUT_KEYS)
+            self.assertEqual(set(payload["numeric_hypothesis"]),
+                {"side","current_stop","candidate_stop","last_closed_price"})
             self.assertNotIn("assessment",payload)
             self.assertNotIn("reference",payload)
             self.assertIn("independent_engineering_risk_policy",payload)
-            self.assertEqual(payload["book_source"]["kind"],"PUBLIC_REVIEWED_PARAPHRASE_NOT_ORIGINAL_PDF")
+            self.assertNotIn("source",payload["numeric_hypothesis"])
+            self.assertNotIn("book_source",payload)
             schema=model._model.calls[0]["response_format"]["schema"]
             self.assertEqual(set(schema["properties"]),
                 {"level_relation","risk_direction","candidate_protects_side","assessment","reason"})
@@ -202,7 +204,7 @@ class CampaignStopIntegrationTests(unittest.TestCase):
             def create_chat_completion(self,**kwargs):
                 self.calls.append(kwargs)
                 payload=json.loads(kwargs["messages"][1]["content"])
-                if "paper_observations" in payload:
+                if "numeric_hypothesis" in payload:
                     result=response(EXPECTED["LONG_TIGHTER"])
                 else:
                     chart=payload["chart"]
