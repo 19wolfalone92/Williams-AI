@@ -367,6 +367,47 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
     return [item for _,item in ranked[:limit]]
 
 
+def recalled_source_pages(book_index: str | Path, memory_db: str | Path, question: str, *,
+                          edition: str, model_id: str, limit: int = 1) -> list[dict[str, Any]]:
+    """Reread current originals selected by this model's retained study pointers.
+
+    A generated summary is used only by recall as a search hint. It is never
+    returned as a rule; changed source chunks invalidate the pointer.
+    """
+    if type(limit) is not int or not 1 <= limit <= 2:
+        raise ValueError("BOUNDED_STUDIED_SOURCE_REREAD_REQUIRED")
+    hints = recall(memory_db, question, edition=edition, limit=limit,
+                   model_id=model_id, book_index=book_index)
+    pages = {int(x["source"].rsplit(" ", 1)[1]) for x in hints}
+    if not pages:
+        return []
+    with memory(memory_db) as db:
+        studied = {(int(page), digest) for page, digest in db.execute(
+            "SELECT page,chunk_sha FROM study_notes WHERE edition=? AND model_id=? AND source_sha=?",
+            (edition, model_id, _known_book(edition)["sha256"]))}
+    terms = set(re.findall(r"[^\W_]{3,}", question.casefold()))
+    ranked = []
+    source = _source(book_index, edition)
+    try:
+        for page in sorted(pages):
+            for (text,) in source.execute("SELECT content FROM excerpts WHERE book=? AND pdf_page=?",
+                                           (edition, page)):
+                digest = fingerprint(text)
+                if (page, digest) not in studied:
+                    continue
+                lower = text.casefold()
+                positions = [lower.find(term) for term in terms if term in lower]
+                offset = max(0, min(positions) - 80) if positions else 0
+                ranked.append((sum(lower.count(term) for term in terms), page, digest, text[offset:offset+650]))
+    finally:
+        source.close()
+    ranked.sort(key=lambda x: (-x[0], x[1], x[2]))
+    return [{"source": f"{edition}: PDF {page}", "excerpt": text,
+             "status": "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
+             "pdf_page": page, "chunk_sha256": digest}
+            for _, page, digest, text in ranked[:limit]]
+
+
 def remember_web(memory_db: str | Path, result: dict[str, Any]) -> int:
     from urllib.parse import urlsplit
     from .web_research import HOSTS

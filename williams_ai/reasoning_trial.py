@@ -36,6 +36,8 @@ def evaluate_historical_thought(
     deliberate_study:bool=True,
     campaign_journal:dict[str,Any]|None=None,
     public_rule_learning:bool=False,
+    research_memory:Path|None=None,
+    research_question:str|None=None,
 )->dict[str,Any]:
     """bar_index is a 0-based last closed bar, not next bar to trade.
 
@@ -168,6 +170,13 @@ def evaluate_historical_thought(
             prior=recall_model_corrections(coach_notebook,model_id,edition,
                                            limit=1)
     studied=[]
+    materials=[]
+    if research_memory is not None:
+        if model is None:
+            raise ValueError("RESEARCH_MEMORY_REQUIRES_LOCAL_MODEL")
+        from .unified_memory import UnifiedMemory
+        query=research_question or "фрактал волны AO вход сопровождение стоп выход риск"
+        materials=UnifiedMemory(research_memory).retrieve(query,edition=edition,as_of=as_of)
     if study_memory is not None:
         if model is None or model_id is None:
             raise ValueError("Book study recall requires actual model and model ID")
@@ -195,6 +204,8 @@ def evaluate_historical_thought(
         if study_memory is not None:
             args["study_lessons"]=studied
             args["model_id"]=model_id
+        if research_memory is not None:
+            args["research_materials"]=materials
         learner=None
         if deliberate_study and (book_index is not None or public_rule_learning) and study_memory is not None:
             from .deliberate_learning import DeliberateBookModel
@@ -238,6 +249,7 @@ def evaluate_historical_thought(
             experience_notes["past_examples_used"] if experience_notes else 0),
         "past_learning_feedback_only_from_previously_resolved_simulations":True,
         "private_prior_mistake_lessons_used":[note["source"] for note in prior],
+        "private_research_material_refs_used":[item["source"] for item in materials],
         "same_model_unverified_book_lessons_used":[x["source"] for x in studied],
         "book_study_notes_checked_against_current_source":(
             study_memory is not None and book_index is not None),
@@ -278,6 +290,8 @@ def main()->None:
     p.add_argument("--reasoning-budget",type=int,default=2048,
                    help="Bounded actual Qwen reasoning tokens per learning call")
     p.add_argument("--book-index",type=Path,help="Private indexed four-book SQLite outside repository")
+    p.add_argument("--lora-adapter",type=Path)
+    p.add_argument("--lora-manifest",type=Path)
     p.add_argument("--public-rule-learning",action="store_true",
                    help="Explicitly use reviewed public paraphrases, NOT original private books")
     p.add_argument("--coach-notebook",type=Path,
@@ -294,6 +308,8 @@ def main()->None:
     group.add_argument("--local-model",type=Path)
     group.add_argument("--proposal-file",type=Path)
     a=p.parse_args()
+    if (a.lora_adapter or a.lora_manifest) and not a.local_model:
+        p.error("LoRA options require --local-model")
     if a.public_rule_learning and (a.book_index or a.no_deliberate_study or not a.local_model):
         p.error("--public-rule-learning requires local model, no private index and enabled study")
     if a.public_rule_learning and a.study_memory is None:
@@ -307,7 +323,8 @@ def main()->None:
         from .local_model import LocalWilliamsModel
         model=LocalWilliamsModel(a.local_model,n_ctx=a.ctx,
                                 use_decision_schema=True,learning_mode="auto",
-                                reasoning_budget=a.reasoning_budget)
+                                reasoning_budget=a.reasoning_budget,
+                                lora_adapter=a.lora_adapter,lora_manifest=a.lora_manifest)
     else:
         proposal=json.loads(a.proposal_file.read_text(encoding="utf-8"))
     x=markets[a.symbol]
@@ -330,7 +347,8 @@ def main()->None:
         a.study_memory=a.book_index.parent/"Williams_AI_Decision_Study.sqlite3"
     if a.coach_notebook or a.study_memory:
         from .study_cli import _model_identity
-        model_id=_model_identity(a.local_model)
+        model_id=_model_identity(a.local_model,lora_adapter=a.lora_adapter,
+                                lora_manifest=a.lora_manifest)
     output=evaluate_historical_thought(
         a.symbol,x["bars"],tick_size=x["tick_size"],bar_index=a.bar_index,
         edition=a.edition,model=model,proposal=proposal,

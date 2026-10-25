@@ -24,15 +24,13 @@ from .study import study_batch,study_report
 from .book_rules import registry
 
 
-def _model_identity(path:Path)->str:
+def _model_identity(path:Path, *, lora_adapter:Path|None=None,
+                    lora_manifest:Path|None=None)->str:
     """Bind an experience notebook to ACTUAL GGUF bytes, not just filename."""
     if not path.is_file() or path.is_symlink() or path.suffix.lower()!=".gguf":
         raise FileNotFoundError("Local regular GGUF weights required")
-    digest=hashlib.sha256()
-    with path.open("rb") as fd:
-        for chunk in iter(lambda:fd.read(4*1024*1024),b""):
-            digest.update(chunk)
-    return "gguf-"+digest.hexdigest()[:24]
+    from .model_bundle import runtime_identity
+    return runtime_identity(path,adapter=lora_adapter,manifest=lora_manifest)["model_id"]
 
 
 def train_private_curriculum(
@@ -101,6 +99,8 @@ def main()->None:
     p.add_argument("--study-memory",type=Path,required=True)
     p.add_argument("--report",action="store_true")
     p.add_argument("--local-model",type=Path)
+    p.add_argument("--lora-adapter",type=Path)
+    p.add_argument("--lora-manifest",type=Path)
     p.add_argument("--gpu-layers",type=int,default=0)
     p.add_argument("--learning-mode",choices=["legacy_json","auto","reasoning"],default="legacy_json")
     p.add_argument("--reasoning-budget",type=int,default=2048)
@@ -110,11 +110,14 @@ def main()->None:
     p.add_argument("--pdf-page",type=int,action="append",
                    help="Repeat for focused source study; requires a single --edition")
     a=p.parse_args()
+    if (a.lora_adapter or a.lora_manifest) and not a.local_model:
+        p.error("LoRA options require --local-model even for a model-scoped report")
     if a.pdf_page and a.edition=="ALL":
         p.error("--pdf-page requires a single --edition")
     if a.report:
         data=study_report(a.book_index,a.study_memory,
-            model_id=_model_identity(a.local_model) if a.local_model else None)
+            model_id=_model_identity(a.local_model,lora_adapter=a.lora_adapter,
+                lora_manifest=a.lora_manifest) if a.local_model else None)
     else:
         if a.local_model is None:
             p.error("--local-model is required to process books")
@@ -122,8 +125,10 @@ def main()->None:
         data=train_private_curriculum(
             a.book_index,a.study_memory,
             LocalWilliamsModel(a.local_model,gpu_layers=a.gpu_layers,
-                               learning_mode=a.learning_mode,reasoning_budget=a.reasoning_budget),
-            model_id=_model_identity(a.local_model),
+                               learning_mode=a.learning_mode,reasoning_budget=a.reasoning_budget,
+                               lora_adapter=a.lora_adapter,lora_manifest=a.lora_manifest),
+            model_id=_model_identity(a.local_model,lora_adapter=a.lora_adapter,
+                lora_manifest=a.lora_manifest),
             editions=("TC1","NTD","TC2","COURSE") if a.edition=="ALL" else (a.edition,),
             budget_per_book=a.budget_per_book,rounds=a.rounds,
             pdf_pages=tuple(a.pdf_page) if a.pdf_page else None)
