@@ -1,13 +1,61 @@
 """No answer key leaks in remediation after the REAL Qwen weakness audit."""
 import unittest
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from williams_ai.book_rules import registry
 from williams_ai.targeted_practical_feedback import (
-    remediation_cases,paired_source_remediation,
+    remediation_cases,paired_source_remediation,self_study_stop_remediation,
 )
 
 
 class TargetedBookTransferTests(unittest.TestCase):
+    def test_real_call_protocol_stores_only_supported_public_paraphrase_notes(self):
+        class Student:
+            def __init__(self): self.reads=0; self.answers=[]
+            def study_passage(self,text,**kwargs):
+                self.reads+=1
+                return json.dumps({"summary":"Стоп и сопровождение требуют проверки.",
+                    "claims":[{"statement":"Это источник для проверки.","support":text[:40]}],
+                    "questions":[]})
+            def answer_exam_case(self,question,**kwargs):
+                self.answers.append((question,kwargs))
+                assert set(question)=={"id","edition","question","choices"}
+                return {"choice":"","reason":"No answer"}
+        with TemporaryDirectory() as temp:
+            student=Student();path=Path(temp)/"public_notes.sqlite3"
+            result=self_study_stop_remediation(student,path,model_id="gguf-test")
+            self.assertEqual(student.reads,2)
+            self.assertEqual(len(student.answers),8)
+            self.assertTrue(all(len(kwargs["prior_lessons"])==1
+                for _,kwargs in student.answers[4:]))
+            self.assertTrue(result["unverified_self_notes_quarantined"])
+            self.assertTrue(all(not x["self_note_used"] for x in result["results"]))
+            self.assertTrue(all(x["saved_or_recalled"] for x in result["study_results"]))
+            self.assertFalse(result["model_weights_updated"])
+            self.assertEqual(result["source_kind"],"PUBLIC_REVIEWED_RULE_PARAPHRASE_NOT_ORIGINAL_PDF")
+            second=Student()
+            result=self_study_stop_remediation(second,path,model_id="gguf-test")
+            self.assertEqual(second.reads,0)
+            self.assertTrue(all(x["reused_same_model_note"] for x in result["study_results"]))
+            other=Student()
+            self_study_stop_remediation(other,path,model_id="gguf-other")
+            self.assertEqual(other.reads,2)
+
+    def test_self_study_never_persists_fabricated_support(self):
+        class Student:
+            def study_passage(self,text,**kwargs):
+                return json.dumps({"summary":"Bad summary.","claims":[{
+                    "statement":"Unsupported.","support":"Invented source text that is not on this card."}],"questions":[]})
+            def answer_exam_case(self,question,**kwargs):
+                if kwargs: assert len(kwargs["prior_lessons"])==1
+                return {"choice":"","reason":"Abstain"}
+        with TemporaryDirectory() as temp:
+            result=self_study_stop_remediation(Student(),Path(temp)/"notes.db",model_id="gguf-test")
+            self.assertTrue(all(not x["saved_or_recalled"] for x in result["study_results"]))
+            self.assertTrue(all(x["failure"]=="LESSON_SUPPORT_NOT_IN_SOURCE" for x in result["study_results"]))
+
     def test_all_six_are_book_scoped_and_separate_lesson_from_answer(self):
         tasks=remediation_cases()
         self.assertEqual(len(tasks),6)

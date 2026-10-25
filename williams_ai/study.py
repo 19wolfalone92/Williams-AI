@@ -121,7 +121,8 @@ def _lesson_error_code(error: Exception) -> str:
 
 def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
                 model: Any, *, model_id: str, budget: int = 4,
-                pdf_pages: tuple[int, ...] | None = None) -> dict[str, Any]:
+                pdf_pages: tuple[int, ...] | None = None,
+                chunk_keys: tuple[tuple[int, str], ...] | None = None) -> dict[str, Any]:
     """Study unseen source chunks, checkpointing each success; bounded retry on failure."""
     if not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}", model_id) or not 1 <= budget <= 100:
         raise ValueError("Invalid model version or batch budget")
@@ -134,6 +135,14 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
                    or not 1 <= p <= known["pages"] for p in pdf_pages)
             or len(set(pdf_pages)) != len(pdf_pages)):
         raise ValueError("Invalid source PDF page selection")
+    if chunk_keys is not None and (
+            not isinstance(chunk_keys,tuple) or not 1<=len(chunk_keys)<=32
+            or any(not isinstance(x,tuple) or len(x)!=2
+                   or isinstance(x[0],bool) or not isinstance(x[0],int)
+                   or not 1<=x[0]<=known["pages"]
+                   or not isinstance(x[1],str) or not re.fullmatch(r"[0-9a-f]{64}",x[1])
+                   for x in chunk_keys)):
+        raise ValueError("Invalid exact source chunks")
     source = _source(book_db, edition)
     done = failed = 0
     failure_codes: Counter[str] = Counter()
@@ -147,6 +156,8 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
             rows = source.execute(query + " ORDER BY CAST(pdf_page AS INTEGER),rowid", args)
             for page, text in rows:
                 sha = fingerprint(text)
+                if chunk_keys is not None and (int(page),sha) not in chunk_keys:
+                    continue
                 key = (edition, _known_book(edition)["sha256"], int(page), sha, model_id)
                 if dest.execute("SELECT 1 FROM study_notes WHERE edition=? AND source_sha=? AND page=? AND chunk_sha=? AND model_id=?", key).fetchone():
                     continue

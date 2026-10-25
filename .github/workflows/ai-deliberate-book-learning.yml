@@ -1,0 +1,67 @@
+name: Williams AI actual Qwen self-study of stop rules
+
+on:
+  push:
+    branches: [feature/ai-deliberate-book-learning-20261025]
+    paths:
+      - '.github/workflows/ai-deliberate-book-learning.yml'
+      - 'williams_ai/local_model.py'
+      - 'williams_ai/targeted_practical_feedback.py'
+      - 'williams_ai/deliberate_learning.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deliberate-book-study-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-qwen-source-use:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams_public_deliberate_qwen
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Learning loop regressions without model mocks being called real skill
+        run: python -m unittest discover -s tests -p 'test_williams_ai_deliberate_learning.py' -v
+      - name: Install local CPU inference runtime
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download public pinned 1.7B GGUF, no private books
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          model = Path(hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/williams_deliberate_model'))
+          print(actual_gguf_sha256(model,os.environ['GGUF_SHA256']))
+          PY
+      - name: Actual read, checkpoint, quarantine self-notes and reconsider with source only
+        run: |
+          set -o pipefail
+          python -m williams_ai.targeted_practical_feedback \
+            --model /tmp/williams_deliberate_model/Qwen3-1.7B-Q4_K_M.gguf \
+            --expected-sha256 "$GGUF_SHA256" --ctx 8192 --reasoning-budget 1536 \
+            --self-study-memory /tmp/williams_deliberate_public_notes.sqlite3 \
+            | tee /tmp/actual_qwen_self_study_not_weight_training.json
+      - name: Retain actual diagnostic, no weights or private notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-qwen-public-self-study-diagnostic
+          path: /tmp/actual_qwen_self_study_not_weight_training.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -66,6 +66,16 @@ class OfflineModelTests(unittest.TestCase):
         answer = model.answer("Что со стопом?", build_report(self.snapshot))
         self.assertTrue(answer.startswith("КРИТИЧНО:"))
 
+    def test_unreviewed_self_summary_is_quarantined_while_original_source_is_retained(self):
+        model=LocalWilliamsModel(self.model,loader=FakeLlama)
+        model.answer("Что со стопом?",build_report(self.snapshot),notes=[
+            {"source":"STUDY:TC2: PDF 131","excerpt":"POISON_UNREVIEWED_SELF_INTERPRETATION"},
+            {"source":"TC2: PDF 131","excerpt":"ORIGINAL_SOURCE_SPAN_FOR_RECHECK"}])
+        prompt=model._model.calls[-1]["messages"][1]["content"]
+        self.assertNotIn("POISON_UNREVIEWED_SELF_INTERPRETATION",prompt)
+        self.assertIn("ORIGINAL_SOURCE_SPAN_FOR_RECHECK",prompt)
+        self.assertIn("STUDY:TC2: PDF 131",prompt)
+
     def test_local_search_and_no_symlink(self):
         notes = self.folder / "knowledge"
         notes.mkdir()
