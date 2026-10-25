@@ -855,9 +855,12 @@ class LocalWilliamsModel:
             "exit_basis (NONE/UNKNOWN), wave_degree_verified (false), "
             "exchange_fill_confirmed (false), exchange_sl_confirmed (false), "
             "trade_action (null), execution_allowed (false), "
-            "reason (кратко), learning_need (NONE/ENTRY/MANAGEMENT/EXIT/WAVE). "
+            "reason (кратко), learning_need (NONE/ENTRY/MANAGEMENT/EXIT/WAVE), "
+            "learning_question (точный вопрос к книге до 400 символов либо пустая строка). "
             "Если не понимаешь книжное правило, укажи тему в learning_need: "
             "это запрос перечитать первоисточник, а не доказательство сигнала. "
+            "В learning_question сформулируй конкретное непонятное правило, "
+            "а не просьбу подтвердить желаемую сделку. При learning_need=NONE оставь вопрос пустым. "
             "Если правило понятно, но нет нужных рыночных фактов, выбери "
             "NO_SETUP и learning_need=NONE; книга не заменяет отсутствующие данные. "
             "Поле reason обязано соответствовать setup: нельзя выбрать WM2/WM3, "
@@ -971,6 +974,7 @@ class LocalWilliamsModel:
                 "execution_allowed":{"type":"boolean","enum":[False]},
                 "reason":{"type":"string","maxLength":360},
                 "learning_need":enum("NONE","ENTRY","MANAGEMENT","EXIT","WAVE"),
+                "learning_question":{"type":"string","maxLength":400},
             }
             response_format["schema"]={
                 "type":"object","properties":properties,

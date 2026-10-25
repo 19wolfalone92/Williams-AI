@@ -101,9 +101,12 @@ def verified_private_book_pages(
         raise ValueError("Invalid setup name")
     # Always select from the requested edition; do not silently mix NTD
     # AO formations with TC2 Super AO or Course Thumb/Hump.
-    terms=_TOPICS[edition]
+    # A learner's precise question takes precedence over the generic book
+    # introduction. A zero-match question must stay missing, not silently
+    # become an unrelated entry chapter.
+    terms=question if question is not None else _TOPICS[edition]
     cards=lookup_rules(selected_setup or terms,edition=edition,max_cards=3)
-    if selected_setup:
+    if selected_setup and question is None:
         terms+=" "+selected_setup
         for card in cards[:2]:
             terms+=" "+card["excerpt"][:200]
@@ -113,4 +116,5 @@ def verified_private_book_pages(
         "excerpt":result["excerpt"][:650],
         "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
         "pdf_page":result["page"],
+        "chunk_sha256":result["chunk_sha256"],
     } for result in results]

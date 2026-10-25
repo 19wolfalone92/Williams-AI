@@ -1,0 +1,133 @@
+name: Williams AI actual persistent book consultation
+
+on:
+  push:
+    branches: [feature/ai-active-book-learning-20261025]
+    paths:
+      - '.github/workflows/ai-active-book-learning.yml'
+      - 'williams_ai/learning_agenda.py'
+      - 'williams_ai/deliberate_learning.py'
+      - 'williams_ai/grounded_inference.py'
+      - 'williams_ai/book_index.py'
+      - 'williams_ai/local_model.py'
+      - 'williams_ai/reasoning_trial.py'
+      - 'williams_ai/algorithm_guard.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: active-book-learning-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-persistent-source-use:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - size: '1.7B'
+            model_repo: unsloth/Qwen3-1.7B-GGUF
+            revision: b2d17796e6fd93c353a0415a3abd8b7f801701de
+            sha: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+          - size: '4B'
+            model_repo: Qwen/Qwen3-4B-GGUF
+            revision: bc640142c66e1fdd12af0bd68f40445458f3869b
+            sha: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams_active_book_qwen
+      GGUF_SHA256: ${{ matrix.sha }}
+      MODEL_SIZE: ${{ matrix.size }}
+      MODEL_REPO: ${{ matrix.model_repo }}
+      MODEL_REVISION: ${{ matrix.revision }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Software contracts, not cognitive qualification
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Install CPU inference runtime
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Real model reading requests and continuity in two fresh processes
+        run: |
+          python -u - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from pathlib import Path
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          from williams_ai.causal_paper_lab import frozen_markets
+          import json, os, subprocess, sys
+          filename = 'Qwen3-' + os.environ['MODEL_SIZE'] + '-Q4_K_M.gguf'
+          model = Path(hf_hub_download(repo_id=os.environ['MODEL_REPO'],
+              revision=os.environ['MODEL_REVISION'],filename=filename,
+              local_dir='/tmp/williams_active_book_model'))
+          actual_gguf_sha256(model,os.environ['GGUF_SHA256'])
+          bars = frozen_markets()['ETHUSDT']['bars']
+          memory = Path('/tmp/williams_active_public_learning.sqlite3')
+          # A reused runner cannot lend this experiment an unseen history.
+          if memory.exists():
+              raise RuntimeError('EXPERIMENT_REQUIRES_EMPTY_INITIAL_MEMORY')
+          results = []
+          for cutoff_index in (299,300):
+              cutoff = bars[cutoff_index]['close_time']
+              opened = bars[250]['close_time']
+              journal = {'symbol':'ETHUSDT','edition':'TC2','as_of':cutoff,'events':[
+                  {'at':opened,'type':'OPEN_FILL','side':'LONG',
+                   'price':float(bars[250]['close']),'exchange_confirmed':True},
+                  {'at':opened,'type':'STOP_ACK','stop_price':round(float(bars[250]['close'])/2,2),
+                   'exchange_confirmed':True}]}
+              path = Path('/tmp/williams_active_paper_journal.json')
+              path.write_text(json.dumps(journal),encoding='utf-8')
+              print('START_CLOSED_CHART',cutoff_index,cutoff,flush=True)
+              command = [sys.executable,'-m','williams_ai.reasoning_trial',
+                  '--symbol','ETHUSDT','--bar-index',str(cutoff_index),'--no-topdown',
+                  '--local-model',str(model),'--ctx','8192','--reasoning-budget','1536','--public-rule-learning',
+                  '--study-memory',str(memory),'--campaign-journal',str(path)]
+              try:
+                  child = subprocess.run(command,text=True,capture_output=True,timeout=1050)
+                  exit_code = child.returncode
+                  failure = 'MODEL_OR_PIPELINE_FAILED_NO_FAKE_ANSWER'
+              except subprocess.TimeoutExpired:
+                  child = None
+                  exit_code = None
+                  failure = 'CHILD_INFERENCE_TIMEOUT_NO_FAKE_ANSWER'
+              try:
+                  result = json.loads(child.stdout) if child is not None and exit_code==0 else None
+              except ValueError:
+                  result = None
+              if result is not None:
+                  assert result['public_rule_learning_only'] is True
+                  assert result['private_book_pages_used']==[]
+                  assert result['deliberate_book_learning']['source_kind']=='PUBLIC_REVIEWED_RULE_PARAPHRASE'
+              results.append({'bar_index':cutoff_index,'child_exit_code':exit_code,
+                  'error':None if result is not None else failure,
+                  'result':result})
+              print('FINISH_CLOSED_CHART',cutoff_index,'actual_result_available',result is not None,flush=True)
+          report = {'mode':'ACTUAL_GGUF_PERSISTENT_SOURCE_LEARNING_DIAGNOSTIC',
+              'model_sha256':os.environ['GGUF_SHA256'],'model_size':os.environ['MODEL_SIZE'],
+              'source_commit':os.environ['GITHUB_SHA'],'fresh_process_per_chart':True,
+              'source_kind':'PUBLIC_REVIEWED_RULE_PARAPHRASE_NOT_ORIGINAL_PRIVATE_PDF',
+              'private_original_books_used':False,'same_frozen_symbol_adjacent_cutoffs':True,
+              'untouched_holdout':False,'journal_is_hypothetical_paper_assumption':True,
+              'signed_exchange_evidence_used':False,'model_weights_updated':False,
+              'market_profitability_proven':False,'workflow_success_is_not_skill_approval':True,
+              'execution_allowed':False,'trade_action':None,'results':results}
+          output = json.dumps(report,ensure_ascii=False,indent=2)
+          Path('/tmp/actual_persistent_book_learning.json').write_text(output,encoding='utf-8')
+          print(output)
+          PY
+      - name: Retain public result only, never private memory or weights
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-book-consultation-${{ matrix.size }}
+          path: /tmp/actual_persistent_book_learning.json
+          retention-days: 7
+          if-no-files-found: warn

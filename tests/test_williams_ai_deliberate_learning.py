@@ -17,6 +17,7 @@ from williams_ai.chart_reader import analyze_chart
 from williams_ai.deliberate_learning import DeliberateBookModel
 from williams_ai.grounded_inference import verified_private_book_pages
 from williams_ai.reasoning_trial import evaluate_historical_thought
+from williams_ai.learning_agenda import prior_reading_focus
 
 
 def proposal(obs, *, setup="NO_SETUP", need="NONE"):
@@ -178,6 +179,164 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertEqual(other.calls[-1][1]["study_lessons"],[])
         with sqlite3.connect(self.notes) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM study_notes WHERE model_id='gguf-other'").fetchone()[0],2)
+
+    def test_later_chart_reads_original_pages_from_past_gap_before_first_answer(self):
+        self.wrap(Student()).propose_chart_reasoning(self.obs)
+        later=analyze_chart("DOGEUSDT","H1",self.market["bars"][:925],
+            as_of=self.market["bars"][924]["close_time"],tick_size=self.market["tick_size"])
+        student=Student();student.first={}
+        wrapper=self.wrap(student)
+        wrapper.propose_chart_reasoning(later)
+        self.assertEqual(len(student.calls),1)
+        pages=student.calls[0][1]["primary_pages"]
+        self.assertEqual({x["source"] for x in pages},{"TC2: PDF 131","TC2: PDF 161"})
+        self.assertEqual(wrapper.latest["prior_reading_requests"],1)
+        self.assertEqual(student.passages,[])
+        self.assertNotIn("SOURCE_DERIVED_UNVERIFIED",json.dumps(student.calls[0][1]))
+        self.assertFalse(wrapper.latest["model_weights_updated"])
+
+    def test_agenda_ignores_same_cutoff_future_other_model_and_changed_source_identity(self):
+        self.wrap(Student()).propose_chart_reasoning(self.obs)
+        def focus(model="gguf-student",as_of=None,edition="TC2"):
+            return prior_reading_focus(self.notes,model_id=model,edition=edition,
+                                      as_of=as_of or self.market["bars"][924]["close_time"])
+        self.assertEqual(focus()["past_requests"],1)
+        self.assertEqual(focus(as_of=self.obs["as_of"])["past_requests"],0)
+        self.assertEqual(focus(as_of=self.market["bars"][920]["close_time"])["past_requests"],0)
+        self.assertEqual(focus(model="gguf-other")["past_requests"],0)
+        self.assertEqual(focus(edition="NTD")["past_requests"],0)
+        with sqlite3.connect(self.notes) as db:
+            raw=json.loads(db.execute("SELECT diagnostics_json FROM decision_study_events").fetchone()[0])
+            raw["source_sha256"]="0"*64
+            db.execute("UPDATE decision_study_events SET diagnostics_json=?",(json.dumps(raw),))
+        self.assertEqual(focus()["past_requests"],0)
+
+    def test_agenda_reloads_changed_ocr_instead_of_reusing_old_summary(self):
+        self.wrap(Student()).propose_chart_reasoning(self.obs)
+        fresh="CURRENT_OCR стоп сопровождение закрытые бары без прежнего пересказа. "*2
+        with sqlite3.connect(self.books) as db:
+            db.execute("UPDATE excerpts SET content=? WHERE book='TC2' AND pdf_page=161",(fresh,))
+        later=deepcopy(self.obs);later["as_of"]=self.market["bars"][924]["close_time"]
+        student=Student();student.first={}
+        self.wrap(student).propose_chart_reasoning(later)
+        self.assertTrue(any("CURRENT_OCR" in p["excerpt"] for p in student.calls[0][1]["primary_pages"]))
+        self.assertEqual(student.passages,[])
+
+    def test_unmapped_wave_question_reads_same_book_without_certifying_topic(self):
+        wave="Elliott nested degree correction: волна степень вложенность коррекция. "*2
+        with sqlite3.connect(self.books) as db:
+            db.execute("INSERT INTO excerpts VALUES('TC2',175,?,'UNVERIFIED_EXTRACTION')",(wave,))
+        class WaveStudent(Student):
+            def propose_chart_reasoning(self,obs,**kwargs):
+                answer=super().propose_chart_reasoning(obs,**kwargs)
+                if len(self.calls)==1:
+                    answer["learning_question"]="Elliott nested degree correction"
+                return answer
+        student=WaveStudent(first={"setup":"UNKNOWN","need":"WAVE"})
+        wrapper=self.wrap(student)
+        wrapper.propose_chart_reasoning(self.obs)
+        self.assertEqual(len(student.calls),2)
+        self.assertEqual(wrapper.latest["source_pages"],["TC2: PDF 175"])
+        self.assertEqual(wrapper.latest["source_rules"],[])
+        self.assertTrue(wrapper.latest["needs_independent_topic_review"])
+        self.assertEqual(wrapper.latest["status"],"READ_UNREVIEWED_TOPIC_REQUIRES_INDEPENDENT_REVIEW")
+        self.assertEqual(student.calls[1][1]["prior_lessons"],[])
+        self.assertNotIn(wave,json.dumps(wrapper.latest))
+        later=deepcopy(self.obs);later["as_of"]=self.market["bars"][924]["close_time"]
+        resumed=Student();resumed.first={}
+        later_wrapper=self.wrap(resumed)
+        later_wrapper.propose_chart_reasoning(later)
+        self.assertEqual(len(resumed.calls),1)
+        self.assertEqual(later_wrapper.latest["prior_reading_pages"],["TC2: PDF 175"])
+        self.assertTrue(later_wrapper.latest["needs_independent_topic_review"])
+        self.assertEqual(later_wrapper.latest["status"],"PAST_UNREVIEWED_TOPIC_REQUIRES_INDEPENDENT_REVIEW")
+
+    def test_unmapped_wave_reading_cannot_pass_historical_qualification_after_abstention(self):
+        wave="Elliott волна степень вложенность коррекция. "*2
+        with sqlite3.connect(self.books) as db:
+            db.execute("INSERT INTO excerpts VALUES('TC2',175,?,'UNVERIFIED_EXTRACTION')",(wave,))
+        result=evaluate_historical_thought("DOGEUSDT",self.market["bars"],
+            tick_size=self.market["tick_size"],bar_index=923,
+            model=Student(first={"setup":"UNKNOWN","need":"WAVE"}),
+            include_topdown=False,book_index=self.books,study_memory=self.notes,
+            model_id="gguf-student")
+        self.assertEqual(result["audit"]["hard_failures"],[])
+        self.assertFalse(result["research_reasoning_consistent"])
+        self.assertTrue(result["deliberate_book_learning"]["needs_independent_topic_review"])
+
+    def test_non_object_model_answer_uses_typed_error_instead_of_attribute_crash(self):
+        class Broken(Student):
+            def propose_chart_reasoning(self,obs,**kwargs):
+                if not self.calls:
+                    self.calls.append((obs,kwargs))
+                    return []
+                return proposal(obs)
+        wrapper=self.wrap(Broken())
+        try:
+            wrapper.propose_chart_reasoning(self.obs)
+        except ValueError:
+            self.assertTrue(wrapper.latest["first_failures"])
+
+    def test_focused_question_is_bounded_and_cannot_hide_a_book_gap(self):
+        bad={**proposal(self.obs),"learning_question":"Какой стоп нужен?"}
+        self.assertIn("BOOK_QUESTION_WITHOUT_DECLARED_TOPIC",audit_reasoning(self.obs,bad)["hard_failures"])
+        for value in ([],"x"*401):
+            bad["learning_question"]=value
+            self.assertIn("INVALID_MODEL_LEARNING_QUESTION",audit_reasoning(self.obs,bad)["hard_failures"])
+
+    def test_public_rule_mode_uses_same_learning_loop_without_faking_original_pages(self):
+        student=Student()
+        wrapper=DeliberateBookModel(student,None,self.notes,model_id="gguf-student",public_rules_only=True)
+        wrapper.propose_chart_reasoning(self.obs)
+        self.assertEqual(student.passages,[])
+        self.assertEqual(len(student.calls),2)
+        self.assertEqual(student.calls[1][1]["primary_pages"],[])
+        self.assertTrue(student.calls[1][1]["prior_lessons"])
+        self.assertEqual(wrapper.latest["source_kind"],"PUBLIC_REVIEWED_RULE_PARAPHRASE")
+        self.assertEqual(wrapper.latest["source_pages"],[])
+        self.assertFalse(wrapper.latest["private_original_pages_read"])
+        self.assertEqual(wrapper.latest["studied_chunks"],0)
+        later=deepcopy(self.obs);later["as_of"]=self.market["bars"][924]["close_time"]
+        resumed=Student();resumed.first={}
+        later_wrapper=DeliberateBookModel(resumed,None,self.notes,model_id="gguf-student",public_rules_only=True)
+        later_wrapper.propose_chart_reasoning(later)
+        self.assertEqual(len(resumed.calls),1)
+        self.assertTrue(resumed.calls[0][1]["prior_lessons"])
+        self.assertTrue(later_wrapper.latest["prior_reading_public_references"])
+        private_focus=prior_reading_focus(self.notes,model_id="gguf-student",edition="TC2",as_of=later["as_of"])
+        self.assertEqual(private_focus["past_requests"],0)
+
+    def test_public_learning_historical_entry_point_and_source_modes_are_explicit(self):
+        student=Student()
+        result=evaluate_historical_thought("DOGEUSDT",self.market["bars"],
+            tick_size=self.market["tick_size"],bar_index=923,model=student,
+            include_topdown=False,study_memory=self.notes,model_id="gguf-student",
+            public_rule_learning=True)
+        self.assertTrue(result["public_rule_learning_only"])
+        self.assertEqual(result["private_book_pages_used"],[])
+        self.assertTrue(result["deliberate_book_learning"]["public_rule_references"])
+        self.assertFalse(result["execution_allowed"])
+        for kwargs in ({},{"public_rules_only":True}):
+            with self.assertRaises(ValueError):
+                DeliberateBookModel(Student(),self.books if kwargs else None,self.notes,
+                    model_id="gguf-student",**kwargs)
+
+    def test_all_four_editions_can_request_their_own_public_book_rules(self):
+        from williams_ai.deliberate_learning import _GAPS
+        for edition in ("TC1","NTD","TC2","COURSE"):
+            class EditionStudent(Student):
+                def propose_chart_reasoning(self,obs,**kwargs):
+                    answer=super().propose_chart_reasoning(obs,**kwargs)
+                    answer["edition"]=kwargs["edition"]
+                    return answer
+            student=EditionStudent(first={"setup":"UNKNOWN","need":"ENTRY"})
+            wrapper=DeliberateBookModel(student,None,self.notes,
+                model_id="gguf-student",public_rules_only=True)
+            wrapper.propose_chart_reasoning(self.obs,edition=edition)
+            sources=student.calls[1][1]["prior_lessons"]
+            self.assertEqual({x["source"] for x in sources},
+                {edition+":RULE:"+rule for rule in _GAPS[edition]["ENTRY"]})
+            self.assertFalse(wrapper.latest["private_original_pages_read"])
 
     def test_missing_source_does_not_invent_a_repaired_answer(self):
         with sqlite3.connect(self.books) as db:

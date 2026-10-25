@@ -203,11 +203,13 @@ def search_pages(database: str | Path, question: str, *,
                 continue
             offsets = [content.casefold().find(t) for t in tokens if t in content.casefold()]
             start = max(0, min(offsets) - 120) if offsets else 0
-            ranked.append((score, book, int(page), content[start:start+650]))
+            ranked.append((score, book, int(page), content[start:start+650],
+                           hashlib.sha256(content.encode()).hexdigest()))
         ranked.sort(key=lambda x: (-x[0], x[1], x[2]))
         return [{"source": f"{book}: PDF {page}", "excerpt": content,
-                 "status": "PRIVATE_PAGE_TEXT_UNVERIFIED", "page": page}
-                for _, book, page, content in ranked[:limit]]
+                 "status": "PRIVATE_PAGE_TEXT_UNVERIFIED", "page": page,
+                 "chunk_sha256": chunk_sha}
+                for _, book, page, content, chunk_sha in ranked[:limit]]
     finally:
         db.close()
 
