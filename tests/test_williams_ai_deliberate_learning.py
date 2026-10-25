@@ -1,10 +1,13 @@
 """Integration/adversarial tests of consultation, not a claim of AI skill."""
 from copy import deepcopy
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from williams_ai.algorithm_guard import audit_reasoning
 from williams_ai.book_index import index_pages
@@ -196,6 +199,23 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertFalse(result["execution_allowed"])
         self.assertEqual(student.calls[-1][0]["as_of"],self.rows[-1]["close_time"])
         self.assertEqual(result["audit"]["hard_failures"],[])
+
+    def test_cli_automatically_creates_model_scoped_memory_and_runs_consultation(self):
+        from williams_ai.reasoning_trial import main
+        student=Student()
+        weights=self.root/"fixture.gguf"
+        weights.write_bytes(b"TEST_RUNTIME_INJECTED_NOT_A_REAL_MODEL")
+        argv=["reasoning_trial","--symbol","DOGEUSDT","--bar-index","923",
+            "--local-model",str(weights),"--book-index",str(self.books),"--no-topdown"]
+        output=io.StringIO()
+        with patch("sys.argv",argv),patch("williams_ai.local_model.LocalWilliamsModel",
+                return_value=student) as constructor,redirect_stdout(output):
+            main()
+        result=json.loads(output.getvalue())
+        self.assertTrue(result["deliberate_book_learning"]["reconsideration_performed"])
+        self.assertTrue((self.root/"Williams_AI_Decision_Study.sqlite3").is_file())
+        self.assertEqual(constructor.call_args.kwargs["learning_mode"],"auto")
+        self.assertTrue(constructor.call_args.kwargs["use_decision_schema"])
 
 
 if __name__=="__main__":
