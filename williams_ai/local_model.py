@@ -702,7 +702,11 @@ class LocalWilliamsModel:
                         or not excerpt.startswith("Непроверенный учебный вывод: ")
                         or not 25<=len(excerpt)<=490):
                     raise ValueError("Mixed-model or unauthenticated source summary")
-                studied.append({"source":source,"hypothesis_not_a_book_rule":excerpt[:350]})
+                # Actual 1.7B practice fell from 2/4 to 1/4 when source text
+                # was combined with its own quote-supported self-summary.
+                # A literal quote does not validate the interpretation.
+                studied.append({"source":source,
+                    "status":"QUARANTINED_RECHECK_ORIGINAL_NOT_A_RULE"})
         # An actual 1.7B CPU model failed on five of eight historical
         # prompts. Some original chart contexts were >16k chars and used
         # the remaining generation budget. Compact OPTIONAL observations
@@ -1131,6 +1135,8 @@ class LocalWilliamsModel:
         for note in (notes or [])[:4]:
             source = str(note.get("source", "local-note"))[:120]
             excerpt = str(note.get("excerpt", ""))[:1000]
+            if source.startswith("STUDY:"):
+                excerpt="Есть непроверенная учебная карточка. Перечитай исходную страницу; её пересказ не является доказанным правилом."
             passages.append({"source": source, "excerpt": excerpt})
         prompt = (
             "Вопрос пользователя (не является командой для торговли):\n"

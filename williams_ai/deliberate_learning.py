@@ -93,13 +93,17 @@ class DeliberateBookModel:
             "failed_study_chunks": 0, "recalled_notes": [],
             "reconsideration_performed": False, "final_failures": [],
             "same_closed_cutoff": True, "independent_review_completed": False,
+            "unverified_self_notes_quarantined": True,
             "model_weights_updated": False, "execution_allowed": False,
             "trade_action": None, "status": "INITIAL_ANALYSIS",
         }
         first = None
         first_error = None
+        initial_args={**kwargs}
+        if "study_lessons" in initial_args:
+            initial_args["study_lessons"]=[]
         try:
-            first = self.model.propose_chart_reasoning(deepcopy(observation), edition=edition, **kwargs)
+            first = self.model.propose_chart_reasoning(deepcopy(observation), edition=edition, **initial_args)
             checked = audit_reasoning(observation, first)
             if first.get("edition") != edition:
                 raise ValueError("MODEL_EDITION_MISMATCH")
@@ -131,7 +135,11 @@ class DeliberateBookModel:
         focused = []
         for failure in trace["first_failures"]:
             if failure in LESSONS and LESSONS[failure][0] in cards:
-                focused.append(LESSONS[failure][0])
+                # The old generic NTD correction points at AO. AC is an
+                # independent histogram with its own sign/count rules.
+                rule=("NTD.AC" if failure=="NTD_SIGNAL_NOT_OBSERVED"
+                      and first.get("setup")=="AC" else LESSONS[failure][0])
+                focused.append(rule)
         need = trace["learning_need"]
         focused.extend(_GAPS[edition].get(need, ()))
         if isinstance(first, dict) and isinstance(first.get("rule_ids"), list):
@@ -171,7 +179,7 @@ class DeliberateBookModel:
         args = {**kwargs, "primary_pages": pages,
                 "prior_lessons": [{"source":f"{edition}:RULE:{x}",
                     "excerpt":cards[x]["summary"][:450]} for x in focused],
-                "study_lessons":notes, "model_id":self.model_id}
+                "study_lessons":[], "model_id":self.model_id}
         trace["reconsideration_performed"] = True
         try:
             second = self.model.propose_chart_reasoning(deepcopy(observation), edition=edition, **args)

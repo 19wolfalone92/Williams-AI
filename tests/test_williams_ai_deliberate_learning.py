@@ -84,7 +84,9 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertEqual(len(student.passages),2)
         refs=[x["source"] for x in student.calls[1][1]["primary_pages"]]
         self.assertEqual(set(refs),{"TC2: PDF 161","TC2: PDF 131"})
-        self.assertTrue(student.calls[1][1]["study_lessons"])
+        self.assertEqual(student.calls[1][1]["study_lessons"],[])
+        self.assertTrue(model.latest["recalled_notes"])
+        self.assertTrue(model.latest["unverified_self_notes_quarantined"])
         self.assertEqual(model.latest["status"],"RECONSIDERED_NOT_INDEPENDENTLY_VALIDATED")
         self.assertFalse(model.latest["model_weights_updated"])
         self.assertFalse(model.latest["independent_review_completed"])
@@ -122,6 +124,29 @@ class DeliberateLearningTests(unittest.TestCase):
         self.assertTrue(all(x["source"]=="TC2: PDF 135"
             for x in student.calls[-1][1]["primary_pages"]))
 
+    def test_ntd_ac_error_reads_ac_pages_rather_than_ao_rules(self):
+        ed=next(x for x in registry()["books"] if x["id"]=="NTD")
+        pages=[""]*ed["pages"]
+        pages[71]="AC acceleration: число зелёных столбцов зависит от знака AC, не AO. "*2
+        index_pages(self.books,"NTD",ed["sha256"],pages,declared_pages=ed["pages"])
+        class NtdStudent(Student):
+            def propose_chart_reasoning(self,obs,**kwargs):
+                self.calls.append((deepcopy(obs),deepcopy(kwargs)))
+                first=len(self.calls)==1
+                return {**proposal(obs),"edition":"NTD",
+                    "setup":"AC" if first else "NO_SETUP",
+                    "side":"LONG" if first else "NONE",
+                    "rule_ids":["NTD.AC"] if first else []}
+        obs=deepcopy(self.obs)
+        obs["edition_evidence"]["NTD"]["signals"]=[]
+        student=NtdStudent()
+        wrapper=self.wrap(student)
+        wrapper.propose_chart_reasoning(obs,edition="NTD")
+        self.assertIn("NTD_SIGNAL_NOT_OBSERVED",wrapper.latest["first_failures"])
+        self.assertEqual(wrapper.latest["source_rules"],["NTD.AC"])
+        self.assertEqual(wrapper.latest["source_pages"],["NTD: PDF 72"])
+        self.assertTrue(all(kwargs["edition"]=="NTD" for _,kwargs in student.passages))
+
     def test_two_bad_attempts_remain_failed_after_consultation(self):
         student=Student(first={"setup":"WM2"},second={"setup":"WM2"})
         model=self.wrap(student)
@@ -150,8 +175,9 @@ class DeliberateLearningTests(unittest.TestCase):
         other=Student()
         self.wrap(other,"gguf-other").propose_chart_reasoning(self.obs)
         self.assertEqual(len(other.passages),2)
-        self.assertTrue(all(n["model_id"]=="gguf-other"
-            for n in other.calls[-1][1]["study_lessons"]))
+        self.assertEqual(other.calls[-1][1]["study_lessons"],[])
+        with sqlite3.connect(self.notes) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM study_notes WHERE model_id='gguf-other'").fetchone()[0],2)
 
     def test_missing_source_does_not_invent_a_repaired_answer(self):
         with sqlite3.connect(self.books) as db:

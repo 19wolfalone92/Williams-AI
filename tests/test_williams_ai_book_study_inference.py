@@ -181,8 +181,9 @@ class BookToChartLearningTests(unittest.TestCase):
             chart,edition="TC2",study_lessons=notes,model_id="gguf-alpha")
         context=json.loads(model._model.calls[-1]["messages"][1]["content"])
         self.assertEqual(len(context["same_model_unverified_book_study_notes"]),1)
-        self.assertIn("hypothesis_not_a_book_rule",
-                      context["same_model_unverified_book_study_notes"][0])
+        self.assertEqual(context["same_model_unverified_book_study_notes"][0]["status"],
+                         "QUARANTINED_RECHECK_ORIGINAL_NOT_A_RULE")
+        self.assertNotIn(notes[0]["excerpt"],json.dumps(context,ensure_ascii=False))
         with self.assertRaisesRegex(ValueError,"Mixed-model"):
             model.propose_chart_reasoning(
                 chart,edition="TC2",study_lessons=notes,model_id="gguf-beta")

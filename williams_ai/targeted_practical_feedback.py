@@ -132,6 +132,8 @@ def self_study_stop_remediation(model:Any, memory_path:Path, *,
     No private PDF is available in public CI. These notes have their OWN
     table and cannot masquerade as lessons from the original-page index.
     The four repeated questions are diagnostic practice, not a holdout.
+    Generated summaries stay quarantined; the second answer gets source
+    cards only. Matching a quoted span cannot validate an interpretation.
     """
     from .study import memory, validate_lesson, _lesson_error_code
     if not isinstance(model_id,str) or not re.fullmatch(r"gguf-[a-zA-Z0-9_.:-]{1,115}",model_id):
@@ -149,7 +151,7 @@ def self_study_stop_remediation(model:Any, memory_path:Path, *,
             return {"selected":"","correct":False,"call_error":"MODEL_CALL_FAILED"}
     before=[answer(c) for c in cases]
     study_results=[]
-    notes={}
+    notes=set()
     with memory(memory_path) as db:
         db.execute("""CREATE TABLE IF NOT EXISTS public_rule_study_notes(
             model_id TEXT NOT NULL,rule_id TEXT NOT NULL,card_sha256 TEXT NOT NULL,
@@ -176,9 +178,7 @@ def self_study_stop_remediation(model:Any, memory_path:Path, *,
                     db.execute("INSERT INTO public_rule_study_notes VALUES(?,?,?,?)",
                         (model_id,rule,digest,raw))
                     db.commit()
-                # The wording cannot be promoted to the source's authority.
-                notes[rule]={"source":card["source"]+":RULE:"+rule,
-                    "excerpt":"Непроверенный учебный вывод модели: "+lesson["summary"][:300]}
+                notes.add(rule)
             except (ValueError,RuntimeError,TypeError,KeyError) as exc:
                 failure=_lesson_error_code(exc)
             study_results.append({"rule":rule,"saved_or_recalled":rule in notes,
@@ -187,27 +187,26 @@ def self_study_stop_remediation(model:Any, memory_path:Path, *,
     # Close/reopen the durable notebook before reusing anything: this is a
     # real recall, not an in-memory answer smuggled into the next call.
     with memory(memory_path) as db:
-        for rule in list(notes):
+        for rule in sorted(notes):
             card=cards[rule]
             digest=sha256(card["summary"].encode()).hexdigest()
             raw=db.execute("SELECT raw_lesson_json FROM public_rule_study_notes "
                 "WHERE model_id=? AND rule_id=? AND card_sha256=?",
                 (model_id,rule,digest)).fetchone()[0]
-            lesson=validate_lesson(raw,card["summary"])
-            notes[rule]["excerpt"]="Непроверенный учебный вывод модели: "+lesson["summary"][:300]
+            validate_lesson(raw,card["summary"])
     results=[]
     for case,initial in zip(cases,before):
         context=[case["reminder"]]
-        if case["rule"] in notes:
-            context.append(notes[case["rule"]])
         after=answer(case,context)
         results.append({"id":case["public"]["id"],"rule":case["rule"],
-            "unaided":initial,"source_and_self_note":after,
-            "self_note_used":case["rule"] in notes})
+            "unaided":initial,"source_after_study":after,
+            "self_note_saved_or_recalled":case["rule"] in notes,
+            "self_note_used":False})
     return {"mode":"ACTUAL_GGUF_SELF_STUDY_PUBLIC_PARAPHRASE_DIAGNOSTIC",
         "model_id":model_id,"cases":len(results),
         "unaided_correct":sum(x["unaided"]["correct"] for x in results),
-        "source_and_self_note_correct":sum(x["source_and_self_note"]["correct"] for x in results),
+        "source_only_after_study_correct":sum(x["source_after_study"]["correct"] for x in results),
+        "unverified_self_notes_quarantined":True,
         "source_kind":"PUBLIC_REVIEWED_RULE_PARAPHRASE_NOT_ORIGINAL_PDF",
         "study_results":study_results,"results":results,
         "same_questions_repeated_not_independent_holdout":True,

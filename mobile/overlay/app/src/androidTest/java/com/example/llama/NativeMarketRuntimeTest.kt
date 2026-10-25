@@ -77,7 +77,9 @@ class NativeMarketRuntimeTest {
         val raw = JSONObject().put("summary", "Фрактал и стоп требуют закрытых свечей.")
             .put("support", "Фрактал и стоп проверяются по закрытым свечам.").toString()
         StudyMemory.save(notes, p, "gguf-first", raw)
-        assertTrue(StudyMemory.retrieve(notes, "фрактал стоп", "gguf-first", books, "TC2").isNotEmpty())
+        val recalled = StudyMemory.retrieve(notes, "фрактал стоп", "gguf-first", books, "TC2")
+        assertTrue(recalled.isNotEmpty())
+        assertTrue(!recalled.contains("Фрактал и стоп требуют закрытых свечей."))
         assertEquals("", StudyMemory.retrieve(notes, "фрактал стоп", "gguf-second", books, "TC2"))
         assertEquals("", StudyMemory.retrieve(notes, "фрактал стоп", "gguf-first", books, "NTD"))
         SQLiteDatabase.openDatabase(books.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { db ->

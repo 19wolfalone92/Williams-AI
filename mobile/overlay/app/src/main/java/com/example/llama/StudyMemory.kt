@@ -110,7 +110,8 @@ object StudyMemory {
                     val text = cur.getString(2)
                     val score = words.count { text.lowercase(java.util.Locale.ROOT).contains(it) }
                     if (score > 0) matches.add(Pair(score,
-                        "[УЧЕБНЫЙ ВЫВОД, НЕ ПРОВЕРЕН; " + cur.getString(0) + ", PDF с. " + cur.getInt(1) + "] " + text))
+                        "[ПЕРЕЧИТАТЬ ИСТОЧНИК; " + cur.getString(0) + ", PDF с. " + cur.getInt(1) +
+                        "] Есть непроверенная учебная карточка. Её пересказ не передаётся как торговое правило."))
                 }
             }
         }

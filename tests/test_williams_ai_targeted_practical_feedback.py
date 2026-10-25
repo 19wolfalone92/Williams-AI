@@ -28,8 +28,10 @@ class TargetedBookTransferTests(unittest.TestCase):
             result=self_study_stop_remediation(student,path,model_id="gguf-test")
             self.assertEqual(student.reads,2)
             self.assertEqual(len(student.answers),8)
-            self.assertTrue(all(len(kwargs["prior_lessons"])==2
+            self.assertTrue(all(len(kwargs["prior_lessons"])==1
                 for _,kwargs in student.answers[4:]))
+            self.assertTrue(result["unverified_self_notes_quarantined"])
+            self.assertTrue(all(not x["self_note_used"] for x in result["results"]))
             self.assertTrue(all(x["saved_or_recalled"] for x in result["study_results"]))
             self.assertFalse(result["model_weights_updated"])
             self.assertEqual(result["source_kind"],"PUBLIC_REVIEWED_RULE_PARAPHRASE_NOT_ORIGINAL_PDF")

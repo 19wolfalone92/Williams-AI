@@ -49,7 +49,7 @@ jobs:
               filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/williams_deliberate_model'))
           print(actual_gguf_sha256(model,os.environ['GGUF_SHA256']))
           PY
-      - name: Actual read, verify support, checkpoint, recall and reconsider four stop questions
+      - name: Actual read, checkpoint, quarantine self-notes and reconsider with source only
         run: |
           set -o pipefail
           python -m williams_ai.targeted_practical_feedback \
