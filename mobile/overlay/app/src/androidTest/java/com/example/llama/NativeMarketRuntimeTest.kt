@@ -38,12 +38,19 @@ class NativeMarketRuntimeTest {
                 db.execSQL("CREATE TABLE volumes(book TEXT,sha256 TEXT,total_pages INTEGER," +
                     "extracted_pages INTEGER,missing_pages INTEGER)")
                 db.execSQL("CREATE TABLE excerpts(book TEXT,pdf_page INTEGER,content TEXT)")
-                listOf(
-                    Triple("TC1", "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c", 140),
-                    Triple("NTD", "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4", 156),
-                    Triple("TC2", "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f", 224),
-                    Triple("COURSE", "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca", 122)
-                ).forEach { (id, hash, count) ->
+                // The minified target APK can remove kotlin.Triple when
+                // only the separate test APK uses it. Use platform arrays.
+                val ids = arrayOf("TC1", "NTD", "TC2", "COURSE")
+                val hashes = arrayOf(
+                    "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+                    "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+                    "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+                    "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca")
+                val counts = intArrayOf(140, 156, 224, 122)
+                for (i in ids.indices) {
+                    val id = ids[i]
+                    val hash = hashes[i]
+                    val count = counts[i]
                     db.execSQL("INSERT INTO volumes VALUES(?,?,?,?,?)",
                         arrayOf<Any>(id, hash, count, 1, count - 1))
                     db.execSQL("INSERT INTO excerpts VALUES(?,?,?)", arrayOf<Any>(id, 10,
