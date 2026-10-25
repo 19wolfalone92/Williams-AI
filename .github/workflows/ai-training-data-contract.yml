@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'williams_ai/private_lora.py'
+      - 'williams_ai/lora_*.py'
+      - 'williams_ai/model_bundle.py'
       - 'williams_ai/chart_supervision.py'
       - 'williams_ai/market_review_queue.py'
       - '.github/workflows/ai-training-data-contract.yml'

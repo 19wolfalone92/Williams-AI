@@ -12,6 +12,7 @@ from williams_ai.book_rules import registry
 from williams_ai.causal_paper_lab import frozen_markets
 from williams_ai.chart_reader import analyze_chart
 from williams_ai.local_model import LocalWilliamsModel
+from williams_ai.lora_integrity import validation_admission
 from williams_ai.model_bundle import FORMAT, file_sha256, runtime_identity
 from williams_ai.study import memory, recall
 from williams_ai.study_cli import _model_identity
@@ -24,7 +25,17 @@ def fake_bundle(root):
     base=root/"base.gguf";base.write_bytes(b"GGUF FAKE BASE FOR INJECTED TEST RUNTIME")
     adapter=root/"adapter.gguf";adapter.write_bytes(b"GGUF FAKE ADAPTER NOT REAL TRAINED WEIGHTS")
     receipt=root/"research_manifest.json"
+    config={"model_type":"qwen3","config_sha256":"d"*64}
+    files={"config.json":"d"*64,"model.safetensors":"e"*64,"tokenizer.json":"f"*64}
+    identity={"format":"LOCAL_QWEN_SAFETENSORS_IDENTITY_V1","config":config,"files":files,
+        "sha256":hashlib.sha256(json.dumps(files,sort_keys=True,separators=(",",":")).encode()).hexdigest()}
+    before={ed:2.0 for ed in ("ALL","TC1","NTD","TC2","COURSE")}
+    after={ed:1.0 for ed in before}
     receipt.write_text(json.dumps({"mode":"LOCAL_RESEARCH_LORA_NOT_TRADING_READY",
+        "training_receipt_version":2,"local_base_config":config,"local_base_identity":identity,
+        "baseline_by_book":before,"adapted_by_book":after,"validation_gate":validation_admission(before,after),
+        "best_validation_checkpoint_reloaded":True,"adapter_weights_changed":True,
+        "base_parameters_frozen":True,"selected_checkpoint_step":1,
         "optimizer_steps":1,"source_dataset_sha256":"c"*64,
         "adapter_weights_sha256":"a"*64,"adapter_config_sha256":"b"*64,
         "baseline_validation_loss":2.0,"trained_validation_loss":1.0,

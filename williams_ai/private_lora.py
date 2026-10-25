@@ -16,13 +16,17 @@ from collections import Counter
 import hashlib
 import io
 import json
-import math
+import os
 from pathlib import Path
 import re
+import shutil
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from .book_index import ROOT, _private_database
 from .book_rules import registry
+from .lora_integrity import EDITIONS, local_hf_identity, regular_sha256, strict_json
+from .lora_training import LoraPlan, fit_lora
 from .chart_supervision import (
     CHART_FIELDS, checked_chart_lesson, check_market_partitions,
     chart_prompt_observations, require_market_supervision,
@@ -38,7 +42,10 @@ _HASH=re.compile(r"^[0-9a-f]{64}$")
 
 
 def _private_file(path:str|Path,*,must_exist:bool=True)->Path:
-    p=Path(path).expanduser().resolve()
+    original=Path(path).expanduser()
+    if original.is_symlink():
+        raise ValueError("PRIVATE_REGULAR_PATH_REQUIRED")
+    p=original.resolve()
     if p==ROOT or ROOT in p.parents:
         raise ValueError("LICENSED_DATA_AND_MODEL_ADAPTERS_MUST_STAY_OUTSIDE_GIT")
     if must_exist and (not p.is_file() or Path(path).is_symlink()):
@@ -85,12 +92,15 @@ def checked_private_training_data(path:str|Path, *,
                 continue
             if lineno>100000:
                 raise ValueError("PRIVATE_REVIEWED_SET_TOO_LARGE")
-            try: obj=json.loads(line)
+            try: obj=strict_json(line)
             except (ValueError,TypeError) as e:
                 raise ValueError("INVALID_JSONL_RECORD") from e
             if not isinstance(obj,dict) or set(obj) not in (
                     _REQUIRED, _REQUIRED | CHART_FIELDS):
                 raise ValueError("UNRECOGNIZED_SUPERVISION_FIELDS")
+            if any(not isinstance(obj[k],str) for k in
+                   ("case_id","edition","rule_id","source_sha256","split")):
+                raise ValueError("INVALID_SUPERVISION_FIELD_TYPES")
             case_id=obj["case_id"]
             ed=obj["edition"]
             rule=rules.get(obj["rule_id"])
@@ -153,7 +163,7 @@ def checked_private_training_data(path:str|Path, *,
 
 def _tokenized(cases:list[dict[str,Any]],tokenizer:Any,*,max_tokens:int)->list[dict[str,list[int]]]:
     """Mask prompt tokens: train ONLY on reviewed answer, never copy the task."""
-    if not 128<=max_tokens<=4096:
+    if type(max_tokens) is not int or not 128<=max_tokens<=4096:
         raise ValueError("INVALID_LANGUAGE_MODEL_CONTEXT")
     examples=[]
     for item in cases:
@@ -197,17 +207,19 @@ def checked_local_qwen_config(base: Path) -> dict[str,str]:
     the weights were published by Qwen or came from a particular revision.
     """
     path=base/"config.json"
-    if not path.is_file() or path.stat().st_size>1_000_000:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size>1_000_000:
         raise ValueError("LOCAL_QWEN_CONFIG_REQUIRED")
     payload=path.read_bytes()
     try:
-        config=json.loads(payload)
+        config=strict_json(payload)
     except (ValueError,UnicodeDecodeError) as exc:
         raise ValueError("LOCAL_QWEN_CONFIG_REQUIRED") from exc
     if (not isinstance(config,dict) or not isinstance(config.get("model_type"),str)
             or config["model_type"] not in
             {"qwen2","qwen2_moe","qwen3","qwen3_moe"}):
         raise ValueError("LOCAL_CAUSAL_QWEN_MODEL_REQUIRED")
+    if config.get("quantization_config") is not None or config.get("auto_map"):
+        raise ValueError("UNQUANTIZED_BUILTIN_QWEN_BASE_REQUIRED")
     return {"model_type":config["model_type"],
             "config_sha256":hashlib.sha256(payload).hexdigest()}
 
@@ -216,6 +228,7 @@ def train_private_lora(
     *, data:Path, model_dir:Path, output_dir:Path,
     max_steps:int=100,max_tokens:int=4096,
     source_only_research:bool=False,
+    plan:LoraPlan|None=None,
 )->dict[str,Any]:
     """Execute actual LoRA updates ONLY on private GPU with reviewed cases."""
     audited=checked_private_training_data(data)
@@ -231,12 +244,17 @@ def train_private_lora(
         raise ValueError("LOCAL_BASE_MODEL_AND_NEW_PRIVATE_OUTPUT_REQUIRED")
     if not isinstance(max_steps,int) or isinstance(max_steps,bool) or not 1<=max_steps<=10000:
         raise ValueError("INVALID_TRAINING_STEP_LIMIT")
+    if type(max_tokens) is not int or not 128<=max_tokens<=4096:
+        raise ValueError("INVALID_LANGUAGE_MODEL_CONTEXT")
+    plan=LoraPlan() if plan is None else plan
+    if not isinstance(plan,LoraPlan):
+        raise ValueError("INVALID_BOUNDED_LORA_PLAN")
     base_receipt=checked_local_qwen_config(base)
+    base_identity=local_hf_identity(base)
     import torch
     if not torch.cuda.is_available():
         raise RuntimeError("PRIVATE_LORA_TRAINING_REQUIRES_LOCAL_CUDA_GPU")
-    from transformers import AutoModelForCausalLM,AutoTokenizer,Trainer,TrainingArguments
-    from peft import LoraConfig,TaskType,get_peft_model
+    from transformers import AutoModelForCausalLM,AutoTokenizer
     tokenizer=AutoTokenizer.from_pretrained(
         str(base),local_files_only=True,trust_remote_code=False)
     if tokenizer.eos_token is None:
@@ -245,68 +263,42 @@ def train_private_lora(
         tokenizer.pad_token=tokenizer.eos_token
     trainrows=_tokenized(audited["items_for_local_fit"]["train"],tokenizer,
                         max_tokens=max_tokens)
-    validation=_tokenized(audited["items_for_local_fit"]["validation"],tokenizer,
-                          max_tokens=max_tokens)
+    validation={ed:_tokenized([row for row in audited["items_for_local_fit"]["validation"]
+                              if row["edition"]==ed],tokenizer,max_tokens=max_tokens)
+                for ed in EDITIONS}
     use_bf16=torch.cuda.is_bf16_supported()
     base_model=AutoModelForCausalLM.from_pretrained(
         str(base),local_files_only=True,trust_remote_code=False,
-        torch_dtype=torch.bfloat16 if use_bf16 else torch.float16,device_map="auto")
-    model=get_peft_model(base_model,LoraConfig(
-        r=8,lora_alpha=16,lora_dropout=0.05,
-        target_modules=["q_proj","v_proj","o_proj"],
-        bias="none",task_type=TaskType.CAUSAL_LM))
-    model.config.use_cache=False
-    class Dataset:
-        def __init__(self,items):self.items=items
-        def __len__(self):return len(self.items)
-        def __getitem__(self,i):return self.items[i]
-    def collate(batch):
-        size=max(len(x["input_ids"]) for x in batch)
-        def pad(key,filler):
-            return torch.tensor([x[key]+[filler]*(size-len(x[key]))
-                                 for x in batch],dtype=torch.long)
-        return {"input_ids":pad("input_ids",tokenizer.pad_token_id),
-                "attention_mask":pad("attention_mask",0),
-                "labels":pad("labels",-100)}
-    # TrainingArguments/Trainer implementation may change across versions.
-    # Dependencies are imported here, never during the read-only test suite.
-    target.mkdir(parents=True,exist_ok=False,mode=0o700)
-    target.chmod(0o700)
-    args=TrainingArguments(
-        output_dir=str(target),
-        max_steps=max_steps,per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,gradient_accumulation_steps=8,
-        learning_rate=1e-4,logging_steps=20,save_strategy="no",
-        report_to="none",remove_unused_columns=False,seed=42,
-        bf16=use_bf16,fp16=not use_bf16,
-        gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant":False},
-    )
-    trainer=Trainer(model=model,args=args,train_dataset=Dataset(trainrows),
-                    eval_dataset=Dataset(validation),data_collator=collate)
-    baseline=float(trainer.evaluate()["eval_loss"])
-    trainer.train()
-    trained=float(trainer.evaluate()["eval_loss"])
-    if not all(math.isfinite(x) for x in (baseline,trained)):
-        raise ValueError("NONFINITE_VALIDATION_LOSS_REJECT_ADAPTER")
-    # A validation-only improvement is not evidence of new-market profit.
-    improved=trained<baseline
-    if improved:
-        # The private output directory was created before Trainer logging.
-        target.mkdir(parents=True,exist_ok=True,mode=0o700)
-        target.chmod(0o700)
-        model.save_pretrained(str(target),safe_serialization=True)
-        tokenizer.save_pretrained(str(target))
-        from .model_bundle import file_sha256
-        adapter_weights_sha256=file_sha256(target/"adapter_model.safetensors")
-        adapter_config_sha256=file_sha256(target/"adapter_config.json")
-        (target/"research_manifest.json").write_text(
-            json.dumps({
+        use_safetensors=True,
+        torch_dtype=torch.bfloat16 if use_bf16 else torch.float16)
+    if local_hf_identity(base)!=base_identity:
+        raise ValueError("LOCAL_HF_BASE_CHANGED_DURING_LOAD")
+    target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+    # Checkpoints/optimizer diagnostics stay in a private temporary directory.
+    # No rejected or interrupted run leaves a deployable adapter behind.
+    with TemporaryDirectory(prefix=".williams-lora-",dir=target.parent) as scratch:
+        model,fit=fit_lora(base_model,trainrows,validation,workdir=Path(scratch)/"fit",
+            pad_token_id=tokenizer.pad_token_id,max_steps=max_steps,plan=plan)
+        if local_hf_identity(base)!=base_identity:
+            raise ValueError("LOCAL_HF_BASE_CHANGED_DURING_TRAINING")
+        improved=fit["validation_gate"]["accepted"]
+        baseline=fit["baseline_by_book"]["ALL"]
+        trained=fit["adapted_by_book"]["ALL"]
+        if improved:
+            accepted=Path(scratch)/"accepted"
+            accepted.mkdir(mode=0o700)
+            model.save_pretrained(str(accepted),safe_serialization=True)
+            tokenizer.save_pretrained(str(accepted))
+            adapter_weights_sha256=regular_sha256(accepted/"adapter_model.safetensors")
+            adapter_config_sha256=regular_sha256(accepted/"adapter_config.json")
+            manifest={
                 "mode":"LOCAL_RESEARCH_LORA_NOT_TRADING_READY",
+                "training_receipt_version":2,
                 "source_dataset_sha256":audited["source_dataset_sha256"],
                 "base_local_model":base.name,
                 "local_base_config":base_receipt,
-                "optimizer_steps":int(trainer.state.global_step),
+                "local_base_identity":base_identity,
+                **fit,
                 "adapter_weights_sha256":adapter_weights_sha256,
                 "adapter_config_sha256":adapter_config_sha256,
                 "source_only_research":source_only_research,
@@ -317,7 +309,24 @@ def train_private_lora(
                 "test_labels_not_supplied_to_trainer":True,
                 "no_holdout_market_profitability_verified":True,
                 "execution_allowed":False,"trade_action":None,
-            },sort_keys=True,indent=2),encoding="utf-8")
+            }
+            from importlib.metadata import version
+            manifest["training_packages"]={name:version(name) for name in
+                ("torch","transformers","peft","accelerate","safetensors")}
+            (accepted/"research_manifest.json").write_text(
+                json.dumps(manifest,sort_keys=True,indent=2,allow_nan=False),encoding="utf-8")
+            for path in accepted.iterdir():
+                if not path.is_file() or path.is_symlink():
+                    raise ValueError("REGULAR_ADAPTER_OUTPUT_FILES_REQUIRED")
+                path.chmod(0o600)
+            # Exclusive creation rejects an output path appearing mid-fit.
+            target.mkdir(mode=0o700,exist_ok=False)
+            try:
+                for path in sorted(accepted.iterdir(),key=lambda p:p.name=="research_manifest.json"):
+                    os.replace(path,target/path.name)
+            except BaseException:
+                shutil.rmtree(target)
+                raise
     return {
         "adapter_saved":improved,
         "research_only":True,
@@ -327,6 +336,7 @@ def train_private_lora(
         "local_base_config":base_receipt,
         "baseline_validation_loss":baseline,
         "adapted_validation_loss":trained,
+        **fit,
         "test_set_never_used_for_training_or_selection":True,
         "new_market_trading_skill_proven":False,
         "execution_allowed":False,"trade_action":None,
@@ -340,6 +350,11 @@ def main()->None:
     p.add_argument("--private-adapter-output",type=Path,required=True)
     p.add_argument("--steps",type=int,default=100)
     p.add_argument("--max-tokens",type=int,default=4096)
+    p.add_argument("--rank",type=int,choices=(4,8,16,32,64),default=16)
+    p.add_argument("--learning-rate",type=float,default=5e-5)
+    p.add_argument("--target-profile",choices=("attention","attention-mlp"),default="attention")
+    p.add_argument("--gradient-accumulation",type=int,default=8)
+    p.add_argument("--seed",type=int,default=42)
     p.add_argument("--audit-only",action="store_true")
     p.add_argument("--source-only-research",action="store_true",
                    help="Explicit text-only experiment; cannot claim market training")
@@ -351,7 +366,10 @@ def main()->None:
         result=train_private_lora(data=a.reviewed_jsonl,
             model_dir=a.local_hf_model,output_dir=a.private_adapter_output,
             max_steps=a.steps,max_tokens=a.max_tokens,
-            source_only_research=a.source_only_research)
+            source_only_research=a.source_only_research,
+            plan=LoraPlan(rank=a.rank,learning_rate=a.learning_rate,
+                target_profile=a.target_profile,gradient_accumulation=a.gradient_accumulation,
+                seed=a.seed))
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
 
