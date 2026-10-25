@@ -76,14 +76,20 @@ class DecisionFeedbackTests(unittest.TestCase):
         self.assertNotIn('previous_decision_review',returned)
         self.assertFalse(audit_reasoning(self.obs,returned)['execution_allowed'])
 
-    def test_auto_qwen_chart_uses_reasoning_and_never_exports_private_draft(self):
+    def test_chart_reports_with_same_runtime_input_and_only_unverified_final_answer(self):
         seen=[]
         class Runtime:
             metadata={'general.architecture':'qwen3'}
             def __init__(self,**kwargs):pass
             def create_chat_completion(self,**kwargs):
                 seen.append(kwargs)
-                text='<think>PRIVATE_CHART_DRAFT</think>'+json.dumps(proposal(DecisionFeedbackTests.obs))
+                # The analysis contains the actual failure seen with Qwen:
+                # several nested scenarios instead of a single setup string.
+                if 'response_format' not in kwargs:
+                    text='<think>PRIVATE_CHART_DRAFT</think>'+json.dumps({'setup':{'WM2':'unverified'}})
+                else:
+                    # An unsupported typed answer MUST remain unsupported.
+                    text=json.dumps(proposal(DecisionFeedbackTests.obs,setup='WM2'))
                 return {'choices':[{'finish_reason':'stop','message':{'content':text}}]}
         with TemporaryDirectory() as directory:
             path=Path(directory)/'fake.gguf';path.write_bytes(b'GGUF NOT REAL WEIGHTS')
@@ -91,8 +97,76 @@ class DecisionFeedbackTests(unittest.TestCase):
             returned=model.propose_chart_reasoning(self.obs)
         self.assertNotIn('response_format',seen[0])
         self.assertEqual(seen[0]['seed'],1942)
+        self.assertEqual(len(seen),2)
+        self.assertEqual(seen[1]['messages'][1],seen[0]['messages'][1])
+        self.assertTrue(seen[0]['messages'][0]['content'].startswith(seen[1]['messages'][0]['content']))
+        self.assertIn('/no_think',seen[1]['messages'][-1]['content'])
+        self.assertEqual(json.loads(seen[1]['messages'][2]['content']),{'setup':{'WM2':'unverified'}})
+        self.assertEqual(seen[1]['response_format']['schema']['properties']['setup']['type'],'string')
+        self.assertEqual(returned['setup'],'WM2')
+        self.assertIn('WM2_SUPER_AO_NOT_OBSERVED',audit_reasoning(self.obs,returned)['hard_failures'])
         self.assertNotIn('PRIVATE_CHART_DRAFT',json.dumps(returned))
         self.assertNotIn('PRIVATE_CHART_DRAFT',json.dumps(model.latest_learning_call))
+        self.assertNotIn('PRIVATE_CHART_DRAFT',json.dumps(model.latest_chart_call))
+        self.assertNotIn('PRIVATE_CHART_DRAFT',json.dumps(seen[1]))
+        self.assertEqual(model.latest_chart_call['model_calls'],2)
+
+    def test_unfinished_analysis_never_gets_a_fabricated_structured_answer(self):
+        calls=[]
+        class Runtime:
+            metadata={'general.architecture':'qwen3'}
+            def __init__(self,**kwargs):pass
+            def create_chat_completion(self,**kwargs):
+                calls.append(kwargs)
+                return {'choices':[{'finish_reason':'length','message':{'content':json.dumps(proposal(DecisionFeedbackTests.obs))}}]}
+        with TemporaryDirectory() as directory:
+            path=Path(directory)/'fake.gguf';path.write_bytes(b'NOT REAL WEIGHTS')
+            model=LocalWilliamsModel(path,loader=Runtime,learning_mode='auto')
+            with self.assertRaisesRegex(ValueError,'^GGUF_CHART_REASONING_OUTPUT_TRUNCATED$'):
+                model.propose_chart_reasoning(self.obs)
+        self.assertEqual(len(calls),1)
+
+    def test_truncated_reporting_is_rejected_even_if_text_is_complete_json(self):
+        calls=[]
+        class Runtime:
+            metadata={'general.architecture':'qwen3'}
+            def __init__(self,**kwargs):pass
+            def create_chat_completion(self,**kwargs):
+                calls.append(kwargs)
+                return {'choices':[{'finish_reason':'stop' if len(calls)==1 else 'length',
+                    'message':{'content':json.dumps(proposal(DecisionFeedbackTests.obs))}}]}
+        with TemporaryDirectory() as directory:
+            path=Path(directory)/'fake.gguf';path.write_bytes(b'NOT REAL WEIGHTS')
+            model=LocalWilliamsModel(path,loader=Runtime,learning_mode='auto')
+            with self.assertRaisesRegex(ValueError,'^GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED$'):
+                model.propose_chart_reasoning(self.obs)
+        self.assertEqual(len(calls),2)
+
+    def test_legacy_chart_also_rejects_truncated_complete_json(self):
+        class Runtime:
+            def __init__(self,**kwargs):pass
+            def create_chat_completion(self,**kwargs):
+                return {'choices':[{'finish_reason':'length',
+                    'message':{'content':json.dumps(proposal(DecisionFeedbackTests.obs))}}]}
+        with TemporaryDirectory() as directory:
+            path=Path(directory)/'fake.gguf';path.write_bytes(b'NOT REAL WEIGHTS')
+            model=LocalWilliamsModel(path,loader=Runtime)
+            with self.assertRaisesRegex(ValueError,'^GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED$'):
+                model.propose_chart_reasoning(self.obs)
+
+    def test_invalid_analysis_is_not_replaced_with_a_safe_sounding_default(self):
+        calls=[]
+        class Runtime:
+            metadata={'general.architecture':'qwen3'}
+            def __init__(self,**kwargs):pass
+            def create_chat_completion(self,**kwargs):
+                calls.append(kwargs)
+                return {'choices':[{'finish_reason':'stop','message':{'content':'<think>unfinished'}}]}
+        with TemporaryDirectory() as directory:
+            path=Path(directory)/'fake.gguf';path.write_bytes(b'NOT REAL WEIGHTS')
+            model=LocalWilliamsModel(path,loader=Runtime,learning_mode='auto')
+            with self.assertRaises(ValueError):model.propose_chart_reasoning(self.obs)
+        self.assertEqual(len(calls),1)
 
 
 if __name__=='__main__':unittest.main()

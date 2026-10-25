@@ -154,6 +154,7 @@ class LocalWilliamsModel:
                                     learning_mode == "auto" and architecture.startswith("qwen3"))
         self._reasoning_budget = reasoning_budget
         self.latest_learning_call: dict[str, Any] | None = None
+        self.latest_chart_call: dict[str, Any] | None = None
         self.latest_stop_review_call: dict[str, Any] | None = None
 
     def _learning_completion(self, *, messages: list[dict[str, Any]],
@@ -193,6 +194,57 @@ class LocalWilliamsModel:
         final = _final_learning_json(choices[0]["message"].get("content"))
         return {"choices": [{"finish_reason": choices[0].get("finish_reason"),
                               "message": {"content": final}}]}
+
+    def _chart_completion(self, *, messages: list[dict[str, Any]],
+                          response_format: dict[str, Any]) -> dict[str, Any]:
+        """Separate analysis from typed reporting, using the SAME runtime.
+
+        Only the model's final, unverified JSON enters the second call. Its
+        private thinking never enters the reporting prompt, trace or memory.
+        No field is repaired in Python and no answer is supplied by a critic.
+        Structured decoding controls shape; the independent critic must still
+        reject unsupported claims in the final model-generated answer.
+        """
+        self.latest_chart_call = {"mode": "DIRECT_STRUCTURED_JSON",
+            "model_calls": 0, "weights_modified": False,
+            "independent_critic_required": True}
+        if not self._learning_reasoning:
+            self.latest_chart_call["model_calls"] = 1
+            return self._model.create_chat_completion(messages=messages,
+                response_format=response_format, temperature=0.0,
+                max_tokens=650, stream=False)
+        self.latest_chart_call.update(mode="ANALYZE_THEN_STRUCTURED_REPORT", model_calls=1)
+        response = self._learning_completion(messages=messages,
+            schema=response_format.get("schema", {"type": "object"}), max_tokens=650)
+        choices = response.get("choices", [])
+        if choices and choices[0].get("finish_reason") == "length":
+            raise ValueError("GGUF_CHART_REASONING_OUTPUT_TRUNCATED")
+        final = choices[0].get("message", {}).get("content") if choices else None
+        if not isinstance(final, str) or not final.strip() or len(final) > 6000:
+            raise ValueError("GGUF_CHART_FINAL_SUMMARY_INVALID")
+        # The original rules, chart and cutoff remain byte-for-byte the same.
+        # Assistant content has already passed _final_learning_json; it is
+        # a fallible final answer, never the private chain of thought.
+        reporting = [dict(m) for m in messages] + [
+            {"role": "assistant", "content": final},
+            {"role": "user", "content":
+                "Предыдущий окончательный ответ — твой непроверенный вывод, не источник. "
+                "Сверь его с теми же исходными данными и оформи один итоговый JSON "
+                "строго по заданной схеме. setup, side, entry_state — одиночные строки, "
+                "не вложенные объекты и не список сценариев. Не добавляй новых фактов, "
+                "свечей или уверенности. Неизвестное оставляй неизвестным. "
+                "Объяснение должно соответствовать выбранным полям. /no_think"},
+        ]
+        self.latest_chart_call["model_calls"] = 2
+        result = self._model.create_chat_completion(messages=reporting,
+            response_format=response_format, temperature=0.7, top_p=0.8,
+            top_k=20, min_p=0.0, seed=1942, max_tokens=1000, stream=False)
+        reported = result.get("choices", []) if isinstance(result, dict) else []
+        if reported and reported[0].get("finish_reason") == "length":
+            raise ValueError("GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED")
+        self.latest_chart_call["report_finish_reason"] = (
+            reported[0].get("finish_reason") if reported else None)
+        return result
 
     def study_passage(self, passage: str, *, edition: str, page: int,
                       rule_cards: list[dict[str, Any]]) -> str:
@@ -862,9 +914,9 @@ class LocalWilliamsModel:
             "позицию; перенос SL только в сторону уменьшения риска. "
             "Не превращай непроверенные волны в подтверждённые. "
             "Применяй книги в практике: для текущих уже закрытых свечей "
-            "сопоставляй ДВА и более конкурирующих сценария, приводи "
-            "поддерживающие и противоречащие факты, указывай условия "
-            "опровержения после новой закрытой свечи. Отдельно проверяй "
+            "сравни ДВА и более конкурирующих сценария и их опровержения. "
+            "В окончательном JSON выбери один вывод; не создавай вложенных "
+            "объектов WM1/WM2/WM3 или списков ответов. Отдельно проверяй "
             "книжный допуск входа, ценовой триггер, риск, сопровождение "
             "и действительный биржевой выход; NO_TRADE всегда возможен. "
             "Графики рынка нелинейны и не обязаны повторять книжные рисунки. "
@@ -906,6 +958,10 @@ class LocalWilliamsModel:
             "а не просьбу подтвердить желаемую сделку. При learning_need=NONE оставь вопрос пустым. "
             "Если правило понятно, но нет нужных рыночных фактов, выбери "
             "NO_SETUP и learning_need=NONE; книга не заменяет отсутствующие данные. "
+            "Отсутствие биржевого fill или SL само по себе не является пробелом "
+            "в знании книги: это отдельные неизвестные факты исполнения. "
+            "Подтверждённый книжный кандидат может ожидать будущего триггера "
+            "без подтверждённого исполнения; не приписывай ему реальную сделку. "
             "Поле reason обязано соответствовать setup: нельзя выбрать WM2/WM3, "
             "а затем написать NO_SETUP или No setup found. "
             "При отсутствии подтверждений выбирай NO_SETUP и объясняй, какой факт отсутствует. "
@@ -1040,20 +1096,15 @@ class LocalWilliamsModel:
         try:
             messages=[{"role":"system","content":system},
                       {"role":"user","content":user_context}]
-            if self._learning_reasoning:
-                # Qwen3's already supported study mode was never used by
-                # chart analysis: immediate JSON grammar skipped its reasoning.
-                # Only final JSON is parsed; the independent critic remains
-                # responsible for every factual/source/temporal constraint.
-                response=self._learning_completion(messages=messages,
-                    schema=response_format.get("schema",{"type":"object"}),max_tokens=650)
-            else:
-                response=self._model.create_chat_completion(messages=messages,
-                    response_format=response_format,temperature=0.0,max_tokens=650,stream=False)
+            response=self._chart_completion(messages=messages,response_format=response_format)
         except ValueError as exc:
             # Do not send arbitrary llama.cpp exception strings, local paths
             # or private page excerpts into public CI logs. Stable codes
             # distinguish context overflow from schema/runtime failures.
+            if str(exc) in {"GGUF_CHART_REASONING_OUTPUT_TRUNCATED",
+                            "GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED",
+                            "GGUF_CHART_FINAL_SUMMARY_INVALID"}:
+                raise
             diagnostic=str(exc).lower()
             if ("context" in diagnostic or "n_ctx" in diagnostic
                     or ("prompt" in diagnostic and "token" in diagnostic)):
@@ -1062,6 +1113,8 @@ class LocalWilliamsModel:
                 raise ValueError("GGUF_RUNTIME_GRAMMAR_ERROR") from exc
             raise ValueError("GGUF_RUNTIME_VALUE_ERROR") from exc
         choices=response.get("choices",[]) if isinstance(response,dict) else []
+        if choices and choices[0].get("finish_reason")=="length":
+            raise ValueError("GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED")
         raw=choices[0].get("message",{}).get("content","") if choices else ""
         # Never turn an invalid or truncated model response into a plausible
         # NO_SETUP. Distinguish the Qwen runtime failure from chart evidence.
