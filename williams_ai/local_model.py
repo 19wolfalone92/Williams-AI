@@ -842,7 +842,11 @@ class LocalWilliamsModel:
             "exit_basis (NONE/UNKNOWN), wave_degree_verified (false), "
             "exchange_fill_confirmed (false), exchange_sl_confirmed (false), "
             "trade_action (null), execution_allowed (false), "
-            "reason (кратко). При отсутствии данных — NO_SETUP. "
+            "reason (кратко), learning_need (NONE/ENTRY/MANAGEMENT/EXIT/WAVE). "
+            "Если не понимаешь книжное правило, укажи тему в learning_need: "
+            "это запрос перечитать первоисточник, а не доказательство сигнала. "
+            "Если правило понятно, но нет нужных рыночных фактов, выбери "
+            "NO_SETUP и learning_need=NONE; книга не заменяет отсутствующие данные. "
             "Поле reason обязано соответствовать setup: нельзя выбрать WM2/WM3, "
             "а затем написать NO_SETUP или No setup found. "
             "При отсутствии подтверждений выбирай NO_SETUP и объясняй, какой факт отсутствует. "
@@ -953,6 +957,7 @@ class LocalWilliamsModel:
                 "trade_action":{"type":"null"},
                 "execution_allowed":{"type":"boolean","enum":[False]},
                 "reason":{"type":"string","maxLength":360},
+                "learning_need":enum("NONE","ENTRY","MANAGEMENT","EXIT","WAVE"),
             }
             response_format["schema"]={
                 "type":"object","properties":properties,

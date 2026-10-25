@@ -16,6 +16,7 @@ import json
 from pathlib import Path
 import random
 from typing import Any
+import re
 
 from .book_rules import registry
 
@@ -124,19 +125,118 @@ def paired_source_remediation(model:Any, *,seed:int=20261024) -> dict[str,Any]:
     }
 
 
+def self_study_stop_remediation(model:Any, memory_path:Path, *,
+                               model_id:str) -> dict[str,Any]:
+    """Actual inference/read/checkpoint/recall using PUBLIC paraphrase cards.
+
+    No private PDF is available in public CI. These notes have their OWN
+    table and cannot masquerade as lessons from the original-page index.
+    The four repeated questions are diagnostic practice, not a holdout.
+    """
+    from .study import memory, validate_lesson, _lesson_error_code
+    if not isinstance(model_id,str) or not re.fullmatch(r"gguf-[a-zA-Z0-9_.:-]{1,115}",model_id):
+        raise ValueError("Exact local model identity required")
+    cases=[x for x in remediation_cases() if x["public"]["edition"]=="TC2"]
+    cards={x["id"]:x for x in registry()["rule_cards"]}
+    def answer(case,notes=None):
+        try:
+            got=model.answer_exam_case(case["public"],**({"prior_lessons":notes} if notes else {}))
+            choice=got.get("choice") if isinstance(got,dict) else None
+            return {"selected":choice if choice in {"A","B","C"} else "",
+                    "correct":choice==case["expected"],
+                    "call_error":None}
+        except (ValueError,RuntimeError,TypeError,KeyError):
+            return {"selected":"","correct":False,"call_error":"MODEL_CALL_FAILED"}
+    before=[answer(c) for c in cases]
+    study_results=[]
+    notes={}
+    with memory(memory_path) as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS public_rule_study_notes(
+            model_id TEXT NOT NULL,rule_id TEXT NOT NULL,card_sha256 TEXT NOT NULL,
+            raw_lesson_json TEXT NOT NULL,
+            PRIMARY KEY(model_id,rule_id,card_sha256))""")
+        for rule in dict.fromkeys(c["rule"] for c in cases):
+            card=cards[rule]
+            passage=card["summary"]
+            digest=sha256(passage.encode()).hexdigest()
+            row=db.execute("SELECT raw_lesson_json FROM public_rule_study_notes "
+                "WHERE model_id=? AND rule_id=? AND card_sha256=?",
+                (model_id,rule,digest)).fetchone()
+            reused=False
+            failure=None
+            try:
+                raw=row[0] if row else model.study_passage(passage,edition=card["source"],
+                    page=card["pdf_pages"][0],rule_cards=[])
+                lesson=validate_lesson(raw,passage)
+                if not lesson["claims"]:
+                    raise ValueError("Invalid support span")
+                if row:
+                    reused=True
+                else:
+                    db.execute("INSERT INTO public_rule_study_notes VALUES(?,?,?,?)",
+                        (model_id,rule,digest,raw))
+                    db.commit()
+                # The wording cannot be promoted to the source's authority.
+                notes[rule]={"source":card["source"]+":RULE:"+rule,
+                    "excerpt":"Непроверенный учебный вывод модели: "+lesson["summary"][:300]}
+            except (ValueError,RuntimeError,TypeError,KeyError) as exc:
+                failure=_lesson_error_code(exc)
+            study_results.append({"rule":rule,"saved_or_recalled":rule in notes,
+                "reused_same_model_note":reused,"failure":failure,
+                "original_pdf_read":False})
+    # Close/reopen the durable notebook before reusing anything: this is a
+    # real recall, not an in-memory answer smuggled into the next call.
+    with memory(memory_path) as db:
+        for rule in list(notes):
+            card=cards[rule]
+            digest=sha256(card["summary"].encode()).hexdigest()
+            raw=db.execute("SELECT raw_lesson_json FROM public_rule_study_notes "
+                "WHERE model_id=? AND rule_id=? AND card_sha256=?",
+                (model_id,rule,digest)).fetchone()[0]
+            lesson=validate_lesson(raw,card["summary"])
+            notes[rule]["excerpt"]="Непроверенный учебный вывод модели: "+lesson["summary"][:300]
+    results=[]
+    for case,initial in zip(cases,before):
+        context=[case["reminder"]]
+        if case["rule"] in notes:
+            context.append(notes[case["rule"]])
+        after=answer(case,context)
+        results.append({"id":case["public"]["id"],"rule":case["rule"],
+            "unaided":initial,"source_and_self_note":after,
+            "self_note_used":case["rule"] in notes})
+    return {"mode":"ACTUAL_GGUF_SELF_STUDY_PUBLIC_PARAPHRASE_DIAGNOSTIC",
+        "model_id":model_id,"cases":len(results),
+        "unaided_correct":sum(x["unaided"]["correct"] for x in results),
+        "source_and_self_note_correct":sum(x["source_and_self_note"]["correct"] for x in results),
+        "source_kind":"PUBLIC_REVIEWED_RULE_PARAPHRASE_NOT_ORIGINAL_PDF",
+        "study_results":study_results,"results":results,
+        "same_questions_repeated_not_independent_holdout":True,
+        "answer_keys_not_in_model_input":True,
+        "notes_remain_unverified":True,"model_weights_updated":False,
+        "market_profitability_proven":False,"execution_allowed":False,"trade_action":None}
+
+
 def main()->None:
     p=argparse.ArgumentParser(description="Real Qwen TC2/NTD weakness remediation with rule retrieval; no trading")
     p.add_argument("--model",type=Path,required=True)
     p.add_argument("--expected-sha256",required=True)
     p.add_argument("--ctx",type=int,default=8192)
     p.add_argument("--reasoning-budget",type=int,default=1024)
+    p.add_argument("--self-study-memory",type=Path,
+                   help="Run checkpointed public-paraphrase study diagnostic, not original PDF study")
     args=p.parse_args()
     from .real_gguf_acceptance import actual_gguf_sha256
     from .local_model import LocalWilliamsModel
     actual_gguf_sha256(args.model,args.expected_sha256)
     model=LocalWilliamsModel(args.model,n_ctx=args.ctx,
         learning_mode="auto",reasoning_budget=args.reasoning_budget)
-    print(json.dumps(paired_source_remediation(model),
+    if args.self_study_memory:
+        from .study_cli import _model_identity
+        result=self_study_stop_remediation(model,args.self_study_memory,
+            model_id=_model_identity(args.model))
+    else:
+        result=paired_source_remediation(model)
+    print(json.dumps(result,
                      ensure_ascii=False,indent=2,sort_keys=True))
 
 

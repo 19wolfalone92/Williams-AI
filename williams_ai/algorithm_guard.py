@@ -77,6 +77,14 @@ def audit_reasoning(
     def note(code:str)->None:
         if code not in cautions:cautions.append(code)
 
+    need=proposal.get("learning_need","NONE")
+    if not isinstance(need,str) or need not in {"NONE","ENTRY","MANAGEMENT","EXIT","WAVE"}:
+        fail("INVALID_MODEL_LEARNING_NEED")
+    elif need!="NONE":
+        note("MODEL_REQUESTED_BOOK_CLARIFICATION")
+        if setup not in _NONENTRY_SETUPS:
+            fail("ENTRY_CLAIM_WHILE_BOOK_RULE_NOT_UNDERSTOOD")
+
     if decision_time!=as_of:
         fail("DECISION_CHART_CUTOFF_MISMATCH")
     if proposal.get("symbol")!=observation.get("symbol"):
