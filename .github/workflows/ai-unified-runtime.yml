@@ -1,0 +1,94 @@
+name: Williams AI unified Qwen and durable memory diagnostic
+
+on:
+  push:
+    branches: [feature/unified-qwen-lora-memory-20261025]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unified-williams-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  actual-unified-qwen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      GGUF_SHA256: dbc27452971c440c0b94483fe6c101cf950ea50af6bcafe1282353c3886e6366
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Regression contracts, not neural skill
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Install CPU runtime
+        run: |
+          python -m pip install --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Actual Qwen uses one runtime and one memory across adjacent charts
+        run: |
+          python -u - <<'PY'
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          from llama_cpp import Llama
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          from williams_ai.unified_ai import WilliamsAI
+          from williams_ai.causal_paper_lab import frozen_markets
+          import json,os
+          model=Path(hf_hub_download(repo_id='unsloth/Qwen3-1.7B-GGUF',
+              revision='b2d17796e6fd93c353a0415a3abd8b7f801701de',
+              filename='Qwen3-1.7B-Q4_K_M.gguf',local_dir='/tmp/unified_qwen'))
+          actual_gguf_sha256(model,os.environ['GGUF_SHA256'])
+          loads=[]
+          def actual_loader(**kwargs):
+              loads.append(1)
+              return Llama(**kwargs)
+          brain=WilliamsAI(local_model=model,memory=Path('/tmp/unified_memory.sqlite3'),
+              public_rules_only=True,loader=actual_loader)
+          # Public, dated synthetic teaching text; no private original PDFs.
+          brain.memory.retain('A closed-candle observation is not an exchange fill. '
+              'Фрактал и стоп требуют отдельных подтверждений.',source='public-technical-fixture',
+              title='Technical memory fixture, not an expert trading label',edition='TC2',
+              available_at='2026-01-01T00:00:00Z')
+          market=frozen_markets()['ETHUSDT']
+          results=[]
+          for index in (299,300):
+              print('START_UNIFIED_CHART',index,flush=True)
+              try:
+                  result=brain.analyze('ETHUSDT',market['bars'],tick_size=market['tick_size'],
+                      bar_index=index,include_topdown=False)
+                  results.append({'index':index,'result':result,'error':None})
+              except (ValueError,RuntimeError,TypeError,KeyError):
+                  results.append({'index':index,'result':None,'error':'ACTUAL_MODEL_OR_PIPELINE_FAILED'})
+              print('FINISH_UNIFIED_CHART',index,flush=True)
+          assert len(loads)==1
+          restored=WilliamsAI(local_model=model,memory=brain.memory.path,public_rules_only=True)
+          assert restored.status()['memory_counts']==brain.status()['memory_counts']
+          report={'source_commit':os.environ['GITHUB_SHA'],
+              'mode':'ACTUAL_QWEN_UNIFIED_RUNTIME_TECHNICAL_DIAGNOSTIC',
+              'actual_model_loads':len(loads),'restored_without_reloading_weights':True,
+              'adapter_configured':False,'trained_lora_available':False,
+              'native_lora_weight_application_tested':False,
+              'private_original_books_used':False,'source_mode':'PUBLIC_PARAPHRASES_ONLY',
+              'same_adjacent_frozen_ETH_cutoffs_not_independent_holdout':True,
+              'model_weights_updated':False,'model_qualified_for_autonomous_trading':False,
+              'execution_allowed':False,'trade_action':None,'results':results,
+              'memory_inventory':brain.memory.inventory()}
+          output=json.dumps(report,ensure_ascii=False,indent=2)
+          Path('/tmp/actual_unified_qwen.json').write_text(output,encoding='utf-8')
+          print(output)
+          PY
+      - name: Keep public diagnostic only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-unified-qwen-not-lora-training
+          path: /tmp/actual_unified_qwen.json
+          retention-days: 7
+          if-no-files-found: warn

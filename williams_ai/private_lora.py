@@ -297,6 +297,9 @@ def train_private_lora(
         target.chmod(0o700)
         model.save_pretrained(str(target),safe_serialization=True)
         tokenizer.save_pretrained(str(target))
+        from .model_bundle import file_sha256
+        adapter_weights_sha256=file_sha256(target/"adapter_model.safetensors")
+        adapter_config_sha256=file_sha256(target/"adapter_config.json")
         (target/"research_manifest.json").write_text(
             json.dumps({
                 "mode":"LOCAL_RESEARCH_LORA_NOT_TRADING_READY",
@@ -304,6 +307,8 @@ def train_private_lora(
                 "base_local_model":base.name,
                 "local_base_config":base_receipt,
                 "optimizer_steps":int(trainer.state.global_step),
+                "adapter_weights_sha256":adapter_weights_sha256,
+                "adapter_config_sha256":adapter_config_sha256,
                 "source_only_research":source_only_research,
                 "chart_examples_by_split":audited["chart_examples_by_split"],
                 "market_supervision_is_numeric_not_image_vision":True,
