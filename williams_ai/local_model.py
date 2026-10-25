@@ -6,11 +6,35 @@ llama-cpp-python is optional; real GGUF weights are user-supplied.
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any, Callable
 
 from .instructions import SYSTEM_INSTRUCTIONS
+
+
+def _strict_chart_json(raw: str) -> Any:
+    """Reject ambiguous keys and non-JSON numeric constants at any depth."""
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Duplicate JSON field")
+            result[key] = value
+        return result
+
+    def finite_constant(value):
+        raise ValueError("Non-finite JSON constant")
+
+    def finite_float(value):
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError("Non-finite JSON number")
+        return number
+
+    return json.loads(raw, object_pairs_hook=unique, parse_constant=finite_constant,
+                      parse_float=finite_float)
 
 
 def _final_learning_json(raw: str) -> str:
@@ -1040,23 +1064,36 @@ class LocalWilliamsModel:
                 raise ValueError("GGUF_RUNTIME_GRAMMAR_ERROR") from exc
             raise ValueError("GGUF_RUNTIME_VALUE_ERROR") from exc
         choices=response.get("choices",[]) if isinstance(response,dict) else []
+        if choices and choices[0].get("finish_reason")=="length":
+            # Syntactically complete JSON can still be an interrupted answer.
+            raise ValueError("GGUF_CHART_STRUCTURED_OUTPUT_TRUNCATED")
         raw=choices[0].get("message",{}).get("content","") if choices else ""
         # Never turn an invalid or truncated model response into a plausible
         # NO_SETUP. Distinguish the Qwen runtime failure from chart evidence.
         if not isinstance(raw,str) or not raw.strip():
             raise ValueError("GGUF_EMPTY_DECISION_RESPONSE")
         try:
-            proposal=json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ValueError("GGUF_MALFORMED_JSON_RESPONSE") from exc
+            proposal=_strict_chart_json(raw)
+        except ValueError:
+            raise ValueError("GGUF_MALFORMED_JSON_RESPONSE") from None
         if not isinstance(proposal,dict):
             raise ValueError("GGUF_RESPONSE_IS_NOT_AN_OBJECT")
         mandatory={"symbol","as_of","edition","setup","side"}
         if not mandatory.issubset(proposal):
             raise ValueError("GGUF_MISSING_MANDATORY_DECISION_FIELDS")
+        strings=mandatory | {"entry_state","exit_basis","reason","learning_need","learning_question"}
+        flags={"wave_degree_verified","exchange_fill_confirmed","exchange_sl_confirmed",
+               "execution_allowed","future_candle_used"}
+        if (any(not isinstance(proposal[k],str) for k in strings & proposal.keys())
+                or any(type(proposal[k]) is not bool for k in flags & proposal.keys())
+                or ("rule_ids" in proposal and
+                    (not isinstance(proposal["rule_ids"],list)
+                     or any(not isinstance(x,str) for x in proposal["rule_ids"])))):
+            raise ValueError("GGUF_INVALID_DECISION_FIELD_TYPES")
         # Validation still belongs to the independent algorithm_guard.
-        if isinstance(proposal.get("reason"),str):
-            proposal["reason"]=proposal["reason"][:600]
+        # Do not silently rewrite a model's explanation or discard its caveats.
+        if len(proposal.get("reason",""))>600 or len(proposal.get("learning_question",""))>400:
+            raise ValueError("GGUF_DECISION_TEXT_TOO_LONG")
         return proposal
 
     def review_protective_stop(self, context:dict[str,Any])->dict[str,Any]:
