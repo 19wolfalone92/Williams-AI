@@ -76,5 +76,23 @@ class DecisionFeedbackTests(unittest.TestCase):
         self.assertNotIn('previous_decision_review',returned)
         self.assertFalse(audit_reasoning(self.obs,returned)['execution_allowed'])
 
+    def test_auto_qwen_chart_uses_reasoning_and_never_exports_private_draft(self):
+        seen=[]
+        class Runtime:
+            metadata={'general.architecture':'qwen3'}
+            def __init__(self,**kwargs):pass
+            def create_chat_completion(self,**kwargs):
+                seen.append(kwargs)
+                text='<think>PRIVATE_CHART_DRAFT</think>'+json.dumps(proposal(DecisionFeedbackTests.obs))
+                return {'choices':[{'finish_reason':'stop','message':{'content':text}}]}
+        with TemporaryDirectory() as directory:
+            path=Path(directory)/'fake.gguf';path.write_bytes(b'GGUF NOT REAL WEIGHTS')
+            model=LocalWilliamsModel(path,loader=Runtime,learning_mode='auto',use_decision_schema=True)
+            returned=model.propose_chart_reasoning(self.obs)
+        self.assertNotIn('response_format',seen[0])
+        self.assertEqual(seen[0]['seed'],1942)
+        self.assertNotIn('PRIVATE_CHART_DRAFT',json.dumps(returned))
+        self.assertNotIn('PRIVATE_CHART_DRAFT',json.dumps(model.latest_learning_call))
+
 
 if __name__=='__main__':unittest.main()

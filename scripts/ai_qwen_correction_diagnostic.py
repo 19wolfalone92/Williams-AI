@@ -15,6 +15,7 @@ def main():
     from importlib.metadata import version
     from llama_cpp import Llama
     from williams_ai.unified_ai import WilliamsAI
+    from williams_ai.local_model import _final_learning_json
     from williams_ai.real_gguf_acceptance import actual_gguf_sha256
     from williams_ai.causal_paper_lab import frozen_markets
     model=Path(os.environ['GGUF_MODEL_PATH'])
@@ -34,13 +35,13 @@ def main():
             if choices:
                 event['finish_reason']=choices[0].get('finish_reason')
                 try:
-                    decision=json.loads(choices[0]['message']['content'])
+                    decision=json.loads(_final_learning_json(choices[0]['message']['content']))
                     event['decision']={k:decision[k] for k in fields if k in decision}
                 except (TypeError,KeyError,ValueError):event['parse_error']=True
             calls.append(event)
             return response
     brain=WilliamsAI(local_model=model,memory=Path('/tmp/qwen_correction_memory.sqlite3'),
-        public_rules_only=True,loader=Tracer)
+        public_rules_only=True,loader=Tracer,n_ctx=16384,reasoning_budget=3072)
     brain.memory.retain('A closed-candle observation is not an exchange fill. '
         'Фрактал и стоп требуют отдельных подтверждений.',source='public-technical-fixture',
         title='Technical memory fixture, not an expert trading label',edition='TC2',

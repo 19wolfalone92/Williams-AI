@@ -20,7 +20,7 @@ class WilliamsAI:
     def __init__(self, *, local_model: Path, memory: Path,
                  book_index: Path | None = None, public_rules_only: bool = False,
                  lora_adapter: Path | None = None, lora_manifest: Path | None = None,
-                 n_ctx: int = 8192, reasoning_budget: int = 1536,
+                 n_ctx: int = 16384, reasoning_budget: int = 3072,
                  loader: Callable[..., Any] | None = None):
         if (type(public_rules_only) is not bool or
                 (book_index is None) != public_rules_only):
@@ -105,8 +105,8 @@ def main() -> None:
     p.add_argument("--public-rule-learning", action="store_true")
     p.add_argument("--lora-adapter", type=Path)
     p.add_argument("--lora-manifest", type=Path)
-    p.add_argument("--ctx", type=int, default=8192)
-    p.add_argument("--reasoning-budget", type=int, default=1536)
+    p.add_argument("--ctx", type=int, default=16384)
+    p.add_argument("--reasoning-budget", type=int, default=3072)
     actions = p.add_subparsers(dest="action", required=True)
     actions.add_parser("status")
     imported = actions.add_parser("import-memory")

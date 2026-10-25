@@ -1038,14 +1038,18 @@ class LocalWilliamsModel:
                 "additionalProperties":False,
             }
         try:
-            response=self._model.create_chat_completion(
-                messages=[
-                    {"role":"system","content":system},
-                    {"role":"user","content":user_context},
-                ],
-                response_format=response_format,
-                temperature=0.0,max_tokens=650,stream=False,
-            )
+            messages=[{"role":"system","content":system},
+                      {"role":"user","content":user_context}]
+            if self._learning_reasoning:
+                # Qwen3's already supported study mode was never used by
+                # chart analysis: immediate JSON grammar skipped its reasoning.
+                # Only final JSON is parsed; the independent critic remains
+                # responsible for every factual/source/temporal constraint.
+                response=self._learning_completion(messages=messages,
+                    schema=response_format.get("schema",{"type":"object"}),max_tokens=650)
+            else:
+                response=self._model.create_chat_completion(messages=messages,
+                    response_format=response_format,temperature=0.0,max_tokens=650,stream=False)
         except ValueError as exc:
             # Do not send arbitrary llama.cpp exception strings, local paths
             # or private page excerpts into public CI logs. Stable codes
