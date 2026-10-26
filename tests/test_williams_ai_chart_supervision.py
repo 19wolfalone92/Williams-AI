@@ -8,7 +8,7 @@ import unittest
 
 from williams_ai.chart_supervision import (
     SCHEMA, checked_chart_context, checked_chart_lesson, chart_prompt_observations,
-    check_market_partitions, lesson_commitment, market_digest,
+    check_market_partitions, lesson_commitment, market_digest, require_market_supervision,
 )
 from williams_ai.private_lora import checked_private_training_data, _tokenized, train_private_lora
 from test_williams_ai_private_lora import candidates
@@ -115,6 +115,55 @@ class ChartSupervisionTests(unittest.TestCase):
         other["start"] = first["end"] + timedelta(hours=25)
         self.assertTrue(check_market_partitions([first, other])[
             "cross_timeframe_overlap_checked"])
+
+    def test_spot_futures_and_quote_aliases_do_not_leak_a_market_history(self):
+        first = checked_chart_lesson(chart_case())
+        for alias in ({"symbol": "ETHUSDT", "venue": "SPOT"},
+                      {"symbol": "ETHUSDC", "venue": "SPOT"},
+                      {"symbol": "ETHBTC", "venue": "FUTURES"}):
+            second = {**first, **alias, "split": "test"}
+            with self.subTest(alias=alias), self.assertRaisesRegex(
+                    ValueError, "OVERLAPPING_MARKET_HISTORY"):
+                check_market_partitions([first, second])
+
+    def test_rephrased_same_candles_are_not_independent_market_experience(self):
+        symbols = {"train": "ETHUSDT", "validation": "SOLUSDT", "test": "BTCUSDT"}
+        rows = [chart_case(row, symbols[row["split"]]) for row in candidates()]
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "reviewed.jsonl"
+            path.write_text("\n".join(json.dumps(r) for r in rows))
+            audited = checked_private_training_data(path)
+        self.assertEqual(audited["chart_examples_by_split"],
+                         {"train": 64, "validation": 18, "test": 18})
+        self.assertEqual(audited["unique_market_windows_by_split"],
+                         {"train": 1, "validation": 1, "test": 1})
+        with self.assertRaisesRegex(ValueError, "INDEPENDENT_MARKET_WINDOWS"):
+            require_market_supervision(audited)
+
+    def test_multimarket_multitimeframe_distinct_windows_are_required(self):
+        split_assets = {"train": ("ETHUSDT", "BTCUSDT", "SOLUSDT"),
+                        "validation": ("XRPUSDT", "LTCUSDT"),
+                        "test": ("ADAUSDT", "BNBUSDT")}
+        editions = ("TC1", "NTD", "TC2", "COURSE")
+        timeframes = ("H1", "H4", "D1")
+        start = datetime(2023, 1, 1, tzinfo=timezone.utc)
+        rows = []
+        for split, assets in split_assets.items():
+            for i in range(24 if split == "train" else 8):
+                at = start + timedelta(days=20 * i)
+                rows.append({"split": split, "edition": editions[i % 4],
+                             "venue": "FUTURES", "symbol": assets[i % len(assets)],
+                             "timeframe": timeframes[i % (3 if split == "train" else 2)],
+                             "start": at, "end": at + timedelta(days=9)})
+        audited = check_market_partitions(rows)
+        self.assertEqual(audited["unique_market_windows_by_split"],
+                         {"train": 24, "validation": 8, "test": 8})
+        self.assertTrue(audited["cross_venue_and_quote_alias_overlap_checked"])
+        require_market_supervision(audited)
+        for row in rows:
+            row["timeframe"] = "H1"
+        with self.assertRaisesRegex(ValueError, "MULTI_TIMEFRAME"):
+            require_market_supervision(check_market_partitions(rows))
 
     def test_full_loader_reports_chart_splits_and_never_returns_test_answers_to_trainer(self):
         symbols = {"train": "ETHUSDT", "validation": "SOLUSDT", "test": "BTCUSDT"}

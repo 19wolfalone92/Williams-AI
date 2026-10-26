@@ -362,6 +362,13 @@ def main()->None:
     if a.audit_only:
         result=checked_private_training_data(a.reviewed_jsonl)
         result.pop("items_for_local_fit",None)
+        try:
+            require_market_supervision(result)
+        except ValueError as exc:
+            result["market_training_gate"]={"accepted":False,"reason":str(exc)}
+        else:
+            result["market_training_gate"]={"accepted":True,
+                "meaning":"STRUCTURAL_DATASET_GATE_ONLY_NOT_TRAINED_OR_PROFITABLE"}
     else:
         result=train_private_lora(data=a.reviewed_jsonl,
             model_dir=a.local_hf_model,output_dir=a.private_adapter_output,
