@@ -102,19 +102,57 @@ def checked_chart_lesson(item: dict[str, Any]) -> dict[str, Any]:
             "case_id": item["case_id"]}
 
 
+_QUOTE_ASSETS = ("FDUSD", "USDT", "USDC", "BUSD", "TUSD", "USD", "BTC", "ETH", "BNB", "EUR", "TRY")
+
+
+def _underlying_asset(symbol: str) -> str:
+    """Conservatively merge spot/futures and quote-currency aliases.
+
+    ETHUSDT, ETHUSDC and ETHBTC contain the same ETH price-history
+    information for split purposes. This is a leakage guard, not evidence
+    that their signals, spreads or trading economics are identical.
+    """
+    if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z0-9]{3,22}", symbol):
+        raise ValueError("INVALID_MARKET_SPLIT_SYMBOL")
+    for quote in _QUOTE_ASSETS:
+        if symbol.endswith(quote) and len(symbol) > len(quote):
+            return symbol[:-len(quote)]
+    return symbol
+
+
 def check_market_partitions(rows: list[dict[str, Any]], *, embargo_hours: int = 24
                             ) -> dict[str, Any]:
-    """Purge shared visible history, also when two timeframes overlap.
+    """Purge overlapping visible history, including venue/quote aliases.
 
-    Checking only cutoffs or exact chart hashes leaks almost identical
-    sliding windows into a supposedly untouched validation/test partition.
+    Same-underlying spot vs futures and ETHUSDT vs ETHUSDC are NOT
+    independent when their observations overlap. Report effective context
+    variety: 64 different questions on the same candles are still ONE
+    independent market window. Identity/expert provenance remains unproven.
     """
     if (isinstance(embargo_hours, bool) or not isinstance(embargo_hours, int)
             or not 24 <= embargo_hours <= 24 * 30):
         raise ValueError("AT_LEAST_24_HOURS_MARKET_EMBARGO_REQUIRED")
-    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    windows = {split: set() for split in ("train", "validation", "test")}
+    underlyings = {split: set() for split in windows}
+    timeframes = {split: set() for split in windows}
+    per_book_windows = {
+        split: {ed: set() for ed in ("TC1", "NTD", "TC2", "COURSE")}
+        for split in windows
+    }
     for row in rows:
-        grouped.setdefault((row["venue"], row["symbol"]), []).append(row)
+        split = row["split"]
+        edition = row["edition"]
+        if split not in windows or edition not in per_book_windows[split]:
+            raise ValueError("INVALID_REVIEWED_MARKET_PARTITION")
+        underlying = _underlying_asset(row["symbol"])
+        grouped.setdefault(underlying, []).append(row)
+        window = (row["venue"], row["symbol"], row["timeframe"],
+                  row["start"], row["end"])
+        windows[split].add(window)
+        per_book_windows[split][edition].add(window)
+        underlyings[split].add(underlying)
+        timeframes[split].add(row["timeframe"])
     margin = timedelta(hours=embargo_hours)
     for group in grouped.values():
         ordered = sorted(group, key=lambda r: r["start"])
@@ -128,20 +166,44 @@ def check_market_partitions(rows: list[dict[str, Any]], *, embargo_hours: int = 
         "chart_examples_by_split": dict(Counter(x["split"] for x in rows)),
         "chart_editions_by_split": {
             split: dict(Counter(x["edition"] for x in rows if x["split"] == split))
-            for split in ("train", "validation", "test")},
+            for split in windows},
+        "unique_market_windows_by_split": {k: len(v) for k, v in windows.items()},
+        "distinct_underlyings_by_split": {k: len(v) for k, v in underlyings.items()},
+        "distinct_timeframes_by_split": {k: len(v) for k, v in timeframes.items()},
+        "unique_book_market_windows_by_split": {
+            split: {ed: len(v) for ed, v in books.items()}
+            for split, books in per_book_windows.items()},
         "cross_split_visible_history_overlap_checked": True,
-        "cross_timeframe_overlap_checked": True, "embargo_hours": embargo_hours,
+        "cross_timeframe_overlap_checked": True,
+        "cross_venue_and_quote_alias_overlap_checked": True,
+        "embargo_hours": embargo_hours,
         "human_identity_and_independence_not_programmatically_proven": True,
     }
 
 
 def require_market_supervision(audit: dict[str, Any]) -> None:
-    """Book prose alone must not qualify an adapter as trader training."""
-    for split, minimum in (("train", 24), ("validation", 8), ("test", 8)):
+    """Refuse weight training on rephrased repeats of a few fixed charts.
+
+    This gate is intentionally stricter than SOURCE-ONLY instruction
+    research. Multiple assets/timeframes/window cutoffs are required to
+    study nonlinear behavior; these counts do NOT certify correct labels.
+    """
+    for split, minimum, unique, assets, frames in (
+            ("train", 24, 12, 3, 3),
+            ("validation", 8, 4, 2, 2),
+            ("test", 8, 4, 2, 2)):
         if (audit["chart_examples_by_split"].get(split, 0) < minimum
                 or set(audit["chart_editions_by_split"][split]) != {
                     "TC1", "NTD", "TC2", "COURSE"}):
             raise ValueError("DOUBLE_REVIEWED_FOUR_BOOK_MARKET_SUPERVISION_REQUIRED")
+        if (audit["unique_market_windows_by_split"][split] < unique
+                or any(audit["unique_book_market_windows_by_split"][split][ed] < 2
+                       for ed in ("TC1", "NTD", "TC2", "COURSE"))):
+            raise ValueError("INSUFFICIENT_INDEPENDENT_MARKET_WINDOWS_FOR_TRAINING")
+        if audit["distinct_underlyings_by_split"][split] < assets:
+            raise ValueError("INSUFFICIENT_MULTI_ASSET_MARKET_SUPERVISION")
+        if audit["distinct_timeframes_by_split"][split] < frames:
+            raise ValueError("INSUFFICIENT_MULTI_TIMEFRAME_MARKET_SUPERVISION")
 
 
 def chart_prompt_observations(context: dict[str, Any]) -> dict[str, Any]:
