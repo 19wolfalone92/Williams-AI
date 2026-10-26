@@ -18,7 +18,7 @@ import java.security.MessageDigest
 /** Real native inference with a 19 MB plumbing fixture, NOT Williams/Qwen skill. */
 @RunWith(AndroidJUnit4::class)
 class NativeQwenSessionRuntimeTest {
-    @Test fun actualNativeResetBudgetAndErrorRecoveryWithoutReloadingWeights() = runBlocking {
+    @Test fun actualNativeResetBudgetAndErrorRecoveryWithoutReloadingWeights() { runBlocking {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val ctx=instrumentation.targetContext
         val model=File(ctx.cacheDir,"native-session-test.gguf")
@@ -63,5 +63,6 @@ class NativeQwenSessionRuntimeTest {
             assertNotSame(engine,reopened)
             withTimeout(30000) { reopened.state.first { it is InferenceEngine.State.Initialized } }
         } finally { reopened.destroy() }
+    }
     }
 }
