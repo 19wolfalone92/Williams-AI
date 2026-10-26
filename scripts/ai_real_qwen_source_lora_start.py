@@ -12,8 +12,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
+import sys
 import tempfile
+
+# A direct script invocation puts scripts/ (not the repository root) on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 ED = ("TC1", "NTD", "TC2", "COURSE")
 MODEL_REPO = "Qwen/Qwen3-0.6B"
