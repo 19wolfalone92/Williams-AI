@@ -1,0 +1,43 @@
+name: Williams AI 15-asset actual future-blind H1 market benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/independent_chart_holdout.py'
+      - 'scripts/ai_seal_15pair_blind_charts.py'
+      - 'tests/test_williams_ai_independent_chart_holdout.py'
+      - '.github/workflows/ai-15pair-future-blind-market.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seal-real-historical-holdout-without-qwen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Real 15-pair H1 without future leakage tests
+        run: python -m unittest discover -s tests -p 'test_williams_ai_independent_chart_holdout.py' -v
+      - name: Seal real 30-case analysis-as-of tasks
+        run: python scripts/ai_seal_15pair_blind_charts.py --new-output "$RUNNER_TEMP/real-h1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: williams-real-h1-30-questions-ASOF-NO-KEY
+          path: ${{ runner.temp }}/real-h1/model_questions.jsonl
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: williams-real-h1-30-withheld-outcomes-FOR-GRADER-ONLY
+          path: |
+            ${{ runner.temp }}/real-h1/WITHHELD_OUTCOME_KEYS.jsonl
+            ${{ runner.temp }}/real-h1/evaluation_receipt.json
+          if-no-files-found: error
+          retention-days: 7
