@@ -6,7 +6,9 @@ on:
       - 'williams_ai/*lora*.py'
       - 'williams_ai/model_bundle.py'
       - 'tests/test_williams_ai_lora*.py'
+      - 'tests/test_williams_ai_qlora*.py'
       - 'scripts/ai_lora_cpu_diagnostic.py'
+      - 'scripts/ai_qlora_resume_diagnostic.py'
       - 'requirements-lora.txt'
       - '.github/workflows/ai-lora-cpu.yml'
   workflow_dispatch:
@@ -35,9 +37,13 @@ jobs:
           python -m pip install -r requirements-lora.txt
       - name: Real gradients, best checkpoint, frozen base and adapter save/reload
         run: python scripts/ai_lora_cpu_diagnostic.py
+      - name: Real three-process 10+10 versus 20-step resume (synthetic CPU only)
+        run: python scripts/ai_qlora_resume_diagnostic.py
       - uses: actions/upload-artifact@v4
         with:
           name: synthetic-lora-software-diagnostic-not-trained-williams
-          path: /tmp/williams_lora_cpu_diagnostic.json
+          path: |
+            /tmp/williams_lora_cpu_diagnostic.json
+            /tmp/williams_qlora_resume_diagnostic.json
           if-no-files-found: error
           retention-days: 7

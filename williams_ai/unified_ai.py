@@ -59,6 +59,22 @@ class WilliamsAI:
             model_id=self.identity["model_id"], editions=editions,
             budget_per_book=budget_per_book, rounds=rounds)
 
+    def references(self, question: str, *, max_cards: int = 8) -> dict[str, Any]:
+        """Look up reviewed rule bookmarks and, if available, private source excerpts.
+
+        A bookmark or retrieved passage is evidence to examine, not learned
+        model ability and never trading authorization.
+        """
+        from .research_source_router import source_route
+        result = source_route(question, max_cards=max_cards)
+        if self.book_index is not None:
+            from .book_index import search_pages
+            result["local_original_excerpt_matches"] = search_pages(
+                self.book_index, question, limit=min(max_cards, 8))
+        else:
+            result["local_original_excerpt_matches"] = []
+        return result
+
     def practice(self, *, max_cases: int = 8) -> dict[str, Any]:
         from .adaptive_coach import coach_practice
         return coach_practice(self.model, self.memory.path,
@@ -77,6 +93,11 @@ class WilliamsAI:
             research_memory=self.memory.path, research_question=question,
             public_rule_learning=self.public_rules_only,
             campaign_journal=campaign_journal, include_topdown=include_topdown)
+        if question is not None:
+            # Auditable lookup after inference, not a substitute for the
+            # source-grounded inference chain or an invented probability.
+            from .research_source_router import source_route
+            result["source_navigation"] = source_route(question, max_cards=8)
         result["unified_ai"] = {"effective_model": self.model.runtime_identity,
             "one_runtime_for_study_practice_and_chart_analysis": True,
             "one_durable_learning_memory": True,
@@ -109,6 +130,8 @@ def main() -> None:
     p.add_argument("--reasoning-budget", type=int, default=1536)
     actions = p.add_subparsers(dest="action", required=True)
     actions.add_parser("status")
+    refs = actions.add_parser("references")
+    refs.add_argument("--question", required=True)
     imported = actions.add_parser("import-memory")
     imported.add_argument("checkpoint", type=Path)
     retained = actions.add_parser("retain-material")
@@ -134,6 +157,8 @@ def main() -> None:
         lora_manifest=a.lora_manifest, n_ctx=a.ctx, reasoning_budget=a.reasoning_budget)
     if a.action == "status":
         result = brain.status()
+    elif a.action == "references":
+        result = brain.references(a.question)
     elif a.action == "import-memory":
         result = brain.memory.import_checkpoint(a.checkpoint)
     elif a.action == "retain-material":
