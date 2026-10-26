@@ -25,7 +25,8 @@ def kaggle_input_path(value:str)->str:
 
 
 def generate(*,kernel_id:str,dataset_source:str,model_source:str,
-             dataset_file:str,model_directory:str,revision:str)->tuple[dict,str]:
+             dataset_file:str,model_directory:str,revision:str,
+             resume_config:dict|None=None)->tuple[dict,str]:
     if not isinstance(kernel_id,str) or not _RESOURCE.fullmatch(kernel_id):
         raise ValueError("KAGGLE_OWNER_AND_KERNEL_SLUG_REQUIRED")
     if not isinstance(dataset_source,str) or not _RESOURCE.fullmatch(dataset_source):
@@ -38,25 +39,42 @@ def generate(*,kernel_id:str,dataset_source:str,model_source:str,
     model_directory=kaggle_input_path(model_directory)
     if not dataset_file.endswith(".jsonl") or dataset_file==model_directory:
         raise ValueError("REVIEWED_JSONL_AND_HF_MODEL_MUST_BE_DISTINCT")
+    resume={} if resume_config is None else resume_config
+    if not isinstance(resume,dict):
+        raise ValueError("EXPLICIT_OWN_RESUME_CONFIG_REQUIRED")
+    if resume:
+        if (set(resume)!={"dataset_source","directory","trusted_own"}
+            or resume["trusted_own"] is not True
+            or not isinstance(resume["dataset_source"],str)
+            or not _RESOURCE.fullmatch(resume["dataset_source"])):
+            raise ValueError("EXPLICIT_OWN_RESUME_CONFIG_REQUIRED")
+        kaggle_input_path(resume["directory"])
+    sources=list(dict.fromkeys([dataset_source]+([resume["dataset_source"]] if resume else [])))
     metadata={
-        "id":kernel_id,"title":"Williams AI private QLoRA research",
+        # Kaggle derives the slug from title; preserve the requested identity.
+        "id":kernel_id,"title":kernel_id.split("/")[1],
         "code_file":"worker.py","language":"python","kernel_type":"script",
         "is_private":"true","enable_gpu":"true","enable_internet":"true",
         "machine_shape":"NvidiaTeslaT4",
-        "dataset_sources":[dataset_source],"model_sources":[model_source],
+        "dataset_sources":sources,"model_sources":[model_source],
         "competition_sources":[],"kernel_sources":[],
     }
-    settings={"dataset":dataset_file,"hf_base":model_directory,"revision":revision}
+    settings={"dataset":dataset_file,"hf_base":model_directory,"revision":revision,
+              "resume":resume}
     # Embedding JSON as a Python string literal prevents arbitrary input from
     # becoming code or shell arguments. No API token or book text is embedded.
     literal=repr(json.dumps(settings,sort_keys=True))
     worker='''"""Generated private Kaggle QLoRA worker; not automatically runnable in GitHub."""
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 CONFIG=json.loads(CONFIG_PLACEHOLDER)
+# This trainer is deliberately single-GPU. T4 x2 must not silently change
+# effective batch size or introduce DataParallel on a 4-bit device-mapped model.
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 data=Path(CONFIG["dataset"])
 base=Path(CONFIG["hf_base"])
 if not data.is_file() or not base.is_dir():
@@ -71,14 +89,16 @@ subprocess.run(["git","checkout",CONFIG["revision"]],cwd=checkout,check=True)
 subprocess.run([sys.executable,"-m","pip","install","--disable-pip-version-check",
     "transformers==4.57.1","peft==0.17.1","accelerate==1.10.1",
     "safetensors==0.6.2","bitsandbytes==0.48.1"],check=True)
-subprocess.run([sys.executable,"-m","williams_ai.qlora_gpu_research",
+command=[sys.executable,"-m","williams_ai.qlora_gpu_research",
     "--reviewed-jsonl",str(data),"--hf-base",str(base),
     "--new-output","/kaggle/working/williams-qlora-session",
     "--source-revision",CONFIG["revision"],
     "--max-steps","200","--session-steps","10",
     "--max-tokens","1024","--rank","8",
-    "--source-only-research","--authorize-cloud-data-processing"],
-    cwd=checkout,check=True)
+    "--source-only-research","--authorize-cloud-data-processing"]
+if CONFIG["resume"]:
+    command.extend(["--resume-directory",CONFIG["resume"]["directory"],"--trusted-own-resume"])
+subprocess.run(command,cwd=checkout,check=True)
 '''.replace("CONFIG_PLACEHOLDER",literal)
     return metadata,worker
 
@@ -89,10 +109,11 @@ def main()->None:
                 "model-directory","revision"):
         p.add_argument("--"+key,required=True)
     p.add_argument("--output",type=Path,required=True)
+    p.add_argument("--resume-config",type=json.loads,default={})
     a=p.parse_args()
     meta,worker=generate(kernel_id=a.kernel_id,dataset_source=a.dataset_source,
         model_source=a.model_source,dataset_file=a.dataset_file,
-        model_directory=a.model_directory,revision=a.revision)
+        model_directory=a.model_directory,revision=a.revision,resume_config=a.resume_config)
     if a.output.exists() or a.output.is_symlink():
         raise ValueError("NEW_OUTPUT_DIR_REQUIRED")
     a.output.mkdir(parents=True,mode=0o700)
