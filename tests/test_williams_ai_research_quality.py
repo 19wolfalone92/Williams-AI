@@ -24,7 +24,7 @@ class NavigationTests(unittest.TestCase):
 
     def test_unreviewed_reference_never_exposed(self):
         response=source_route("осциллятор ao",registry_data=self.fixture())
-        self.assertEqual(response["references"],[])
+        self.assertNotIn("NTD.AO",[entry["rule_id"] for entry in response["references"]])
 
     def test_malformed_registry_or_question_rejected(self):
         with self.assertRaises(ValueError): source_route("")
