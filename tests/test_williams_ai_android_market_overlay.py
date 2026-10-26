@@ -93,7 +93,9 @@ class AndroidNativePublicChartContract(unittest.TestCase):
         self.assertIn("NativeWaveDownloader(applicationContext).onePass",self.service)
         self.assertIn("marketStart.setOnClickListener",self.main)
         self.assertIn("marketStop.setOnClickListener",self.main)
-        self.assertIn("NativeWaveStudy.prompt(applicationContext,question)",self.main)
+        self.assertIn("NativeWaveStudy.prompt(applicationContext,lookupQuestion)",self.main)
+        self.assertIn("QwenSession.isFollowUp(question)",self.main)
+        self.assertIn('val lookupQuestion = question + if(followUp) " " + lastChatQuestion else ""',self.main)
 
     def test_debug_apk_is_still_distinct_from_original_williams_bot(self):
         self.assertIn('com.williamsai.offline',self.build)

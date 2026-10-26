@@ -20,6 +20,8 @@ for file in \
   app/src/main/java/com/example/llama/WebResearch.kt \
   app/src/main/java/com/example/llama/BookKnowledge.kt \
   app/src/main/java/com/example/llama/StudyMemory.kt \
+  app/src/main/java/com/example/llama/BookPractice.kt \
+  app/src/main/java/com/example/llama/QwenSession.kt \
   app/src/main/java/com/example/llama/NativeFuturesMetadata.kt \
   app/src/main/java/com/example/llama/NativeWaveHistory.kt \
   app/src/main/java/com/example/llama/NativeWaveStudy.kt \
@@ -35,12 +37,22 @@ done
 test_package="$project/app/src/test/java/com/example/llama"
 mkdir -p "$test_package"
 cp "$root/mobile/overlay/app/src/test/java/com/example/llama/NativeFuturesMetadataTest.kt" "$test_package/"
+cp "$root/mobile/overlay/app/src/test/java/com/example/llama/QwenSessionTest.kt" "$test_package/"
 instrumented_package="$project/app/src/androidTest/java/com/example/llama"
 mkdir -p "$instrumented_package"
 cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/NativeMarketRuntimeTest.kt" "$instrumented_package/"
+cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/BookPracticeRuntimeTest.kt" "$instrumented_package/"
+cp "$root/mobile/overlay/app/src/androidTest/java/com/example/llama/NativeQwenSessionRuntimeTest.kt" "$instrumented_package/"
+mkdir -p "$project/app/src/androidTest/assets"
+cp "$root/mobile/overlay/app/src/androidTest/assets/mobile_tutor_golden.json" "$project/app/src/androidTest/assets/"
 
 mkdir -p "$project/app/src/main/assets"
 cp "$root/knowledge/LEARNING_CURRICULUM_RU.md" "$project/app/src/main/assets/LEARNING_CURRICULUM_RU.md"
+for asset in ADAPTIVE_TUTOR_PRACTICE_RU.json SOURCE_RULE_CARDS.json MOBILE_TUTOR_PROMPT_RU.txt; do
+  cp "$root/knowledge/$asset" "$project/app/src/main/assets/$asset"
+done
+python3 "$root/mobile/patch_native_session.py" "$project"
+python3 "$root/mobile/prepare_native_test_model.py" "$project"
 
 python3 - "$project/app/build.gradle.kts" <<'PY'
 from pathlib import Path
@@ -49,7 +61,14 @@ p = Path(sys.argv[1])
 data = p.read_text()
 needle = 'applicationId = "com.example.llama.aichat"'
 assert data.count(needle) == 1, "Upstream changed: review before patching"
-p.write_text(data.replace(needle, 'applicationId = "com.williamsai.offline"'))
+data = data.replace(needle, 'applicationId = "com.williamsai.offline"')
+# Instrumented tests call APIs the application itself may not call. A shrunk
+# target removes those methods before tests are compiled (NoSuchMethodError).
+# Keep the debug APK and its tested target identical, with normal debug symbols.
+debug = '        debug {\n            isMinifyEnabled = true\n            isShrinkResources = true'
+assert data.count(debug) == 1, "Upstream debug build changed: review before patching"
+data = data.replace(debug, debug.replace('= true', '= false'))
+p.write_text(data)
 PY
 
 python3 - "$project/app/src/main/AndroidManifest.xml" <<'PY'
