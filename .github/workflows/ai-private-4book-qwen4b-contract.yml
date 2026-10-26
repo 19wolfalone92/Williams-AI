@@ -1,0 +1,64 @@
+name: Williams AI private four-book Qwen3-4B source trainer contract (NO GPU)
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/private_book_source.py'
+      - 'williams_ai/private_book_qlora.py'
+      - 'tests/test_williams_ai_private_book_4b_source.py'
+      - '.github/workflows/ai-private-4book-qwen4b-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-corpus-contract-and-public-tokenizer-no-weight-training:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full offline fail-closed private source contract tests
+        run: python -m unittest discover -s tests -p 'test_williams_ai_private_book_4b_source.py' -v
+      - name: Install ONLY real official Qwen tokenizer tooling, not GPU/weights
+        run: python -m pip install 'transformers==4.57.1' 'huggingface_hub>=0.29,<2' 'jinja2>=3.1.6,<4'
+      - name: Confirm actual Qwen3-4B tokenizer and loss mask on PUBLIC synthetic text
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from huggingface_hub import HfApi, snapshot_download
+          from transformers import AutoConfig, AutoTokenizer
+          from williams_ai.private_book_source import tokenize_source_pages
+
+          repo='Qwen/Qwen3-4B'
+          revision=HfApi().model_info(repo).sha
+          root=Path(snapshot_download(repo,revision=revision,
+              allow_patterns=['tokenizer.json','tokenizer_config.json',
+                              'vocab.json','merges.txt','config.json'],
+              local_dir='/tmp/williams-public-qwen4b-tokenizer'))
+          cfg=AutoConfig.from_pretrained(root,trust_remote_code=False,local_files_only=True)
+          assert cfg.model_type=='qwen3'
+          tokenizer=AutoTokenizer.from_pretrained(root,trust_remote_code=False,
+                                                   local_files_only=True)
+          rows=[{'edition':ed,'pdf_page':1,
+              'text':('SYNTHETIC UNIT TEST STRING ONLY. '*50)}
+              for ed in ('TC1','NTD','TC2','COURSE')]
+          packed=tokenize_source_pages(rows,tokenizer,max_tokens=512)
+          assert len(packed)>=4 and all(
+              len(row['input_ids'])==len(row['labels'])
+              and any(t!=-100 for t in row['labels'])
+              and row['labels'][0]==-100 for row in packed)
+          print(json.dumps({'model_repo':repo,'revision':revision,
+              'model_type':cfg.model_type,'synthetic_masked_examples':len(packed),
+              'actual_hf_weight_training':False,'private_pdf_data_used':False,
+              'approved_for_trading':False},indent=2))
+          PY
