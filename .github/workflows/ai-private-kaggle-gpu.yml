@@ -33,6 +33,16 @@ on:
         required: true
         type: boolean
         default: false
+      training_revision:
+        description: 'Exact training commit SHA; for resume reuse the original session SHA'
+        required: false
+        type: string
+        default: ''
+      resume_config:
+        description: 'Optional JSON: dataset_source, directory, trusted_own=true (your private V2 checkpoint)'
+        required: false
+        type: string
+        default: '{}'
 
 permissions:
   contents: read
@@ -63,6 +73,8 @@ jobs:
           MODEL_SOURCE: ${{ inputs.model_source }}
           DATASET_FILE: ${{ inputs.dataset_file }}
           MODEL_DIRECTORY: ${{ inputs.model_directory }}
+          TRAINING_REVISION: ${{ inputs.training_revision || github.sha }}
+          RESUME_CONFIG: ${{ inputs.resume_config || '{}' }}
         run: |
           python scripts/ai_private_kaggle_gpu_bridge.py \
             --kernel-id "$KERNEL_ID" \
@@ -70,7 +82,8 @@ jobs:
             --model-source "$MODEL_SOURCE" \
             --dataset-file "$DATASET_FILE" \
             --model-directory "$MODEL_DIRECTORY" \
-            --revision "$GITHUB_SHA" \
+            --revision "$TRAINING_REVISION" \
+            --resume-config "$RESUME_CONFIG" \
             --output "$RUNNER_TEMP/kaggle-private-williams"
       - name: Install official Kaggle CLI on CPU GitHub runner
         run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0'
