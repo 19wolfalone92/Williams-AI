@@ -5,6 +5,7 @@ The log endpoint/authentication follows Kaggle/kaggle-cli commit
 """
 from __future__ import annotations
 import json
+import os
 import re
 import time
 
@@ -12,6 +13,13 @@ import time
 def numerical_progress(text:str)->list[dict]:
     rows=[]
     for line in text.splitlines():
+        marker="CONTRASTIVE_DEV_SELECTION "
+        if marker in line:
+            try:
+                obj=json.loads(line.split(marker,1)[1])
+                if set(obj)=={"accuracy","max_source_regression","selection_score","optimizer_step"} and all(type(v) in (int,float) for v in obj.values()):
+                    rows.append({"generated_dev":True,**obj})
+            except ValueError:pass
         # Capture ONLY standard numerical Trainer fields. Source text, tokens,
         # generated answers, URLs and exception details are never echoed.
         found=re.search(r"\{('(?:loss|eval_loss|train_runtime)':[^\n]{1,1200})\}",line)
@@ -29,12 +37,20 @@ def main():
     from kagglehub.auth import get_username
     from kagglesdk import KaggleEnv
     from kagglesdk.kernels.types.kernels_api_service import ApiListKernelSessionOutputRequest
-    owner=get_username();slug="williams-ai-recovered-full-course-rank16-20261027"
+    owner=get_username();slug=os.environ.get("WILLIAMS_OBSERVE_SLUG","williams-ai-recovered-full-course-rank16-20261027")
     api=KaggleApi();api.authenticate()
     status=api.kernels_status(owner+"/"+slug)
     print("OWN_CONTINUATION_STATE",str(status.status),flush=True)
     seen=set()
     def emit(raw):
+        for line in raw.splitlines():
+            if "ACTUAL_DUAL_T4_DDP " in line:
+                try:
+                    payload=json.loads(line.split("ACTUAL_DUAL_T4_DDP ",1)[1])
+                    if (set(payload)=={"world_size","gpu_names"} and payload["world_size"]==2
+                        and len(payload["gpu_names"])==2 and all(isinstance(n,str) and re.fullmatch(r"[A-Za-z0-9 ()_-]{1,80}",n) for n in payload["gpu_names"])):
+                        print("OWN_OBSERVED_ACTUAL_GPUS",json.dumps(payload),flush=True)
+                except (ValueError,TypeError):pass
         for row in numerical_progress(raw):
             serial=json.dumps(row,sort_keys=True,allow_nan=False)
             if serial not in seen:seen.add(serial);print("OWN_TRAINER_NUMERICAL_PROGRESS",serial,flush=True)

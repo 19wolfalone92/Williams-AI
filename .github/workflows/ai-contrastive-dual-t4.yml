@@ -1,0 +1,37 @@
+name: Williams AI dual T4 contrastive rules and four-book replay
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['.github/workflows/ai-contrastive-dual-t4.yml']
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-contrastive-dual-t4-20261027
+  cancel-in-progress: false
+jobs:
+  verified-own416-two-gpu-contrastive-research:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 215
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install CPU validation and existing authenticated transport
+        run: |
+          python -m pip install --quiet --disable-pip-version-check 'torch==2.8.0' --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'numpy>=2,<3' 'safetensors==0.6.2'
+      - name: Verify paired contrasts, value-weighted gradients, checkpoint admission and prompt-only worker
+        run: python -m unittest discover -s tests -p 'test_williams_ai_contrastive_research.py' -v
+      - name: Train only from verified own416 on both T4s; seal new parameter-test answers
+        run: python scripts/ai_run_contrastive_kaggle.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_Qwen3_4B_CONTRASTIVE_DUAL_T4_RESEARCH
+          path: ${{ runner.temp }}/contrastive_dual_t4_results/
+          if-no-files-found: warn
+          retention-days: 14
