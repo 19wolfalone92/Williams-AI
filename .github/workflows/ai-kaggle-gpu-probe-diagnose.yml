@@ -1,0 +1,44 @@
+name: Williams AI read-only diagnose private Kaggle T4 kernel failure
+
+on:
+  push:
+    branches: [kaggle/private-gpu-probe-20261027]
+    paths: ['.github/workflows/ai-kaggle-gpu-probe-diagnose.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-own-private-compute-only-worker:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2'
+      - name: Read only worker logs, redact secret, perform NO new GPU job
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          kernel="wolf19loner92/williams-ai-gpu-sanity-20261027"
+          secret=os.environ.get("KAGGLE_API_TOKEN","")
+          for kind,command in [
+              ("GPU_KERNEL_STATUS",["kaggle","kernels","status",kernel]),
+              ("GPU_KERNEL_OWN_LOGS",["kaggle","kernels","logs",kernel]),
+          ]:
+              try:
+                  p=subprocess.run(command,capture_output=True,text=True,timeout=65)
+                  combined=(p.stdout+"\n"+p.stderr)
+                  if secret: combined=combined.replace(secret,"[REDACTED]")
+                  print(kind, "returncode",p.returncode)
+                  # Compute-only smoke worker does not use any private datasets,
+                  # models, Binance keys or original-book material.
+                  print(combined[-3800:])
+              except subprocess.TimeoutExpired:
+                  print(kind,"REQUEST_TIMEOUT")
+          PY
