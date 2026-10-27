@@ -28,7 +28,7 @@ def packed(payload: bytes) -> str:
     return base64.b64encode(lzma.compress(payload, preset=6)).decode()
 
 
-def worker_source(revision: str, private_payload: bytes, questions: bytes) -> str:
+def worker_source(revision: str, private_payload: bytes, questions: bytes, initialization: dict | None = None) -> str:
     if not re.fullmatch(r"[a-f0-9]{40}", revision):
         raise ValueError("PINNED_SOURCE_REVISION_REQUIRED")
     template = '''"""PRIVATE user-authorized original-source study. Never publish this worker."""
@@ -58,15 +58,39 @@ if hashlib.sha256(question.read_bytes()).hexdigest()!=__QUESTION_SHA__:
     raise RuntimeError("SEALED_QUESTION_BYTES_CHANGED")
 sys.path.insert(0,str(repo))
 from williams_ai.deep_book_research import train
+initial_config=__INITIALIZATION__
+initial_adapter=None
+if initial_config:
+    from urllib.request import urlopen
+    archive_bytes=urlopen(initial_config["url"],timeout=240).read()
+    if hashlib.sha256(archive_bytes).hexdigest()!=initial_config["archive_sha256"]:
+        raise RuntimeError("PREVIOUS_OWN_TRAINED_ARCHIVE_SHA_MISMATCH")
+    from io import BytesIO
+    initial_adapter=Path("/tmp/own_previous_private_rank16")
+    initial_adapter.mkdir(mode=0o700)
+    with zipfile.ZipFile(BytesIO(archive_bytes)) as z:
+        for member in z.namelist():
+            rel=Path(member)
+            if rel.parts and rel.parts[0]=="candidate_adapter":
+                if len(rel.parts)!=2 or rel.name in (".",".."):
+                    raise RuntimeError("UNSAFE_PREVIOUS_ADAPTER_MEMBER")
+                (initial_adapter/rel.name).write_bytes(z.read(member))
+    if hashlib.sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=initial_config["adapter_sha256"]:
+        raise RuntimeError("OWN_RANK16_INITIAL_ADAPTER_SHA_MISMATCH")
+    del archive_bytes
 out=Path("/kaggle/working/private_deep_qwen4b")
 failure=None
 try:
-    train(private,question,out,source_steps=512,practice_steps=96)
+    train(private,question,out,source_steps=192 if initial_config else 512,
+        practice_steps=160 if initial_config else 96, initial_adapter=initial_adapter,
+        course_focus=bool(initial_config),corrective_practice=bool(initial_config))
 except Exception as error:
     failure=type(error).__name__
+    message=str(error)
+    if not __import__("re").fullmatch(r"[A-Z][A-Z_0-9]{5,180}",message):message="ERROR_DETAILS_REDACTED"
     Path("/kaggle/working/deep_research_failure.json").write_text(json.dumps({
-        "error_type":failure,"training_success_claimed":False,"execution_allowed":False}))
-    print("PRIVATE_DEEP_RESEARCH_STAGE_FAILED",failure,flush=True)
+        "error_type":failure,"error_code":message,"training_success_claimed":False,"execution_allowed":False}))
+    print("PRIVATE_DEEP_RESEARCH_STAGE_FAILED",failure,message,flush=True)
 finally:
     private.unlink(missing_ok=True)
     if out.is_dir():
@@ -86,31 +110,48 @@ print("REAL_PRIVATE_ORIGINALS_TRAINING_AND_PREDICTION_SEAL_COMPLETE",flush=True)
     return (template.replace("__REVISION__", repr(revision))
         .replace("__PRIVATE_PAYLOAD__", repr(packed(private_payload)))
         .replace("__ASOF_QUESTIONS__", repr(packed(questions)))
-        .replace("__QUESTION_SHA__", repr(sha256(questions).hexdigest())))
+        .replace("__QUESTION_SHA__", repr(sha256(questions).hexdigest()))
+        .replace("__INITIALIZATION__", repr(initialization)))
 
 
-def run():
+def run(*, sealed_path: str = "experiments/private-source-20261027.sealed.json",
+        slug: str = "williams-ai-private-originals-deep-20261027",
+        initialization: dict | None = None, separate_market: bool = False,
+        output_directory: str = "private_deep_results"):
     from kagglehub.auth import get_username
     secret = os.environ.get("KAGGLE_API_TOKEN", "")
     revision = os.environ["GITHUB_SHA"]
     root = Path(os.environ["RUNNER_TEMP"])
-    sealed = Path("experiments/private-source-20261027.sealed.json")
+    sealed = Path(sealed_path)
     payload = open_envelope(json.loads(sealed.read_bytes()), secret)
     audited = checked_payload(json.loads(payload))
     print("PRIVATE_SOURCE_COUNTS_NO_TEXT", audited["audit"]["source_page_counts"], flush=True)
     market = root / "strict_market_sealed"
-    subprocess.run([sys.executable, "scripts/ai_seal_15pair_blind_charts.py", "--new-output", str(market)], check=True)
+    if separate_market:
+        from williams_ai.independent_chart_holdout import build_blind_market_cases
+        prior_archive = json.loads(Path("examples/ai_binance_15pair_h1_prior_holdout_20260902.json").read_bytes())
+        archive = json.loads(Path("examples/ai_binance_15pair_h1_frozen_20261022.json").read_bytes())
+        archive["evaluation_design"] = "UNSEEN_PRIOR_HISTORY_LOCKED_BENCHMARK_NO_HYPERPARAMETER_TUNING"
+        q, keys, receipt = build_blind_market_cases(archive)
+        prior, _, _ = build_blind_market_cases(prior_archive)
+        if {r["case_id"] for r in q} & {r["case_id"] for r in prior}:
+            raise ValueError("FOLLOWUP_MARKET_COHORT_MUST_NOT_REUSE_EARLIER_EXAM")
+        market.mkdir(mode=0o700)
+        for name, rows in (("model_questions.jsonl", q), ("WITHHELD_OUTCOME_KEYS.jsonl", keys)):
+            (market/name).write_text("\n".join(json.dumps(r,ensure_ascii=False,separators=(",",":")) for r in rows)+"\n")
+        (market/"evaluation_receipt.json").write_text(json.dumps(receipt,indent=2))
+    else:
+        subprocess.run([sys.executable, "scripts/ai_seal_15pair_blind_charts.py", "--new-output", str(market)], check=True)
     questions = (market / "model_questions.jsonl").read_bytes()
     username = get_username()
     if not re.fullmatch(r"[A-Za-z0-9_-]{2,62}", username):
         raise ValueError("AUTHENTICATED_KAGGLE_ACCOUNT_REQUIRED")
-    slug = "williams-ai-private-originals-deep-20261027"
     kernel = username + "/" + slug
     metadata = {"id": kernel, "title": slug, "code_file": "worker.py", "language": "python",
         "kernel_type": "script", "is_private": "true", "enable_gpu": "true", "enable_internet": "true",
         "machine_shape": "NvidiaTeslaT4", "dataset_sources": [], "model_sources": [],
         "competition_sources": [], "kernel_sources": []}
-    worker = worker_source(revision, payload, questions)
+    worker = worker_source(revision, payload, questions, initialization=initialization)
     if secret in worker or "WITHHELD_OUTCOME_KEYS" in worker or len(worker) > 3_000_000:
         raise ValueError("PRIVATE_WORKER_SECRET_FUTURE_KEY_OR_SIZE_VIOLATION")
     del payload
@@ -136,7 +177,7 @@ def run():
             status_final = "ERROR"; break
         time.sleep(20)
     print("PRIVATE_ORIGINALS_KAGGLE_FINAL_STATE", status_final, flush=True)
-    dest = root / "private_deep_results"
+    dest = root / output_directory
     dest.mkdir(mode=0o700, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="private-source-result-") as temp:
         downloaded = subprocess.run(["kaggle", "kernels", "output", kernel, "-p", temp,

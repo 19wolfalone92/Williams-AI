@@ -5,7 +5,8 @@ import unittest
 
 from scripts.ai_run_private_deep_kaggle import worker_source
 from williams_ai.book_rules import registry
-from williams_ai.deep_book_research import checked_payload, practice_curriculum
+from williams_ai.deep_book_research import checked_payload, practice_curriculum, corrective_course_practice
+from scripts.ai_continue_private_deep_kaggle import checked_own_previous_result
 
 
 def example_payload():
@@ -65,3 +66,20 @@ class DeepResearchTests(unittest.TestCase):
         self.assertTrue(report["synthetic_arithmetic_not_human_chart_labels"])
         self.assertFalse(set(r["question"] for r in train) & set(r["question"] for rr in validation.values() for r in rr))
         self.assertGreater(len({r["answer"] for r in train}), 200)
+
+    def test_corrective_course_uses_counterexamples_and_separate_parameter_values(self):
+        cases = corrective_course_practice()
+        self.assertEqual(len(cases["train"]), 128)
+        self.assertEqual(len(cases["validation"]), 32)
+        self.assertFalse({r["question"] for r in cases["train"]} & {r["question"] for r in cases["validation"]})
+        humps = [r for r in cases["train"] if r["rule_id"] == "COURSE.HUMP"]
+        self.assertTrue(any(r["answer"].startswith("Нет.") for r in humps))
+        self.assertTrue(any("неперекрытия соблюдён" in r["answer"] for r in humps))
+
+    def test_warmstart_worker_is_compilable_and_never_contains_kaggle_secret(self):
+        config = {"url": "https://example.invalid/private-expiring-output", "archive_sha256": "a"*64,
+                  "adapter_sha256": "b"*64}
+        source = worker_source("a"*40, b"private training only", b"as-of questions", initialization=config)
+        self.assertNotIn("KAGGLE_API_TOKEN", source)
+        self.assertIn("OWN_RANK16_INITIAL_ADAPTER_SHA_MISMATCH", source)
+        compile(source, "warmstart", "exec")

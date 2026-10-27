@@ -1,0 +1,38 @@
+name: Williams AI full Course OCR and source-corrected continuation of own Qwen3-4B
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths:
+      - '.github/workflows/ai-private-full-course-followup.yml'
+      - 'experiments/private-source-20261027-course-full.sealed.json'
+permissions: {contents: read}
+concurrency:
+  group: williams-private-full-course-followup-20261027
+  cancel-in-progress: false
+jobs:
+  sequential-own-weight-research:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Check original-source integrity, corrective lessons and warm-start identity
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_deep_book_research.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_course_visual_corrections.py' -v
+      - name: Wait for first GPU, then continue its verified own weights with corrected lessons
+        run: python scripts/ai_continue_private_deep_kaggle.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_Qwen3_4B_FULL_COURSE_CORRECTED_CONTINUATION
+          path: ${{ runner.temp }}/private_deep_followup_results/
+          if-no-files-found: warn
+          retention-days: 14

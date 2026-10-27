@@ -138,6 +138,55 @@ def practice_curriculum() -> tuple[list[dict], dict[str, list[dict]], dict]:
         "numeric_parameter_ranges_disjoint": True, "expert_market_understanding_proven": False}
 
 
+def corrective_course_practice():
+    """Authored causal examples after direct PDF-image review; not expert charts."""
+    groups = {s: [] for s in ("train", "validation")}
+    for split, values in (("train", range(1, 33)), ("validation", range(101, 109))):
+        for n in values:
+            start_end = 20 + n * 3
+            overlap = n % 3 == 0
+            signal_begin = start_end - 1 if overlap else start_end + 2
+            up = n % 2 == 0
+            extreme = 60 + n
+            level = Decimal(extreme) + (Decimal("0.1") if up else Decimal("-0.1"))
+            groups[split].append({"edition": "COURSE", "rule_id": "COURSE.HUMP", "pdf_page": 72,
+                "question": f"Course Hump: первая крайняя формация заканчивается баром {start_end}, "
+                f"вторая начинается баром {signal_begin}. Оба противоположных фрактала уже подтверждены. "
+                f"Второй фрактал {'верхний' if up else 'нижний'}, его экстремум={extreme}; tick=0.1. "
+                "Соответствует ли это Hump PDF 72 и существует ли учебный уровень входа?",
+                "answer": ("Нет. Формации перекрываются барами; этот Hump-профиль не подтверждён. "
+                    "Не создавать уровень как действительный Hump и не заменять его другим изданием." if overlap else
+                    f"Критерий неперекрытия соблюдён. Первый фрактал — start, второй — signal. "
+                    f"Учебный {'LONG' if up else 'SHORT'} стоп-триггер={level}. Это ещё не исполнение; "
+                    "проверить momentum выбранного профиля, риск и позицию. execution_allowed=false.")})
+            crossed = n % 2 == 0
+            groups[split].append({"edition": "COURSE", "rule_id": "COURSE.W4.ZERO", "pdf_page": 44,
+                "question": f"Предполагаемая старшая W3, последовательность {100+n%40} баров. "
+                f"Закрытые значения 5/34: {round(1+n/100,2)}, {(-0.2 if crossed else 0.2)}. "
+                "Младшая c/e ещё не подтверждена. Можно ли признать конец W4 и немедленно входить в W5?",
+                "answer": ("Переход за ноль выполнил только минимальные требования W4 выбранной степени. " if crossed else
+                    "Осциллятор лишь приблизился к нулю; переход за него не подтверждён. ") +
+                    "Завершение коррекции не доказано. Проверить a–b–c или треугольник и последнюю младшую c/e. "
+                    "Не выдавать минимум W4 за её окончание или приказ на вход."})
+            hist = Decimal(n % 9) / 10 - Decimal("0.4") + Decimal(n) / 10000
+            signal = hist + (Decimal("0.2") if up else Decimal("-0.2"))
+            direction = "SHORT" if hist < signal else "LONG"
+            groups[split].append({"edition": "COURSE", "rule_id": "COURSE.AO5345", "pdf_page": 45,
+                "question": f"Course PDF 45: 5/34={hist}, его собственная SMA(5)={signal}. "
+                "Определи текущий momentum профиля. Структура входа и риск не предоставлены.",
+                "answer": f"Momentum={direction}: сравниваю гистограмму с её собственной SMA(5), а не со знаком нуля. "
+                    "Это фильтр направления, не самостоятельная заявка. Для входа не хватает структуры, триггера и риска."})
+            groups[split].append({"edition": "COURSE", "rule_id": "COURSE.THUMB", "pdf_page": 69,
+                "question": f"Thumb SHORT, пример {n}: три счётных пальца имеют растущие HIGH и LOW; "
+                "между ними есть один inside bar. Два пальца — GREEN, SQUAT нет. Сравни текст PDF 69 со сводкой PDF 71.",
+                "answer": "Inside bar не является пальцем. По тексту PDF 69 два GREEN допускаются как сочетание SQUAT/GREEN. "
+                    "Сводка PDF 71 описывает более строгий идеал с одним SQUAT и одним GREEN, без SQUAT он слабее. "
+                    "Нужно назвать выбранный профиль; не скрывать это различие. Thumb не равен уже подтверждённому пятибарному фракталу."})
+    if set(r["question"] for r in groups["train"]) & set(r["question"] for r in groups["validation"]):
+        raise ValueError("CORRECTIVE_PRACTICE_PARAMETER_LEAKAGE")
+    return groups
+
+
 def predict_market(model, tokenizer, questions: Path, output: Path) -> dict:
     from .qwen4b_blind_evaluation import verified_blind_questions, market_prompt, candidate_first_token_ids, CLASSES
     import torch
@@ -210,7 +259,8 @@ def practice_exam(model, tokenizer, output: Path) -> dict:
     return {"cases": len(rows), "correct": report["correct"], "source_text_can_expose_same_rules": True}
 
 
-def train(payload_file: Path, questions: Path, output: Path, source_steps: int = 512, practice_steps: int = 96) -> dict:
+def train(payload_file: Path, questions: Path, output: Path, source_steps: int = 512, practice_steps: int = 96,
+          initial_adapter: Path | None = None, course_focus: bool = False, corrective_practice: bool = False) -> dict:
     from .private_book_source import tokenize_source_pages
     from .private_lora import _tokenized
     from .lora_integrity import validation_admission
@@ -219,10 +269,20 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
         raise ValueError("BOUNDED_NEW_DEEP_RESEARCH_RUN_REQUIRED")
     source = checked_payload(json.loads(payload_file.read_bytes()))
     practice, practice_validation, practice_audit = practice_curriculum()
+    if corrective_practice:
+        correction = corrective_course_practice()
+        practice.extend(correction["train"])
+        practice_validation["COURSE"].extend(correction["validation"])
+        practice_audit.update({"corrective_course_train": len(correction["train"]),
+            "corrective_course_validation": len(correction["validation"]),
+            "train_examples": len(practice),
+            "validation_examples": sum(map(len, practice_validation.values())),
+            "corrected_rules_can_overlap_earlier_rule_exam": True,
+            "training_not_a_new_independent_expert_wave_exam": True})
     import torch
     from huggingface_hub import HfApi, snapshot_download
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, Trainer, TrainingArguments, TrainerCallback, EarlyStoppingCallback, set_seed
-    from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
+    from peft import LoraConfig, PeftConfig, PeftModel, TaskType, get_peft_model, prepare_model_for_kbit_training
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise ValueError("ONE_REAL_NVIDIA_CUDA_GPU_REQUIRED")
     set_seed(20261027)
@@ -239,7 +299,8 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
     tokenizer = AutoTokenizer.from_pretrained(base, trust_remote_code=False, local_files_only=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    source_train = tokenize_source_pages(source["train"], tokenizer, max_tokens=384)
+    selected_source_rows = [r for r in source["train"] if not course_focus or r["edition"] == "COURSE"]
+    source_train = tokenize_source_pages(selected_source_rows, tokenizer, max_tokens=384)
     source_val = {e: tokenize_source_pages([r for r in source["validation"] if r["edition"] == e], tokenizer, max_tokens=384) for e in EDITIONS}
     task_train = _tokenized(practice, tokenizer, max_tokens=768)
     task_val = {e: _tokenized(practice_validation[e], tokenizer, max_tokens=768) for e in EDITIONS}
@@ -253,8 +314,14 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
     base_model = prepare_model_for_kbit_training(base_model, use_gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False})
     targets = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
-    model = get_peft_model(base_model, LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05,
-        target_modules=targets, bias="none", task_type=TaskType.CAUSAL_LM))
+    if initial_adapter is None:
+        model = get_peft_model(base_model, LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05,
+            target_modules=targets, bias="none", task_type=TaskType.CAUSAL_LM))
+    else:
+        config = PeftConfig.from_pretrained(initial_adapter, local_files_only=True)
+        if config.r != 16 or config.lora_alpha != 32 or set(config.target_modules) != set(targets) or config.bias != "none":
+            raise ValueError("OWN_COMPATIBLE_RANK16_ATTENTION_MLP_ADAPTER_REQUIRED")
+        model = PeftModel.from_pretrained(base_model, initial_adapter, is_trainable=True, local_files_only=True)
     trainable = {n: p for n, p in model.named_parameters() if p.requires_grad}
     if not trainable or any(".lora_" not in n for n in trainable):
         raise ValueError("ONLY_REAL_LORA_PARAMETERS_MAY_UPDATE")
@@ -267,7 +334,10 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
         "source_audit": source["audit"], "practice_audit": practice_audit,
         "source_train_windows": len(source_train), "source_validation_windows": {e: len(v) for e, v in source_val.items()},
         "all_original_pages_and_figures_understood": False, "course_partial_and_unreviewed_ocr": True,
-        "trained_from_official_base_not_resumed_rank8": True,
+        "initialization": "PREVIOUS_OWN_RANK16_WEIGHTS_NEW_OPTIMIZER" if initial_adapter else "OFFICIAL_BASE_NEW_RANK16_ADAPTER",
+        "initial_adapter_sha256": sha256((initial_adapter / "adapter_model.safetensors").read_bytes()).hexdigest() if initial_adapter else None,
+        "optimizer_state_resumed": False, "course_focused_source_stage": course_focus,
+        "selected_source_train_pages": len(selected_source_rows), "corrective_course_practice": corrective_practice,
         "trading_qualification": False, "execution_allowed": False, "trade_action": None}
 
     def write_report():
