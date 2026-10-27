@@ -1,0 +1,81 @@
+name: Williams AI recover ACTUAL Kaggle 4B LoRA artifact without rerunning GPU
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: [.github/workflows/ai-kaggle-qwen4b-recover.yml]
+permissions:
+  contents: read
+jobs:
+  copy-public-model-adapter-and-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2'
+      - name: Retrieve ONLY actual adapter/metrics by file-pattern, never private books or GitHub source snapshot
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,pathlib,subprocess,sys,tempfile,shutil
+          ref="wolf19loner92/williams-ai-real-qwen3-4b-public-gpu-20261027"
+          dest=pathlib.Path(os.environ["RUNNER_TEMP"])/"williams_qwen4b_real_public_adapter"
+          if dest.exists():
+              raise RuntimeError("EXISTING_OUTPUT_DIRECTORY")
+          dest.mkdir(parents=True,mode=0o700)
+          with tempfile.TemporaryDirectory(prefix="kaggle-4b-recovery-") as scratch:
+              p=subprocess.run(["kaggle","kernels","output",ref,"-p",scratch,
+                  "--file-pattern",r".*(research_receipt\.json|adapter_model\.safetensors|adapter_config\.json|tokenizer_config\.json)$"],
+                  capture_output=True,text=True,timeout=180)
+              if p.returncode:
+                  print("RESEARCH_ADAPTER_FILTERED_FETCH_FAILED")
+                  print(p.stderr[-400:].replace(os.environ.get("KAGGLE_API_TOKEN","!"),"[REDACTED]"))
+                  sys.exit(2)
+              all_files=[x for x in pathlib.Path(scratch).rglob("*") if x.is_file()]
+              print("FILTERED_KAGGLE_4B_FILE_NAMES",sorted(x.name for x in all_files)[:30])
+              reports=[x for x in all_files if x.name=="research_receipt.json"]
+              weights=[x for x in all_files if x.name=="adapter_model.safetensors"]
+              if len(reports)!=1 or len(weights)!=1:
+                  print("FILTERED_SAFETENSORS_OR_RESEARCH_RECEIPT_MISSING")
+                  sys.exit(3)
+              report=json.loads(reports[0].read_text())
+              h=hashlib.sha256(weights[0].read_bytes()).hexdigest()
+              expected=[
+                  report.get("mode")=="REAL_QWEN3_4B_NVIDIA_GPU_NF4_PUBLIC_PRACTICE_RESEARCH_ONLY",
+                  report.get("model_repo")=="Qwen/Qwen3-4B",
+                  report.get("steps")==6,
+                  report.get("trained_official_pretrained_qwen3_4b") is True,
+                  report.get("adapter_weights_changed") is True,
+                  report.get("execution_allowed") is False,
+                  report.get("full_original_four_books_trained") is False,
+                  report.get("adapter_model_sha256")==h,
+                  report.get("source_commit")=="f828ea11211dd16a7fcdc7d8bb5a0a38f890f720",
+                  all((isinstance(report.get("validation_gate"),dict),
+                       report.get("blind_unseen_trading_skill_proven") is False))
+              ]
+              if not all(expected):
+                  print("ACTUAL_ADAPTER_CRYPTOPROOF_FAILED")
+                  print("RESEARCH_RECEIPT_RESEARCH_FLAGS",{
+                      k:report.get(k) for k in ("model_repo","steps",
+                          "trained_official_pretrained_qwen3_4b",
+                          "full_original_four_books_trained","source_commit")})
+                  sys.exit(4)
+              for file in all_files:
+                  if (file.name in ("research_receipt.json","adapter_model.safetensors",
+                                     "adapter_config.json","tokenizer_config.json")
+                      and file.stat().st_size<40_000_000):
+                      shutil.copy2(file,dest/file.name)
+              print("QWEN3_4B_PUBLIC_4BOOK_LORA_REAL_WEIGHTS_SHA256",h)
+              print("QWEN3_4B_PUBLIC_4BOOK_LORA_VALIDATION_GATE",report["validation_gate"])
+              print("QWEN3_4B_PUBLIC_4BOOK_LORA_REAL_6_STEPS_VERIFIED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Williams-Qwen3-4B-ACTUAL-T4-NF4-LoRA-PUBLIC-4-book-exercises
+          path: ${{ runner.temp }}/williams_qwen4b_real_public_adapter/
+          if-no-files-found: error
+          retention-days: 14
