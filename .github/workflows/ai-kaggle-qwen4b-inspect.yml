@@ -1,0 +1,64 @@
+name: Williams AI read-only inspect actual Qwen3-4B Kaggle pilot diagnostics
+
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: [.github/workflows/ai-kaggle-qwen4b-inspect.yml]
+permissions:
+  contents: read
+jobs:
+  inspect-public-research-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2'
+      - name: Fetch OWN private Kaggle public-data research run logs without consuming GPU
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os,subprocess,tempfile,pathlib,json,re
+          ref="wolf19loner92/williams-ai-real-qwen3-4b-public-gpu-20261027"
+          secret=os.environ.get("KAGGLE_API_TOKEN","")
+          res=subprocess.run(["kaggle","kernels","status",ref],
+                             capture_output=True,text=True,timeout=40)
+          print("PUBLIC_QWEN4B_KAGGLE_STATUS",res.returncode,res.stdout[-180:].strip())
+          with tempfile.TemporaryDirectory(prefix="gpu4b-log-only-") as td:
+              r=subprocess.run(["kaggle","kernels","output",ref,"-p",td],
+                       capture_output=True,text=True,timeout=150)
+              print("GPU4B_LOG_FETCH",r.returncode)
+              for path in pathlib.Path(td).rglob("*"):
+                  if not path.is_file():
+                      continue
+                  print("GPU4B_OUTPUT_FILE",path.name,path.stat().st_size)
+                  if path.suffix.lower() not in (".log",".json",".txt"):
+                      continue
+                  if path.name=="research_receipt.json":
+                      print("GPU4B_RECEIPT",path.read_text(errors="replace")[-3000:]);continue
+                  try:
+                      rows=json.loads(path.read_text(errors="replace"))
+                  except Exception:
+                      rows=None
+                  if isinstance(rows,list):
+                      important=[]
+                      for row in rows:
+                          datum=str(row.get("data",""))
+                          if any(x in datum for x in (
+                               "Traceback","Error","Exception","ModuleNotFound",
+                               "OSError","RuntimeError","ValueError","HTTPError",
+                               "model_info","huggingface","gated","tokenizer",
+                               "optimizer","OUT_OF_MEMORY","CUDA","ACTUAL_PRETRAINED",
+                               "adapter_weights","peft","transformers",
+                               "Killed","No space left","torch")):
+                              important.append(datum)
+                      for msg in important[-34:]:
+                          if secret:msg=msg.replace(secret,"[TOKEN_REDACTED]")
+                          msg=re.sub(r'(hf_[a-zA-Z0-9]{15,})','[HF_TOKEN_REDACTED]',msg)
+                          print("GPU4B_PUBLIC_DIAGNOSTIC",msg[-580:])
+                  else:
+                      print("GPU4B_LOG_TAIL",path.read_text(errors="replace")[-900:].replace(secret,"[REDACTED]") if secret else path.read_text(errors="replace")[-900:])
+          PY
