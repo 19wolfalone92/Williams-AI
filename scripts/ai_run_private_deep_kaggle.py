@@ -32,7 +32,8 @@ def packed(payload: bytes) -> str:
     return base64.b64encode(lzma.compress(payload, preset=6)).decode()
 
 
-def worker_source(revision: str, private_payload: bytes, questions: bytes, initialization: dict | None = None) -> str:
+def worker_source(revision: str, private_payload: bytes, questions: bytes, initialization: dict | None = None,
+                  transfer_questions: bytes | None = None) -> str:
     if not re.fullmatch(r"[a-f0-9]{40}", revision):
         raise ValueError("PINNED_SOURCE_REVISION_REQUIRED")
     template = '''"""PRIVATE user-authorized original-source study. Never publish this worker."""
@@ -64,30 +65,51 @@ sys.path.insert(0,str(repo))
 from williams_ai.deep_book_research import train
 initial_config=__INITIALIZATION__
 initial_adapter=None
+partial=bool(initial_config and initial_config.get("format")=="OWN_PARTIAL_RANK16_CHECKPOINT_V1")
+transfer=None
+if __TRANSFER_QUESTIONS__:
+    transfer=Path("/tmp/transfer_questions_only.json")
+    transfer.write_bytes(lzma.decompress(base64.b64decode(__TRANSFER_QUESTIONS__)))
+    transfer.chmod(0o600)
+    if hashlib.sha256(transfer.read_bytes()).hexdigest()!=__TRANSFER_SHA__:
+        raise RuntimeError("SEALED_TRANSFER_QUESTION_BYTES_CHANGED")
 if initial_config:
     from urllib.request import urlopen
-    archive_bytes=urlopen(initial_config["url"],timeout=240).read()
-    if hashlib.sha256(archive_bytes).hexdigest()!=initial_config["archive_sha256"]:
-        raise RuntimeError("PREVIOUS_OWN_TRAINED_ARCHIVE_SHA_MISMATCH")
-    from io import BytesIO
     initial_adapter=Path("/tmp/own_previous_private_rank16")
     initial_adapter.mkdir(mode=0o700)
-    with zipfile.ZipFile(BytesIO(archive_bytes)) as z:
-        for member in z.namelist():
-            rel=Path(member)
-            if rel.parts and rel.parts[0]=="candidate_adapter":
-                if len(rel.parts)!=2 or rel.name in (".",".."):
-                    raise RuntimeError("UNSAFE_PREVIOUS_ADAPTER_MEMBER")
-                (initial_adapter/rel.name).write_bytes(z.read(member))
+    if partial:
+        if set(initial_config["files"])!={"adapter_config.json","adapter_model.safetensors"}:
+            raise RuntimeError("OWN_SAFE_CHECKPOINT_FILES_ONLY")
+        for name,meta in initial_config["files"].items():
+            content=urlopen(meta["url"],timeout=240).read()
+            if hashlib.sha256(content).hexdigest()!=meta["sha256"]:
+                raise RuntimeError("OWN_CHECKPOINT_FILE_SHA_MISMATCH")
+            (initial_adapter/name).write_bytes(content)
+        del content
+    else:
+        archive_bytes=urlopen(initial_config["url"],timeout=240).read()
+        if hashlib.sha256(archive_bytes).hexdigest()!=initial_config["archive_sha256"]:
+            raise RuntimeError("PREVIOUS_OWN_TRAINED_ARCHIVE_SHA_MISMATCH")
+        from io import BytesIO
+        with zipfile.ZipFile(BytesIO(archive_bytes)) as z:
+            for member in z.namelist():
+                rel=Path(member)
+                if rel.parts and rel.parts[0]=="candidate_adapter":
+                    if len(rel.parts)!=2 or rel.name in (".",".."):
+                        raise RuntimeError("UNSAFE_PREVIOUS_ADAPTER_MEMBER")
+                    (initial_adapter/rel.name).write_bytes(z.read(member))
+        del archive_bytes
     if hashlib.sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=initial_config["adapter_sha256"]:
         raise RuntimeError("OWN_RANK16_INITIAL_ADAPTER_SHA_MISMATCH")
-    del archive_bytes
 out=Path("/kaggle/working/private_deep_qwen4b")
 failure=None
 try:
-    train(private,question,out,source_steps=192 if initial_config else 512,
+    train(private,question,out,source_steps=64 if partial else (192 if initial_config else 512),
         practice_steps=160 if initial_config else 96, initial_adapter=initial_adapter,
-        course_focus=bool(initial_config),corrective_practice=bool(initial_config))
+        course_focus=bool(initial_config),corrective_practice=bool(initial_config),
+        balanced_structured_practice=partial,compact_validation=partial,
+        initial_checkpoint_provenance=initial_config.get("provenance") if partial else None,
+        transfer_questions=transfer)
 except Exception as error:
     failure=type(error).__name__
     message=str(error)
@@ -115,13 +137,15 @@ print("REAL_PRIVATE_ORIGINALS_TRAINING_AND_PREDICTION_SEAL_COMPLETE",flush=True)
         .replace("__PRIVATE_PAYLOAD__", repr(packed(private_payload)))
         .replace("__ASOF_QUESTIONS__", repr(packed(questions)))
         .replace("__QUESTION_SHA__", repr(sha256(questions).hexdigest()))
+        .replace("__TRANSFER_QUESTIONS__", repr(packed(transfer_questions) if transfer_questions is not None else None))
+        .replace("__TRANSFER_SHA__", repr(sha256(transfer_questions).hexdigest() if transfer_questions is not None else None))
         .replace("__INITIALIZATION__", repr(initialization)))
 
 
 def run(*, sealed_path: str = "experiments/private-source-20261027.sealed.json",
         slug: str = "williams-ai-private-originals-deep-20261027",
         initialization: dict | None = None, separate_market: bool = False,
-        output_directory: str = "private_deep_results"):
+        output_directory: str = "private_deep_results", generated_transfer: bool = False):
     from kagglehub.auth import get_username
     secret = os.environ.get("KAGGLE_API_TOKEN", "")
     revision = os.environ["GITHUB_SHA"]
@@ -155,7 +179,12 @@ def run(*, sealed_path: str = "experiments/private-source-20261027.sealed.json",
         "kernel_type": "script", "is_private": "true", "enable_gpu": "true", "enable_internet": "true",
         "machine_shape": "NvidiaTeslaT4", "dataset_sources": [], "model_sources": [],
         "competition_sources": [], "kernel_sources": []}
-    worker = worker_source(revision, payload, questions, initialization=initialization)
+    transfer_questions = transfer_keys = None
+    if generated_transfer:
+        from williams_ai.structured_transfer_exam import sealed_cases
+        transfer_questions, transfer_keys = sealed_cases()
+    transfer_bytes = json.dumps(transfer_questions,ensure_ascii=False).encode() if generated_transfer else None
+    worker = worker_source(revision, payload, questions, initialization=initialization,transfer_questions=transfer_bytes)
     if secret in worker or "WITHHELD_OUTCOME_KEYS" in worker or len(worker) > 3_000_000:
         raise ValueError("PRIVATE_WORKER_SECRET_FUTURE_KEY_OR_SIZE_VIOLATION")
     del payload
@@ -217,11 +246,19 @@ def run(*, sealed_path: str = "experiments/private-source-20261027.sealed.json",
             grade = grade_pair(predictions=precommit, withheld_outcomes=market / "WITHHELD_OUTCOME_KEYS.jsonl",
                 new_report=dest / "market_blind_grade.json")
             print("REAL_PRIVATE_4B_UNSEEN_MARKET_GRADE", json.dumps(grade), flush=True)
+        if generated_transfer and "three_model_transfer_precommit.json" in z.namelist():
+            from williams_ai.structured_transfer_exam import grade as grade_transfer
+            precommit = json.loads(z.read("three_model_transfer_precommit.json"))
+            grade = grade_transfer(transfer_questions,transfer_keys,precommit)
+            for name, value in (("three_model_transfer_precommit.json",precommit),("three_model_transfer_grade.json",grade)):
+                (dest/name).write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False))
+            print("REAL_THREE_MODEL_GENERATED_TRANSFER_GRADE",json.dumps(grade),flush=True)
     (dest / "research_receipt.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
     print("REAL_PRIVATE_4B_OPTIMIZER_STEPS", report.get("source_optimizer_steps"), report.get("practice_optimizer_steps"), flush=True)
     print("REAL_PRIVATE_4B_SOURCE_VALIDATION", report.get("final_source_validation_gate"), flush=True)
     print("REAL_PRIVATE_4B_PRACTICE_VALIDATION", report.get("final_practice_validation_gate"), flush=True)
-    if status_final != "COMPLETE" or report.get("adapter_weights_changed") is not True or "blind_prediction_receipt" not in report:
+    if (status_final != "COMPLETE" or report.get("adapter_weights_changed") is not True or "blind_prediction_receipt" not in report
+            or generated_transfer and "generated_transfer_receipt" not in report):
         raise RuntimeError("PRIVATE_DEEP_RESEARCH_INCOMPLETE_PARTIAL_EVIDENCE_SAVED")
 
 

@@ -143,3 +143,41 @@ def predict(questions_path: Path, adapter_dirs: dict[str,Path], new_output: Path
             new_output.write_text(json.dumps({"questions_sha256":sha256(json.dumps(questions,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
                 "stages":stages,"answer_keys_loaded_on_gpu":False,"execution_allowed":False},ensure_ascii=False,indent=2))
     return {"cases":24,"model_conditions":3,"execution_allowed":False}
+
+
+def predict_loaded(model,tokenizer,questions_path:Path,initial_adapter:Path,new_output:Path):
+    """Reuse the trained CUDA base: base / own416 checkpoint / final adapter.
+
+    This receives prompts only, after final weights were saved. No extra GPU
+    instance or test-answer keys are needed for the comparison.
+    """
+    from contextlib import nullcontext
+    import torch
+    questions=json.loads(questions_path.read_bytes())
+    if (not isinstance(questions,list) or len(questions)!=24
+        or len({q.get("case_id") for q in questions})!=24
+        or any(set(q)!={"case_id","domain","prompt"} or not isinstance(q["prompt"],str) for q in questions)
+        or new_output.exists()):raise ValueError("SEALED_PROMPTS_ONLY_TRANSFER_COHORT_REQUIRED")
+    model.load_adapter(initial_adapter,adapter_name="own_checkpoint_reference",is_trainable=False,local_files_only=True)
+    model.gradient_checkpointing_disable();model.eval();model.config.use_cache=True
+    stages={}
+    with torch.inference_mode():
+        for stage,adapter in (("base",None),("first_private","own_checkpoint_reference"),("corrected","default")):
+            if adapter:model.set_adapter(adapter)
+            stages[stage]=[]
+            for row in questions:
+                messages=[{"role":"system","content":"Ты решаешь проверочное задание. Следуй требуемому JSON-формату, не придумывай отсутствующие факты."},
+                    {"role":"user","content":row["prompt"]}]
+                prefix=tokenizer.apply_chat_template(messages,tokenize=True,add_generation_prompt=True,enable_thinking=False)
+                ids=torch.tensor([prefix],device=next(model.parameters()).device)
+                with (model.disable_adapter() if adapter is None else nullcontext()):
+                    tokens=model.generate(input_ids=ids,attention_mask=torch.ones_like(ids),do_sample=False,
+                        max_new_tokens=128,pad_token_id=tokenizer.eos_token_id)
+                response=tokenizer.decode(tokens[0,len(prefix):],skip_special_tokens=True).strip()
+                stages[stage].append({"case_id":row["case_id"],"response":response})
+            new_output.write_text(json.dumps({"questions_sha256":sha256(json.dumps(questions,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
+                "stages":stages,"answer_keys_loaded_on_gpu":False,"first_private_is_interrupted_source_checkpoint":True,
+                "execution_allowed":False},ensure_ascii=False,indent=2))
+    model.set_adapter("default")
+    return {"cases":24,"model_conditions":3,"in_memory_gpu_reuse":True,"expected_keys_in_model_prompt":False,
+        "first_private_is_interrupted_source_checkpoint":True,"execution_allowed":False}

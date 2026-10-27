@@ -16,6 +16,7 @@ import math
 import os
 from pathlib import Path
 import random
+import time
 
 EDITIONS = ("TC1", "NTD", "TC2", "COURSE")
 MODEL = "Qwen/Qwen3-4B"
@@ -260,16 +261,23 @@ def practice_exam(model, tokenizer, output: Path) -> dict:
 
 
 def train(payload_file: Path, questions: Path, output: Path, source_steps: int = 512, practice_steps: int = 96,
-          initial_adapter: Path | None = None, course_focus: bool = False, corrective_practice: bool = False) -> dict:
+          initial_adapter: Path | None = None, course_focus: bool = False, corrective_practice: bool = False,
+          balanced_structured_practice: bool = False, compact_validation: bool = False,
+          initial_checkpoint_provenance: dict | None = None, transfer_questions: Path | None = None) -> dict:
     from .private_book_source import tokenize_source_pages
     from .private_lora import _tokenized
     from .lora_integrity import validation_admission
     if (not 64 <= source_steps <= 768 or not 16 <= practice_steps <= 160
             or output.exists() or output.is_symlink()):
         raise ValueError("BOUNDED_NEW_DEEP_RESEARCH_RUN_REQUIRED")
+    research_started=time.monotonic()
+    training_stop_at=research_started+3300  # Reserve final validation/inference time inside a 90min GPU session.
     source = checked_payload(json.loads(payload_file.read_bytes()))
     practice, practice_validation, practice_audit = practice_curriculum()
-    if corrective_practice:
+    if balanced_structured_practice:
+        from .structured_rule_practice import balanced_recovery_curriculum
+        practice,practice_validation,practice_audit=balanced_recovery_curriculum()
+    elif corrective_practice:
         correction = corrective_course_practice()
         practice.extend(correction["train"])
         practice_validation["COURSE"].extend(correction["validation"])
@@ -338,6 +346,8 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
         "initial_adapter_sha256": sha256((initial_adapter / "adapter_model.safetensors").read_bytes()).hexdigest() if initial_adapter else None,
         "optimizer_state_resumed": False, "course_focused_source_stage": course_focus,
         "selected_source_train_pages": len(selected_source_rows), "corrective_course_practice": corrective_practice,
+        "initial_checkpoint_provenance":initial_checkpoint_provenance,
+        "compact_validation":compact_validation,"training_wall_budget_seconds":3300,
         "trading_qualification": False, "execution_allowed": False, "trade_action": None}
 
     def write_report():
@@ -354,6 +364,14 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
                 for key, fill in (("input_ids", tokenizer.pad_token_id), ("attention_mask", 0), ("labels", -100))}
 
     class Finite(TrainerCallback):
+        def __init__(self,stage_seconds):self.stage_seconds=stage_seconds;self.stop_at=None
+        def on_train_begin(self,args,state,control,**kwargs):
+            self.stop_at=min(training_stop_at,time.monotonic()+self.stage_seconds)
+        def on_step_end(self,args,state,control,**kwargs):
+            if self.stop_at is not None and time.monotonic()>=self.stop_at:
+                control.should_training_stop=True
+                control.should_evaluate=True
+                control.should_save=True
         def on_pre_optimizer_step(self, args, state, control, **kwargs):
             gradients = [p.grad for p in trainable.values() if p.grad is not None]
             if not gradients or any(not torch.isfinite(g).all().item() for g in gradients):
@@ -373,9 +391,14 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
             label_names=["labels"], seed=20261027, data_seed=20261027,
             bf16=dtype == torch.bfloat16, fp16=dtype == torch.float16,
             gradient_checkpointing=True, gradient_checkpointing_kwargs={"use_reentrant": False})
-        dev_rows = [row for e in EDITIONS for row in dev[e][:12]]
+        # Spread the fixed validation budget across each source/lesson list so
+        # typed answers are represented even when appended after legacy cases.
+        dev_rows=[]
+        for e in EDITIONS:
+            n=min(12,len(dev[e]));indices=sorted({round(i*(len(dev[e])-1)/max(1,n-1)) for i in range(n)})
+            dev_rows.extend(dev[e][i] for i in indices)
         return Trainer(model=model, args=arguments, train_dataset=Rows(rows), eval_dataset=Rows(dev_rows),
-            data_collator=collate, callbacks=[Finite(), EarlyStoppingCallback(early_stopping_patience=3)])
+            data_collator=collate, callbacks=[Finite(900 if name=="originals" else 3300), EarlyStoppingCallback(early_stopping_patience=3)])
 
     def scores(trainer, groups):
         values = {e: float(trainer.evaluate(eval_dataset=Rows(groups[e]))["eval_loss"]) for e in EDITIONS}
@@ -388,22 +411,31 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
     source_budget = min(source_steps, math.ceil(len(source_train) * 1.5 / 2))
     source_budget = max(32, source_budget // 32 * 32)
     first = make_trainer("originals", source_train, source_val, source_budget, 6e-5)
+    if compact_validation:
+        with model.disable_adapter():
+            report["official_base_source_loss"]=scores(first,source_val)
+            report["official_base_practice_loss"]=scores(first,task_val)
     report["source_baseline_loss"] = scores(first, source_val)
     report["practice_baseline_loss"] = scores(first, task_val)
     write_report()
     first.train()
     report["source_optimizer_steps"] = first.state.global_step
     report["source_selected_checkpoint"] = Path(first.state.best_model_checkpoint).name
-    report["source_selected_loss"] = scores(first, source_val)
-    report["source_validation_gate"] = validation_admission(report["source_baseline_loss"], report["source_selected_loss"])
+    if compact_validation:
+        report["source_selected_dev_loss"]=first.state.best_metric
+        report["source_full_validation_deferred_until_final"]=True
+    else:
+        report["source_selected_loss"] = scores(first, source_val)
+        report["source_validation_gate"] = validation_admission(report["source_baseline_loss"], report["source_selected_loss"])
     report["all_source_train_windows_seen_at_least_once"] = first.state.global_step * 2 >= len(source_train)
     model.save_pretrained(output / "source_adapter", safe_serialization=True)
     tokenizer.save_pretrained(output / "source_adapter")
+    report["source_adapter_sha256"]=sha256((output/"source_adapter/adapter_model.safetensors").read_bytes()).hexdigest()
     write_report()
     del first
     torch.cuda.empty_cache()
     second = make_trainer("practice", task_train, task_val, practice_steps, 3e-5)
-    report["practice_before_second_stage_loss"] = scores(second, task_val)
+    if not compact_validation:report["practice_before_second_stage_loss"] = scores(second, task_val)
     second.train()
     report["practice_optimizer_steps"] = second.state.global_step
     report["practice_selected_checkpoint"] = Path(second.state.best_model_checkpoint).name
@@ -411,6 +443,9 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
     report["source_final_loss"] = scores(second, source_val)
     report["final_source_validation_gate"] = validation_admission(report["source_baseline_loss"], report["source_final_loss"])
     report["final_practice_validation_gate"] = validation_admission(report["practice_baseline_loss"], report["practice_final_loss"])
+    if compact_validation:
+        report["official_base_to_final_source_gate"]=validation_admission(report["official_base_source_loss"],report["source_final_loss"])
+        report["official_base_to_final_practice_gate"]=validation_admission(report["official_base_practice_loss"],report["practice_final_loss"])
     changed = any(not torch.equal(p.detach().cpu(), initial[n]) for n, p in trainable.items())
     if not changed or any(not torch.isfinite(p).all().item() for p in trainable.values()):
         raise ValueError("FINITE_ACTUALLY_CHANGED_ADAPTER_WEIGHTS_REQUIRED")
@@ -423,5 +458,10 @@ def train(payload_file: Path, questions: Path, output: Path, source_steps: int =
     write_report()
     report["blind_prediction_receipt"] = predict_market(model, tokenizer, questions, output / "market_precommit.json")
     report["ten_rule_practice_exam"] = practice_exam(model, tokenizer, output / "practice_choice_exam.json")
+    if transfer_questions is not None:
+        if initial_adapter is None:raise ValueError("OWN_INITIAL_ADAPTER_REQUIRED_FOR_THREE_MODEL_EXAM")
+        from .structured_transfer_exam import predict_loaded
+        report["generated_transfer_receipt"]=predict_loaded(model,tokenizer,transfer_questions,initial_adapter,
+            output/"three_model_transfer_precommit.json")
     write_report()
     return report
