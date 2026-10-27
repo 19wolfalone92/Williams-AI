@@ -23,9 +23,12 @@ class RealQwen3_4BGpuPublicStudyContract(unittest.TestCase):
     def test_rejects_fake_or_oversized_optimizer_steps_before_cuda(self):
         with tempfile.TemporaryDirectory() as root:
             target=Path(root)/"new"
-            for invalid in (0,1,13,False,2.0):
+            for invalid in (0,1,81,False,2.0):
                 with self.assertRaisesRegex(ValueError,"BOUNDED_NEW"):
                     train_public_qlora(target,steps=invalid)
+            for invalid_rank in (0,2,32,False,8.0):
+                with self.assertRaisesRegex(ValueError,"BOUNDED_NEW"):
+                    train_public_qlora(target,steps=32,rank=invalid_rank)
             target.mkdir()
             with self.assertRaisesRegex(ValueError,"BOUNDED_NEW"):
                 train_public_qlora(target,steps=6)
