@@ -1,0 +1,165 @@
+name: Williams AI REAL Qwen3-4B Kaggle GPU NF4 research pilot (PUBLIC curriculum ONLY)
+
+# Isolated one-time opt-in; actual 4B pretrained weights + optimizer if CUDA works.
+# Public authored rule cards ONLY, no original books or user data uploaded.
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: ['.github/workflows/ai-kaggle-qwen3-4b-public-gpu.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  actual-qwen3-4b-nf4-lora:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 48
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate actual 4B pilot guards and public four-book split
+        run: python -m unittest discover -s tests -p 'test_williams_ai_real_qwen4b_kaggle_pilot.py' -v
+      - name: Install official Kaggle API client
+        run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Submit PRIVATE Kaggle T4 training of OFFICIAL Qwen3-4B using PUBLIC book exercise cases
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os,re,subprocess,sys,tempfile,time,shutil
+          from pathlib import Path
+          from hashlib import sha256
+          from kagglehub.auth import get_username
+
+          if len(os.environ.get("KAGGLE_API_TOKEN","").strip())<16:
+              raise RuntimeError("PRIVATE_GITHUB_KAGGLE_API_AUTH_REQUIRED")
+          source_revision=os.environ["GITHUB_SHA"]
+          if not re.fullmatch(r"[a-f0-9]{40}",source_revision):
+              raise ValueError("PINNED_WILLIAMS_AI_SOURCE_SHA_REQUIRED")
+          username=get_username()
+          if not re.fullmatch(r"[a-zA-Z0-9_-]{2,62}",username):
+              raise ValueError("INVALID_KAGGLE_USERNAME_FROM_OFFICIAL_API")
+          slug="williams-ai-real-qwen3-4b-public-gpu-20261027"
+          kernel=f"{username}/{slug}"
+          worker = r'''"""Real Qwen3-4B 4-bit PEFT GPU, ONLY public book-rule practice."""
+          import os,subprocess,sys
+          os.environ["CUDA_VISIBLE_DEVICES"]="0"
+          os.environ["TOKENIZERS_PARALLELISM"]="false"
+          os.environ["HF_HUB_DISABLE_TELEMETRY"]="1"
+          revision=SOURCE_REVISION_MARKER
+          dest="/kaggle/working/williams-ai-source"
+          subprocess.run(["git","clone","-q",
+              "https://github.com/19wolfalone92/Williams-AI.git",dest],check=True)
+          subprocess.run(["git","checkout","-q",revision],cwd=dest,check=True)
+          # Preserve Kaggle's preinstalled CUDA torch. Do NOT install a CPU wheel.
+          subprocess.run([sys.executable,"-m","pip","install",
+              "--disable-pip-version-check","--quiet",
+              "transformers==4.57.1","peft==0.17.1",
+              "accelerate==1.10.1","bitsandbytes==0.48.1",
+              "safetensors==0.6.2"],check=True)
+          import torch
+          print("KAGGLE_REAL_GPU_TORCH",torch.__version__,flush=True)
+          if not torch.cuda.is_available() or torch.cuda.device_count()!=1:
+              raise RuntimeError("NO_REAL_SINGLE_VISIBLE_KAGGLE_CUDA_GPU")
+          env=os.environ.copy()
+          env["TRAINING_SOURCE_SHA"]=revision
+          command=[sys.executable,"scripts/ai_real_qwen4b_public_qlora_gpu.py",
+              "--new-output","/kaggle/working/williams_public_4b",
+              "--steps","6"]
+          subprocess.run(command,cwd=dest,env=env,check=True)
+          print("KAGGLE_REAL_QWEN3_4B_ADAPTER_READY",flush=True)
+          '''.replace("SOURCE_REVISION_MARKER",repr(source_revision))
+          metadata={"id":kernel,"title":slug,"code_file":"worker.py",
+                    "language":"python","kernel_type":"script",
+                    "is_private":"true","enable_gpu":"true",
+                    "enable_internet":"true","machine_shape":"NvidiaTeslaT4",
+                    "dataset_sources":[],"model_sources":[],
+                    "competition_sources":[],"kernel_sources":[]}
+          with tempfile.TemporaryDirectory(prefix="kaggle-public-4b-") as tmp:
+              folder=Path(tmp)
+              (folder/"kernel-metadata.json").write_text(json.dumps(metadata))
+              (folder/"worker.py").write_text(worker)
+              push=subprocess.run(["kaggle","kernels","push","-p",str(folder),
+                    "--accelerator","NvidiaTeslaT4","--timeout","3000"],
+                    stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=180)
+              if push.returncode:
+                  print("KAGGLE_REAL_4B_GPU_SUBMISSION_REJECTED")
+                  sys.exit(3)
+          print("KAGGLE_4B_GPU_JOB_ACCEPTED")
+          print(f"KAGGLE_PRIVATE_TRAINING_PAGE: https://www.kaggle.com/code/{kernel}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as f:
+              f.write("## Actual public-curriculum Qwen3-4B GPU fit\n\n"
+                  f"Private Kaggle experiment: https://www.kaggle.com/code/{kernel}\n\n"
+                  "Original book PDFs, user market data, API tokens and Binance "
+                  "secrets are **NOT** sent to Kaggle. Only public reviewed "
+                  "rule practice in a public GitHub checkout.\n")
+          final="UNKNOWN"
+          for i in range(74):
+              status=subprocess.run(["kaggle","kernels","status",kernel],
+                  capture_output=True,text=True,timeout=40)
+              line=status.stdout.lower()
+              if status.returncode==0 and ("complete" in line or "finished" in line):
+                  final="COMPLETE";break
+              if status.returncode==0 and ("error" in line or "fail" in line or "cancel" in line):
+                  final="ERROR";break
+              time.sleep(26)
+          print("KAGGLE_REAL_4B_TRAINING_FINAL_STATUS:",final)
+          output_dir=Path(os.environ["RUNNER_TEMP"])/"kaggle_qwen4b_actual"
+          output_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
+          # Download outputs/logs for inspection, even if job failed. Do not
+          # confuse API success with actual optimizer steps or new weights.
+          download=subprocess.run(["kaggle","kernels","output",kernel,
+              "-p",str(output_dir)],capture_output=True,text=True,timeout=150)
+          if download.returncode:
+              print("KAGGLE_4B_OUTPUT_FETCH_UNAVAILABLE")
+          if final!="COMPLETE":
+              for path in output_dir.rglob("*.log"):
+                  try:
+                      import json as _json
+                      records=_json.loads(path.read_text(errors="replace"))
+                      if isinstance(records,list):
+                          for row in records[-18:]:
+                              msg=str(row.get("data",""))
+                              if any(t in msg for t in ("Error","Exception","Traceback",
+                                "OutOfMemory","CUDA","HTTPError","ConnectionError")):
+                                  print("KAGGLE_4B_PUBLIC_STUDY_ERROR",msg[-500:])
+                  except Exception:
+                      pass
+              sys.exit(4)
+          receipt_files=list(output_dir.rglob("research_receipt.json"))
+          if len(receipt_files)!=1:
+              print("KAGGLE_4B_FINISHED_WITHOUT_RESEARCH_RECEIPT")
+              sys.exit(5)
+          receipt=json.loads(receipt_files[0].read_text())
+          weights=list(output_dir.rglob("adapter_model.safetensors"))
+          if (len(weights)!=1 or receipt.get("trained_official_pretrained_qwen3_4b") is not True
+              or receipt.get("steps")!=6
+              or receipt.get("execution_allowed") is not False
+              or receipt.get("full_original_four_books_trained") is not False
+              or receipt.get("adapter_model_sha256")!=sha256(weights[0].read_bytes()).hexdigest()):
+              print("KAGGLE_REAL_4B_ADAPTER_NOT_VERIFIED")
+              sys.exit(6)
+          export=Path(os.environ["RUNNER_TEMP"])/"williams_qwen3_4b_public_adapter"
+          export.mkdir(exist_ok=False,mode=0o700)
+          shutil.copy2(receipt_files[0],export/"research_receipt.json")
+          for path in weights[0].parent.iterdir():
+              if path.is_file() and path.stat().st_size<=50_000_000:
+                  shutil.copy2(path,export/path.name)
+          print("REAL_QWEN3_4B_GPU_LORA_TRAINING_VERIFIED")
+          print("REAL_QWEN3_4B_TRAINABLE_PARAMETERS",receipt["trainable_parameters"])
+          print("REAL_QWEN3_4B_VALIDATION_GATE",receipt["validation_gate"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Williams-Qwen3-4B-ACTUAL-GPU-NF4-LoRA-PUBLIC-PRACTICE-research
+          path: ${{ runner.temp }}/williams_qwen3_4b_public_adapter/
+          if-no-files-found: error
+          retention-days: 7
