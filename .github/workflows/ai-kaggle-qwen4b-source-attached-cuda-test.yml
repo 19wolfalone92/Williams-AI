@@ -1,0 +1,71 @@
+name: Williams AI Kaggle source-attached T4 CUDA final admissibility microprobe
+
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: ['.github/workflows/ai-kaggle-qwen4b-source-attached-cuda-test.yml']
+permissions:
+  contents: read
+jobs:
+  single-t4-parent-kernel-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Check actual attached adapter file and 1 Tesla T4 tensor, no training
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os,re,subprocess,tempfile,time,sys
+          from pathlib import Path
+          from kagglehub.auth import get_username
+          u=get_username()
+          assert re.fullmatch(r'[A-Za-z0-9_-]{2,62}',u)
+          slug="williams-ai-4b-rank8-private-parent-t4-smoke-20261027"
+          script=(
+            "from pathlib import Path\n"
+            "import torch\n"
+            "print('ATTACHED_QWEN4B_PARENTS',len(list(Path('/kaggle/input').rglob('Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER.zip'))))\n"
+            "if not torch.cuda.is_available(): raise RuntimeError('PRIVATE_PARENT_T4_CUDA_UNAVAILABLE')\n"
+            "x=torch.tensor([4.0],device='cuda')\n"
+            "assert x.item()==4.0\n"
+            "print('ACTUAL_PARENT_T4_CUDA_TENSOR_OK')\n")
+          metadata={"id":f"{u}/{slug}","title":slug,
+              "code_file":"worker.py","language":"python","kernel_type":"script",
+              "is_private":"true","enable_gpu":"true","enable_internet":"false",
+              "machine_shape":"NvidiaTeslaT4",
+              "dataset_sources":[],"model_sources":[],"competition_sources":[],
+              "kernel_sources":[f"{u}/williams-ai-qwen4b-rank8-32steps-20261027"]}
+          with tempfile.TemporaryDirectory() as tmp:
+              p=Path(tmp)
+              (p/"worker.py").write_text(script)
+              (p/"kernel-metadata.json").write_text(json.dumps(metadata))
+              push=subprocess.run(["kaggle","kernels","push","-p",str(p),
+                 "--accelerator","NvidiaTeslaT4","--timeout","240"],
+                 capture_output=True,text=True,timeout=100)
+              print("ATTACHED_T4_KAGGLE_PUSH_EXIT_CODE",push.returncode)
+              tok=os.environ.get("KAGGLE_API_TOKEN","")
+              msg=(push.stdout+"\n"+push.stderr)
+              if tok:msg=msg.replace(tok,"[REDACTED]")
+              print("ATTACHED_T4_KAGGLE_PUSH_RESPONSE",msg[-1200:])
+              if push.returncode:
+                  sys.exit(3)
+          ref=f"{u}/{slug}"
+          for _ in range(18):
+              s=subprocess.run(["kaggle","kernels","status",ref],
+                  capture_output=True,text=True,timeout=30)
+              st=s.stdout.lower()
+              if 'complete' in st:
+                  print("ATTACHED_T4_MICROPROBE_STATUS_COMPLETE")
+                  break
+              if 'error' in st or 'fail' in st:
+                  print("ATTACHED_T4_MICROPROBE_STATUS_ERROR")
+                  sys.exit(4)
+              time.sleep(5)
+          else:
+              print("ATTACHED_T4_MICROPROBE_STILL_RUNNING")
+          PY
