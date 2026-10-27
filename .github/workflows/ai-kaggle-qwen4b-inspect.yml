@@ -52,7 +52,7 @@ jobs:
                                "OSError","RuntimeError","ValueError","HTTPError",
                                "model_info","huggingface","gated","tokenizer",
                                "optimizer","OUT_OF_MEMORY","CUDA","ACTUAL_PRETRAINED",
-                               "adapter_weights","peft","transformers",
+                               "adapter_weights","peft","transformers","PUBLIC_BOOK_VALIDATION_GATE","PUBLIC_FOUR_BOOK_ADAPTER_WEIGHTS_SHA256","training_loss",
                                "Killed","No space left","torch")):
                               important.append(datum)
                       for msg in important[-34:]:
