@@ -113,6 +113,10 @@ jobs:
                      capture_output=True,text=True,timeout=180)
               if push.returncode:
                   print("REAL_QWEN4B_BLIND_GPU_SUBMISSION_FAILED")
+                  token=os.environ.get("KAGGLE_API_TOKEN","")
+                  details=(push.stderr+"\n"+push.stdout)[-2000:]
+                  if token:details=details.replace(token,"[REDACTED]")
+                  print("PUBLIC_BLIND_SUBMISSION_ERROR_DIAGNOSTIC",details)
                   sys.exit(4)
           print("QWEN4B_PRIVATE_BLIND_MARKET_PAGE",f"https://www.kaggle.com/code/{kernel}")
           final="UNKNOWN"
