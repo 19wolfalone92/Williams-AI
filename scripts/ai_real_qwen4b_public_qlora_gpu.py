@@ -29,8 +29,9 @@ def digest(file: Path) -> str:
     return h.hexdigest()
 
 
-def train_public_qlora(new_output: Path, steps: int = 6) -> dict:
-    if (type(steps) is not int or not 2<=steps<=12
+def train_public_qlora(new_output: Path, steps: int = 32, rank: int = 8) -> dict:
+    if (type(steps) is not int or not 2<=steps<=80
+            or type(rank) is not int or rank not in (4,8,16)
             or new_output.exists() or new_output.is_symlink()):
         raise ValueError("BOUNDED_NEW_PUBLIC_RESEARCH_FIT_REQUIRED")
     import torch
@@ -86,13 +87,15 @@ def train_public_qlora(new_output: Path, steps: int = 6) -> dict:
     new_output.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
     fitted,metrics=fit_lora(
         model,trainrows,validation,
-        workdir=new_output.parent/".williams-qwen4b-public-fit",
+        workdir=Path("/tmp/.williams-qwen4b-public-fit"),
         pad_token_id=tokenizer.pad_token_id,max_steps=steps,
-        plan=LoraPlan(rank=4,learning_rate=2e-4,
-                      gradient_accumulation=1,seed=20261027),
+        plan=LoraPlan(rank=rank,learning_rate=8e-5,
+                      gradient_accumulation=2,seed=20261027),
         use_cpu=False)
-    if metrics["optimizer_steps"]!=steps or not metrics["adapter_weights_changed"]:
+    if not 0<metrics["optimizer_steps"]<=steps or not metrics["adapter_weights_changed"]:
         raise RuntimeError("QWEN3_4B_LORA_OPTIMIZER_DID_NOT_REALLY_UPDATE_WEIGHTS")
+    if not metrics["validation_gate"]["accepted"]:
+        raise RuntimeError("QWEN3_4B_ADAPTER_REJECTED_BY_FOUR_BOOK_SOURCE_VALIDATION")
     new_output.mkdir(mode=0o700,exist_ok=False)
     adapter=new_output/"adapter"
     fitted.save_pretrained(adapter,safe_serialization=True)
@@ -110,6 +113,8 @@ def train_public_qlora(new_output: Path, steps: int = 6) -> dict:
         "torch_version":torch.__version__,
         "public_four_book_curriculum":provenance,
         "steps":metrics["optimizer_steps"],
+        "requested_maximum_optimizer_steps":steps,
+        "rank":rank,
         "trainable_parameters":metrics["trainable_parameters"],
         "adapter_weights_changed":True,
         "adapter_model_sha256":digest(weight),
@@ -136,9 +141,10 @@ def train_public_qlora(new_output: Path, steps: int = 6) -> dict:
 def main():
     p=argparse.ArgumentParser(description="Qwen3-4B actual 4-bit PEFT GPU study, public knowledge cards only")
     p.add_argument("--new-output",required=True,type=Path)
-    p.add_argument("--steps",type=int,default=6)
+    p.add_argument("--steps",type=int,default=32)
+    p.add_argument("--rank",type=int,default=8)
     a=p.parse_args()
-    train_public_qlora(a.new_output,steps=a.steps)
+    train_public_qlora(a.new_output,steps=a.steps,rank=a.rank)
 
 
 if __name__=="__main__":main()
