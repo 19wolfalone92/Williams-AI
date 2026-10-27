@@ -7,6 +7,7 @@ short, page-cited excerpts. Course scans require separately reviewed OCR.
 from __future__ import annotations
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -18,6 +19,32 @@ from .knowledge import query_terms
 
 ROOT = Path(__file__).resolve().parents[1]
 _WORD = re.compile(r"[^\W_]{2,}", re.UNICODE)
+
+
+def _preferred_source_pages(question: str, edition: str | None) -> set[tuple[str, int]]:
+    """Use existing reviewed bookmarks only for explicitly named rule families.
+
+    Bookmarks prioritize real matching excerpts; they never synthesize text or
+    certify the underlying OCR. A generic wave question gets no W4 shortcut.
+    """
+    normalized = question.casefold().replace("ё", "е")
+    words = re.findall(r"[^\W_]+", normalized, re.UNICODE)
+    prefixes = []
+    if any(w.startswith(("hump", "горб", "хамп")) for w in words):
+        prefixes.append("COURSE.HUMP")
+    if "thumb" in words or "большой палец" in normalized:
+        prefixes.append("COURSE.THUMB")
+    fourth = ("w4" in words or "fourth" in words or any(w.startswith("четверт") for w in words)
+              or re.search(r"(?:wave|волн\w*)\s*4\b", normalized))
+    zero = any(w.startswith(("нул", "нол", "zero")) for w in words)
+    if fourth and zero:
+        prefixes.extend(("COURSE.W4.ZERO", "TC1.W4"))
+    for marker, prefix in (("wm1", "TC2.WM1."), ("wm2", "TC2.WM2"), ("wm3", "TC2.WM3")):
+        if marker in words:
+            prefixes.append(prefix)
+    return {(card["source"], page) for card in registry()["rule_cards"]
+            if card["status"] == "REVIEWED_PAGES" and (edition is None or card["source"] == edition)
+            and any(card["id"].startswith(prefix) for prefix in prefixes) for page in card["pdf_pages"]}
 
 
 class SourceMismatch(ValueError):
@@ -195,21 +222,56 @@ def search_pages(database: str | Path, question: str, *,
         if edition:
             statement += " WHERE book=?"
             args.append(edition)
-        ranked = []
+        documents = []
         for book, page, content, status in db.execute(statement, args):
             words = [w.casefold() for w in _WORD.findall(content)]
-            score = sum(min(4, sum(word.startswith(token) for word in words)) for token in tokens)
-            if not score:
+            counts = {token: sum(word.startswith(token) for word in words) for token in tokens}
+            documents.append((book, int(page), content, words, counts))
+        if not documents:
+            return []
+        # Rare source terms such as zero/requirements must outweigh repeated
+        # generic wave prose. Corpus statistics remain inside the local index.
+        count = len(documents)
+        average_length = sum(len(d[3]) for d in documents) / count
+        frequencies = {t: sum(d[4][t] > 0 for d in documents) for t in tokens}
+        weights = {t: math.log(1 + (count - n + 0.5) / (n + 0.5)) for t, n in frequencies.items()}
+        ranked = []
+        for book, page, content, words, counts in documents:
+            matched = [t for t in tokens if counts[t]]
+            if not matched:
                 continue
-            offsets = [content.casefold().find(t) for t in tokens if t in content.casefold()]
-            start = max(0, min(offsets) - 120) if offsets else 0
-            ranked.append((score, book, int(page), content[start:start+650],
+            length_factor = 1.2 * (0.25 + 0.75 * len(words) / max(1, average_length))
+            score = sum(weights[t] * counts[t] * 2.2 / (counts[t] + length_factor) for t in matched)
+            # Center the excerpt on specific evidence, not an early occurrence
+            # of a common word that can hide the actual supporting passage.
+            anchor = max(matched, key=lambda t: (weights[t], len(t), t))
+            offset = content.casefold().find(anchor)
+            start = max(0, offset - 120) if offset >= 0 else 0
+            ranked.append((score, book, page, content[start:start+650],
                            hashlib.sha256(content.encode()).hexdigest()))
-        ranked.sort(key=lambda x: (-x[0], x[1], x[2]))
+        preferred = _preferred_source_pages(question, edition)
+        ranked.sort(key=lambda x: (-int((x[1], x[2]) in preferred), -x[0], x[1], x[2]))
+        selected = []
+        used_pages = set()
+        for row in ranked:
+            if (row[1], row[2]) not in used_pages:
+                selected.append(row)
+                used_pages.add((row[1], row[2]))
+                if len(selected) == limit:
+                    break
+        if len(selected) < limit:
+            # When the matching evidence is on a single long page, preserve
+            # additional distinct chunks rather than dropping its continuation.
+            seen_chunks = {row[4] for row in selected}
+            for row in ranked:
+                if row[4] not in seen_chunks:
+                    selected.append(row); seen_chunks.add(row[4])
+                    if len(selected) == limit:
+                        break
         return [{"source": f"{book}: PDF {page}", "excerpt": content,
                  "status": "PRIVATE_PAGE_TEXT_UNVERIFIED", "page": page,
                  "chunk_sha256": chunk_sha}
-                for _, book, page, content, chunk_sha in ranked[:limit]]
+                for _, book, page, content, chunk_sha in selected]
     finally:
         db.close()
 
