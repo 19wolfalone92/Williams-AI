@@ -49,4 +49,14 @@ jobs:
                           if found:print("PRIVATE_DEEP_ERROR_CODE",found.group(1),found.group(2))
                           found=re.search(r"'loss': ([0-9.]+).*?'epoch': ([0-9.]+)",line)
                           if found:print("PRIVATE_DEEP_NUMERICAL_PROGRESS_LOSS_EPOCH",found.group(1),found.group(2))
+          with tempfile.TemporaryDirectory() as td:
+              old=get_username()+"/williams-ai-qwen4b-rank8-32steps-20261027"
+              archived=subprocess.run(["kaggle","kernels","output",old,"-p",td,"--file-pattern",r".*[.]log$"],
+                  capture_output=True,text=True,timeout=100)
+              for path in Path(td).rglob("*.log"):
+                  raw=path.read_text(errors="replace")
+                  runtime=re.findall(r"'train_runtime': ([0-9.]+)",raw)
+                  rate=re.findall(r"'train_steps_per_second': ([0-9.]+)",raw)
+                  if runtime:print("PRIOR_REAL_RANK8_TRAIN_RUNTIME_SECONDS",runtime[-1])
+                  if rate:print("PRIOR_REAL_RANK8_OPTIMIZER_STEPS_PER_SECOND",rate[-1])
           PY
