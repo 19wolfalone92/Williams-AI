@@ -23,6 +23,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.ai_sealed_source_transport import open_envelope
 from williams_ai.deep_book_research import checked_payload
 
+GPU_RUNTIME_LIMIT_SECONDS = 5400
+POLL_INTERVAL_SECONDS = 20
+POLL_ATTEMPTS = (GPU_RUNTIME_LIMIT_SECONDS + 600) // POLL_INTERVAL_SECONDS
+
 
 def packed(payload: bytes) -> str:
     return base64.b64encode(lzma.compress(payload, preset=6)).decode()
@@ -161,21 +165,21 @@ def run(*, sealed_path: str = "experiments/private-source-20261027.sealed.json",
         (d / "worker.py").write_text(worker)
         (d / "worker.py").chmod(0o600)
         pushed = subprocess.run(["kaggle", "kernels", "push", "-p", str(d),
-            "--accelerator", "NvidiaTeslaT4", "--timeout", "5400"], capture_output=True, text=True, timeout=180)
+            "--accelerator", "NvidiaTeslaT4", "--timeout", str(GPU_RUNTIME_LIMIT_SECONDS)], capture_output=True, text=True, timeout=180)
         if pushed.returncode:
             # Never print the worker, HTTP payload, token, or book text.
             print("PRIVATE_ORIGINALS_GPU_SUBMISSION_REJECTED_RETURN_CODE", pushed.returncode, flush=True)
             raise RuntimeError("PRIVATE_GPU_SUBMISSION_REJECTED_NO_SUCCESS_CLAIM")
     print("PRIVATE_ORIGINALS_KAGGLE_PAGE", "https://www.kaggle.com/code/" + kernel, flush=True)
     status_final = "UNKNOWN"
-    for _ in range(220):
+    for _ in range(POLL_ATTEMPTS):
         status = subprocess.run(["kaggle", "kernels", "status", kernel], capture_output=True, text=True, timeout=35)
         raw = status.stdout.lower()
         if status.returncode == 0 and ("complete" in raw or "finished" in raw):
             status_final = "COMPLETE"; break
         if status.returncode == 0 and any(word in raw for word in ("error", "failed", "cancel")):
             status_final = "ERROR"; break
-        time.sleep(20)
+        time.sleep(POLL_INTERVAL_SECONDS)
     print("PRIVATE_ORIGINALS_KAGGLE_FINAL_STATE", status_final, flush=True)
     dest = root / output_directory
     dest.mkdir(mode=0o700, exist_ok=True)

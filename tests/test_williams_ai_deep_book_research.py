@@ -3,7 +3,7 @@ from hashlib import sha256
 import json
 import unittest
 
-from scripts.ai_run_private_deep_kaggle import worker_source
+from scripts.ai_run_private_deep_kaggle import worker_source, GPU_RUNTIME_LIMIT_SECONDS, POLL_INTERVAL_SECONDS, POLL_ATTEMPTS
 from williams_ai.book_rules import registry
 from williams_ai.deep_book_research import checked_payload, practice_curriculum, corrective_course_practice
 from scripts.ai_continue_private_deep_kaggle import checked_own_previous_result
@@ -30,6 +30,11 @@ def example_payload():
 
 
 class DeepResearchTests(unittest.TestCase):
+    def test_controller_waits_beyond_the_actual_gpu_budget(self):
+        # Regression: 220*20 seconds formerly timed out before the 5400-second
+        # GPU allocation and falsely reported an archive that was not due yet.
+        self.assertGreater(POLL_ATTEMPTS * POLL_INTERVAL_SECONDS, GPU_RUNTIME_LIMIT_SECONDS)
+
     def test_checked_originals_keep_test_texts_absent_and_preserve_ocr_limitations(self):
         result = checked_payload(example_payload())
         self.assertEqual(len(result["train"]), 4)
