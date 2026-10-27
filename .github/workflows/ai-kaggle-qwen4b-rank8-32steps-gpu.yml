@@ -1,0 +1,178 @@
+name: Williams AI real Kaggle Qwen3-4B rank8 LoRA 32-step fit and VERIFIED ZIP
+
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: ['.github/workflows/ai-kaggle-qwen4b-rank8-32steps-gpu.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  verified-pretrained-nf4-rank8-source-research:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 46
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: No GPU resources used during contract check
+        run: python -m unittest discover -s tests -p 'test_williams_ai_real_qwen4b_kaggle_pilot.py' -v
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: REAL pretrained Qwen3-4B NF4 rank8 fit and Kaggle ZIP export
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,re,subprocess,sys,tempfile,time,zipfile
+          from pathlib import Path
+          from kagglehub.auth import get_username
+
+          sha=os.environ["GITHUB_SHA"]
+          if not re.fullmatch(r"[a-f0-9]{40}",sha):
+              raise ValueError("UNPINNED_GITHUB_SOURCE")
+          if len(os.environ.get("KAGGLE_API_TOKEN","").strip())<16:
+              raise RuntimeError("GITHUB_KAGGLE_AUTH_MISSING")
+          username=get_username()
+          if not re.fullmatch(r"[A-Za-z0-9_-]{2,62}",username):
+              raise RuntimeError("INVALID_AUTHENTICATED_KAGGLE_ACCOUNT")
+          slug="williams-ai-qwen4b-rank8-32steps-20261027"
+          kernel=f"{username}/{slug}"
+          worker=r'''"""Only PUBLIC paraphrased book-rule practice is allowed."""
+          import os,subprocess,sys,json,zipfile
+          from pathlib import Path
+          os.environ["CUDA_VISIBLE_DEVICES"]="0"
+          os.environ["HF_HUB_DISABLE_TELEMETRY"]="1"
+          os.environ["TOKENIZERS_PARALLELISM"]="false"
+          revision=ACTUAL_PINNED_GITHUB_SOURCE
+          checkout="/tmp/checked-williams-ai-gpu"
+          subprocess.run(["git","clone","-q",
+              "https://github.com/19wolfalone92/Williams-AI.git",checkout],check=True)
+          subprocess.run(["git","checkout","-q",revision],cwd=checkout,check=True)
+          subprocess.run([sys.executable,"-m","pip","install","--quiet",
+              "--disable-pip-version-check",
+              "transformers==4.57.1","peft==0.17.1",
+              "accelerate==1.10.1","bitsandbytes==0.48.1",
+              "safetensors==0.6.2"],check=True)
+          import torch
+          if not torch.cuda.is_available() or torch.cuda.device_count()!=1:
+              raise RuntimeError("NVIDIA_CUDA_REQUIRED_FOR_REAL_QWEN4B_TRAINING")
+          print("PRETRAINED_PUBLIC_GPU_DEVICE",torch.cuda.get_device_name(0),flush=True)
+          output=Path("/kaggle/working/qwen4b_public_adaptation")
+          env=os.environ.copy()
+          env["TRAINING_SOURCE_SHA"]=revision
+          subprocess.run([sys.executable,"scripts/ai_real_qwen4b_public_qlora_gpu.py",
+              "--new-output",str(output),"--steps","32","--rank","8"],
+              cwd=checkout,env=env,check=True)
+          report=json.loads((output/"research_receipt.json").read_text())
+          if (report["mode"]!="REAL_QWEN3_4B_NVIDIA_GPU_NF4_PUBLIC_PRACTICE_RESEARCH_ONLY"
+               or not report["validation_gate"]["accepted"]
+               or not report["adapter_weights_changed"]
+               or report["execution_allowed"] is not False):
+              raise RuntimeError("FOUR_BOOK_RULE_VALIDATION_OR_RESEARCH_SAFETY_FAILED")
+          archive=Path("/kaggle/working/Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER.zip")
+          with zipfile.ZipFile(archive,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=4) as z:
+              for path in sorted(output.rglob("*")):
+                  if path.is_file():
+                      if path.stat().st_size>50_000_000:
+                          raise RuntimeError("UNEXPECTED_LARGE_PUBLIC_RESEARCH_FILE")
+                      z.write(path,str(path.relative_to(output)))
+          print("REAL_4B_RANK8_PUBLIC_BOOKS_VERIFIED_ARCHIVE_BYTES",archive.stat().st_size,flush=True)
+          '''.replace("ACTUAL_PINNED_GITHUB_SOURCE",repr(sha))
+          meta={"id":kernel,"title":slug,"code_file":"worker.py",
+                "language":"python","kernel_type":"script","is_private":"true",
+                "enable_gpu":"true","enable_internet":"true",
+                "machine_shape":"NvidiaTeslaT4",
+                "dataset_sources":[],"model_sources":[],"competition_sources":[],
+                "kernel_sources":[]}
+          with tempfile.TemporaryDirectory(prefix="kaggle-qwen4b-strong-") as temp:
+              p=Path(temp)
+              (p/"kernel-metadata.json").write_text(json.dumps(meta))
+              (p/"worker.py").write_text(worker)
+              push=subprocess.run(["kaggle","kernels","push","-p",str(p),
+                "--accelerator","NvidiaTeslaT4","--timeout","3000"],
+                capture_output=True,text=True,timeout=180)
+              if push.returncode:
+                  print("QWEN4B_RANK8_PRIVATE_GPU_SUBMISSION_FAILED")
+                  sys.exit(10)
+          print("QWEN4B_RANK8_PRIVATE_KAGGLE_PAGE",f"https://www.kaggle.com/code/{kernel}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as f:
+              f.write("## Real Qwen3-4B 32-step rank8 GPU study\n\n"
+                      f"Private Kaggle run: https://www.kaggle.com/code/{kernel}\n\n"
+                      "Only public reviewed rules, **NO private original PDFs**, "
+                      "no Binance credentials, no trade orders.\n")
+          final="UNKNOWN"
+          for _ in range(68):
+              status=subprocess.run(["kaggle","kernels","status",kernel],
+                   capture_output=True,text=True,timeout=40)
+              result=status.stdout.lower()
+              if status.returncode==0 and ("complete" in result or "finished" in result):
+                  final="COMPLETE";break
+              if status.returncode==0 and ("error" in result or "fail" in result or "cancel" in result):
+                  final="ERROR";break
+              time.sleep(25)
+          print("QWEN4B_RANK8_KAGGLE_EXECUTION_STATUS",final)
+          if final!="COMPLETE":
+              sys.exit(11)
+          with tempfile.TemporaryDirectory(prefix="qwen4b-strong-results-") as temp:
+              out=subprocess.run(["kaggle","kernels","output",kernel,"-p",temp,
+                "--file-pattern",r".*Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER\\.zip$"],
+                capture_output=True,text=True,timeout=140)
+              if out.returncode:
+                  print("QWEN4B_RANK8_FILTERED_ZIP_DOWNLOAD_FAILED")
+                  sys.exit(12)
+              zips=[x for x in Path(temp).rglob("*") if x.name=="Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER.zip"]
+              if len(zips)!=1:
+                  print("QWEN4B_RANK8_KAGGLE_ZIP_NOT_FOUND")
+                  sys.exit(13)
+              with zipfile.ZipFile(zips[0]) as z:
+                  if any(n.startswith("/") or ".." in Path(n).parts for n in z.namelist()):
+                      raise RuntimeError("UNSAFE_QWEN4B_ZIP_ARCHIVE_PATH")
+                  receipt=json.loads(z.read("research_receipt.json"))
+                  adapter=z.read("adapter/adapter_model.safetensors")
+                  actual_hash=hashlib.sha256(adapter).hexdigest()
+              valid=(
+                  receipt.get("mode")=="REAL_QWEN3_4B_NVIDIA_GPU_NF4_PUBLIC_PRACTICE_RESEARCH_ONLY"
+                  and receipt.get("model_repo")=="Qwen/Qwen3-4B"
+                  and receipt.get("source_commit")==sha
+                  and receipt.get("rank")==8
+                  and 1<=receipt.get("steps",0)<=32
+                  and receipt.get("adapter_weights_changed") is True
+                  and receipt.get("validation_gate",{}).get("accepted") is True
+                  and receipt.get("adapter_model_sha256")==actual_hash
+                  and receipt.get("full_original_four_books_trained") is False
+                  and receipt.get("execution_allowed") is False)
+              if not valid or len(adapter)<100000:
+                  print("QWEN4B_RANK8_ADAPTER_NOT_ADMITTED_OR_SHA_INVALID")
+                  sys.exit(14)
+              target=Path(os.environ["RUNNER_TEMP"])/"williams_qwen4b_rank8_verified"
+              target.mkdir(mode=0o700)
+              import shutil
+              shutil.copy2(zips[0],target/zips[0].name)
+              (target/"PUBLIC_RESEARCH_VALIDATION.json").write_text(
+                  json.dumps({"trained_qwen3_4b":True,
+                    "optimizer_steps":receipt["steps"],
+                    "rank":receipt["rank"],
+                    "adapter_sha256":actual_hash,
+                    "validation_gate":receipt["validation_gate"],
+                    "source_commit":sha,
+                    "full_original_books_trained":False,
+                    "expert_chart_validation_done":False,
+                    "trading_allowed":False},indent=2))
+              print("REAL_4B_RANK8_QLORA_ADAPTER_PROVEN")
+              print("REAL_4B_RANK8_GPU_TRAINING_STEPS",receipt["steps"])
+              print("REAL_4B_RANK8_4BOOK_RULE_VALIDATION",receipt["validation_gate"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Williams_AI_real_Qwen3-4B_rank8_PUBLIC-BOOK-GPU-QLoRA-verification
+          path: ${{ runner.temp }}/williams_qwen4b_rank8_verified/
+          if-no-files-found: error
+          retention-days: 14
