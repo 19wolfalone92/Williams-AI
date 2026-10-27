@@ -1,0 +1,40 @@
+name: Williams AI distinguish private adapter dataset permission from Kaggle GPU quota
+on:
+  push:
+    branches: [research/qwen4b-after-training-blind-market-cohort-20261027]
+    paths: [.github/workflows/ai-private-4b-dataset-cpu-mount-smoke.yml]
+permissions: {contents: read}
+jobs:
+  cpu-only-tiny-read-only-dataset-mount:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Submit tiny CPU notebook with only private derived public adapter dataset
+        run: |
+          python - <<'PY'
+          import os,re,subprocess,tempfile,json,sys
+          from pathlib import Path
+          from kagglehub.auth import get_username
+          u=get_username()
+          if not re.fullmatch(r"[A-Za-z0-9_-]{2,62}",u):raise RuntimeError("ACCOUNT_NOT_READY")
+          slug="williams-ai-private-rank8-dataset-cpu-smoke-20261027"
+          meta={"id":f"{u}/{slug}","title":slug,"code_file":"worker.py",
+                "language":"python","kernel_type":"script","is_private":"true",
+                "enable_gpu":"false","enable_internet":"false",
+                "dataset_sources":[f"{u}/williams-ai-qwen4b-rank8-research-20261027"],
+                "competition_sources":[],"model_sources":[],"kernel_sources":[]}
+          code="from pathlib import Path\np=Path('/kaggle/input')\nprint('ADAPTER_ATTACHED_PUBLIC_BOOK_SOURCE_ONLY',len(list(p.rglob('adapter_model.safetensors'))))\n"
+          with tempfile.TemporaryDirectory() as td:
+              t=Path(td);(t/"kernel-metadata.json").write_text(json.dumps(meta))
+              (t/"worker.py").write_text(code)
+              c=subprocess.run(["kaggle","kernels","push","-p",str(t),"--timeout","180"],
+                               capture_output=True,text=True,timeout=140)
+              print("DERIVED_ADAPTER_DATASET_CPU_MOUNT_SUBMISSION_CODE",c.returncode)
+              if c.returncode:sys.exit(2)
+          print("PRIVATE_PUBLIC_ADAPTER_DATASET_CPU_KERNEL_ACCEPTED")
+          PY
