@@ -1,3 +1,4 @@
+# Fresh read-only exam observation; GPU training remains pinned to commit 8711a2a.
 name: Williams AI read-only focused GPU progress
 on:
   push:
