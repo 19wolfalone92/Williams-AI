@@ -1,0 +1,76 @@
+name: Williams AI private Kaggle dataset for verified actual Qwen3-4B adapter (NO BOOKS)
+
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: ['.github/workflows/ai-kaggle-qwen4b-private-adapter-dataset.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  publish-ONLY-derived-public-research-adapter-private:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Pull verified-public practice 4B LoRA ZIP and upload to YOUR PRIVATE Kaggle dataset
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,re,subprocess,tempfile,zipfile,sys,shutil
+          from pathlib import Path
+          from kagglehub.auth import get_username
+          u=get_username()
+          assert re.fullmatch(r'[a-zA-Z0-9_-]{2,62}',u)
+          ref=f"{u}/williams-ai-qwen4b-rank8-32steps-20261027"
+          name="Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER.zip"
+          dataset=f"{u}/williams-ai-qwen4b-rank8-research-20261027"
+          with tempfile.TemporaryDirectory(prefix="public-only-qwen4b-") as td:
+              root=Path(td)
+              out=root/"download";out.mkdir()
+              run=subprocess.run(["kaggle","kernels","output",ref,
+                  "-p",str(out),"--file-pattern",r".*zip$"],
+                  capture_output=True,text=True,timeout=150)
+              if run.returncode!=0:raise RuntimeError("RESEARCH_ADAPTER_DOWNLOAD_FAILED")
+              found=list(out.rglob(name))
+              if len(found)!=1:raise RuntimeError("TRAINED_PUBLIC_ADAPTER_ARCHIVE_REQUIRED")
+              with zipfile.ZipFile(found[0]) as z:
+                  receipt=json.loads(z.read("research_receipt.json"))
+                  safetensors=z.read("adapter/adapter_model.safetensors")
+              if (receipt.get("trained_official_pretrained_qwen3_4b") is not True
+                  or receipt.get("rank")!=8
+                  or receipt.get("steps")!=32
+                  or receipt.get("full_original_four_books_trained") is not False
+                  or receipt.get("validation_gate",{}).get("accepted") is not True
+                  or receipt.get("adapter_model_sha256")!=hashlib.sha256(safetensors).hexdigest()
+                  or receipt.get("source_commit")!="b85af751aff558cc24f84fbd49d4602514430cf5"):
+                  raise RuntimeError("TRAINED_PUBLIC_ONLY_ADAPTER_PROVENANCE_FAILED")
+              folder=root/"private-kaggle-dataset";folder.mkdir()
+              shutil.copy2(found[0],folder/name)
+              metadata={"title":"Williams AI Qwen3 4B Rank8 Research",
+                  "id":dataset,"licenses":[{"name":"apache-2.0"}],
+                  "description":"Private PEFT adapter from official Qwen3-4B and ONLY public, independently authored four-book rule exercises. This is NOT original PDF content, expert trade supervision or trading-qualified AI."}
+              (folder/"dataset-metadata.json").write_text(json.dumps(metadata))
+              run=subprocess.run(["kaggle","datasets","create","-p",str(folder)],
+                  capture_output=True,text=True,timeout=250)
+              print("PRIVATE_PUBLIC_ADAPTER_DATASET_CREATE_STATUS",run.returncode)
+              if run.returncode:
+                  tok=os.environ.get("KAGGLE_API_TOKEN","")
+                  diag=(run.stderr+"\n"+run.stdout)[-750:]
+                  if tok:diag=diag.replace(tok,"[REDACTED]")
+                  print("PRIVATE_PUBLIC_ADAPTER_DATASET_DIAGNOSTIC",diag)
+                  sys.exit(3)
+              verify=subprocess.run(["kaggle","datasets","files",dataset,"--csv"],
+                  capture_output=True,text=True,timeout=60)
+              print("PRIVATE_PUBLIC_ADAPTER_DATASET_FILE_CHECK",verify.returncode)
+              print("PRIVATE_PUBLIC_ADAPTER_DATASET_NAME",dataset)
+              if verify.returncode:
+                  sys.exit(4)
+              print("PUBLIC_SOURCE_ONLY_ADAPTER_UPLOADED_PRIVATE_FOR_EVALUATION")
+              print("COPYRIGHT_ORIGINAL_BOOK_UPLOADS",0)
+          PY
