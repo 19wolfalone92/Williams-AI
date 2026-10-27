@@ -1,0 +1,21 @@
+name: Williams AI read-only focused GPU progress
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['.github/workflows/ai-focused-observe.yml']
+permissions: {contents: read}
+jobs:
+  observe-only-no-new-gpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      WILLIAMS_OBSERVE_SLUG: williams-ai-focused-2t4-20261027
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Read only focused kernel status, numerical progress and quota
+        run: python scripts/ai_observe_own_training.py

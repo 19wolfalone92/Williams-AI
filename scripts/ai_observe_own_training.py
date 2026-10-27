@@ -5,6 +5,7 @@ The log endpoint/authentication follows Kaggle/kaggle-cli commit
 """
 from __future__ import annotations
 import json
+import math
 import os
 import re
 import time
@@ -13,13 +14,17 @@ import time
 def numerical_progress(text:str)->list[dict]:
     rows=[]
     for line in text.splitlines():
-        marker="CONTRASTIVE_DEV_SELECTION "
-        if marker in line:
-            try:
-                obj=json.loads(line.split(marker,1)[1])
-                if set(obj)=={"accuracy","max_source_regression","selection_score","optimizer_step"} and all(type(v) in (int,float) for v in obj.values()):
-                    rows.append({"generated_dev":True,**obj})
-            except ValueError:pass
+        common={"accuracy","max_source_regression","selection_score","optimizer_step"}
+        markers=(("CONTRASTIVE_DEV_SELECTION ",common,"generated_dev"),
+                 ("FOCUSED_DEV_SELECTION ",common|{"minimum_rule_accuracy","collapsed_rules"},"generated_dev"),
+                 ("FOCUSED_TEST_STAGE_COMPLETED ",{"completed_stages","responses"},"generated_test_progress"))
+        for marker,expected,kind in markers:
+            if marker in line:
+                try:
+                    obj=json.loads(line.split(marker,1)[1])
+                    if set(obj)==expected and all(type(v) in (int,float) and math.isfinite(v) for v in obj.values()):
+                        rows.append({kind:True,**obj})
+                except (ValueError,TypeError):pass
         # Capture ONLY standard numerical Trainer fields. Source text, tokens,
         # generated answers, URLs and exception details are never echoed.
         found=re.search(r"\{('(?:loss|eval_loss|train_runtime)':[^\n]{1,1200})\}",line)
