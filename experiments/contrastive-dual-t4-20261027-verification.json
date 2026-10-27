@@ -1,0 +1,260 @@
+{
+  "workflow_run": 40531673659,
+  "artifact_id": 12749402549,
+  "artifact_sha256": "3e621eed4a0a2294d4dee3df1f16023c25fc653fd71c7012f10c6206c64a131e",
+  "source_commit": "ec0396e8f23469ffce0ebe25b41bbc325ce58dc0",
+  "baseline_receipt_sha256": "30fc73e921d550a033d138131bc7a47156f940d1e5fce00643d87720a4ef5e65",
+  "source_manifest_sha256": "300b2acf1519ea76c0a377abd64f0f1490a971ef7413f4d3b980d53b6c75994b",
+  "official_base_file_hashes_match_prior_verified_baseline": true,
+  "baseline_and_validation_cohort_match": true,
+  "model_revision": "3fb356690bbdae7353c94efb3eecdce276e6ed1c",
+  "stages": {
+    "source": {
+      "sha256": "3b3030afe4c19fdfd533013309f87e5b544f92ab276e03bfa9ce8a54d8f1c6ba",
+      "bytes": 132187888,
+      "parameters": 33030144,
+      "tensors": 504,
+      "all_finite": true,
+      "nonzero_lora_B": 252,
+      "rank": 16,
+      "lora_alpha": 32,
+      "target_modules": [
+        "down_proj",
+        "gate_proj",
+        "k_proj",
+        "o_proj",
+        "q_proj",
+        "up_proj",
+        "v_proj"
+      ]
+    },
+    "candidate": {
+      "sha256": "bf8580fbb74d4ae8b041332146e64408f06900999837826d06ef93b4a6404891",
+      "bytes": 132187888,
+      "parameters": 33030144,
+      "tensors": 504,
+      "all_finite": true,
+      "nonzero_lora_B": 252,
+      "rank": 16,
+      "lora_alpha": 32,
+      "target_modules": [
+        "down_proj",
+        "gate_proj",
+        "k_proj",
+        "o_proj",
+        "q_proj",
+        "up_proj",
+        "v_proj"
+      ]
+    }
+  },
+  "delta_vs_initial": {
+    "changed_tensors": 504,
+    "changed_parameters": 33030134,
+    "l2_norm": 2.3925638860923715,
+    "maximum_absolute_change": 0.004258349945303053
+  },
+  "actual_updates": 896,
+  "attempted_steps": 896,
+  "skipped_steps": 0,
+  "selected_checkpoint": "checkpoint-512",
+  "actual_updates_at_selected_checkpoint": 512,
+  "questions_sha256": "ddf6442b41dd1ba82961298fc69c1a42023e7bcbcd1532ee6af6f48dab0bb5a7",
+  "test_keys_independently_recalculated_from_prompts": true,
+  "generated_grades_counting_timeout_as_failure": {
+    "base": {
+      "correct": 18,
+      "total": 56,
+      "accuracy": 0.32142857142857145,
+      "content_correct": 18,
+      "valid_json": 56,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 8,
+          "content_correct": 0
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 1,
+          "total": 8,
+          "content_correct": 1
+        },
+        "COURSE.HUMP": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        },
+        "COURSE.AO5345": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        },
+        "NTD.AC": {
+          "correct": 1,
+          "total": 8,
+          "content_correct": 1
+        },
+        "TC2.WM3": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ],
+        "COURSE.W4.ZERO": [
+          "minimum_w4_met"
+        ],
+        "COURSE.AO5345": [
+          "momentum"
+        ],
+        "NTD.AC": [
+          "signal_ready"
+        ],
+        "TC2.WM3": [
+          "confirmed"
+        ]
+      }
+    },
+    "initial416": {
+      "correct": 23,
+      "total": 56,
+      "accuracy": 0.4107142857142857,
+      "content_correct": 23,
+      "valid_json": 56,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 8,
+          "content_correct": 0
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 3,
+          "total": 8,
+          "content_correct": 3
+        },
+        "COURSE.HUMP": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        },
+        "COURSE.AO5345": {
+          "correct": 6,
+          "total": 8,
+          "content_correct": 6
+        },
+        "NTD.AC": {
+          "correct": 2,
+          "total": 8,
+          "content_correct": 2
+        },
+        "TC2.WM3": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ],
+        "COURSE.W4.ZERO": [
+          "minimum_w4_met"
+        ],
+        "NTD.AC": [
+          "signal_ready"
+        ],
+        "TC2.WM3": [
+          "confirmed"
+        ]
+      }
+    },
+    "candidate": {
+      "correct": 40,
+      "total": 56,
+      "accuracy": 0.7142857142857143,
+      "content_correct": 40,
+      "valid_json": 56,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 2,
+          "total": 8,
+          "content_correct": 2
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 8,
+          "total": 8,
+          "content_correct": 8
+        },
+        "COURSE.HUMP": {
+          "correct": 4,
+          "total": 8,
+          "content_correct": 4
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 8,
+          "content_correct": 6
+        },
+        "COURSE.AO5345": {
+          "correct": 7,
+          "total": 8,
+          "content_correct": 7
+        },
+        "NTD.AC": {
+          "correct": 5,
+          "total": 8,
+          "content_correct": 5
+        },
+        "TC2.WM3": {
+          "correct": 8,
+          "total": 8,
+          "content_correct": 8
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ]
+      }
+    }
+  },
+  "source_gate": {
+    "accepted": false,
+    "relative_improvement": 0.009773376028812964,
+    "regressed_books": []
+  },
+  "practice_gate": {
+    "accepted": true,
+    "relative_improvement": 0.4978125689535002,
+    "regressed_books": []
+  },
+  "transfer_gate_accepted": false,
+  "all_gates_accepted": false,
+  "execution_allowed": false,
+  "trading_qualification": false,
+  "deadline_grader_fix_commit": "0d9660a97b8ad09b0fe3f51d167d03c947ab408c",
+  "validation": {
+    "local_ai_tests_passed": 756,
+    "targeted_contrastive_tests_passed": 13,
+    "github_checks_passed": 3
+  }
+}
