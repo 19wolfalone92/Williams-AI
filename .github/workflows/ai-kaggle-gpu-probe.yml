@@ -43,7 +43,7 @@ jobs:
           username=get_username()
           if not isinstance(username,str) or re.fullmatch(r"[a-zA-Z0-9_-]{2,62}",username) is None:
               raise RuntimeError("KAGGLE_API_USER_AUTH_LOOKUP_FAILED")
-          slug="williams-ai-gpu-sanity-20261027"
+          slug="williams-ai-gpu-after-phone-verification-20261027"
           kernel=f"{username}/{slug}"
           with tempfile.TemporaryDirectory(prefix="kaggle-gpu-only-") as tmp:
               output=Path(tmp)
@@ -86,20 +86,50 @@ jobs:
                       f"[View your private Kaggle GPU notebook](https://www.kaggle.com/code/{kernel})\n\n"
                       "No book text, trading keys or user datasets were sent. "
                       "Kaggle GPU quota may be consumed briefly.\n")
-          # Poll read-only status, do NOT display potentially sensitive logs.
-          for _ in range(12):
+          # Do not confuse Kaggle's successful API submission with a real CUDA
+          # allocation: require an actual GPU receipt written by the worker.
+          final_state="UNKNOWN"
+          for _ in range(20):
               status=subprocess.run(["kaggle","kernels","status",kernel],
                   capture_output=True,text=True,timeout=35)
               state=status.stdout.lower()
-              if status.returncode==0 and ("complete" in state or "finished" in state):
-                  print("KAGGLE_PRIVATE_GPU_PROBE_STATUS: COMPLETED")
+              if status.returncode!=0:
+                  print("KAGGLE_GPU_STATUS_QUERY_FAILED")
+                  sys.exit(6)
+              if "complete" in state or "finished" in state:
+                  final_state="COMPLETE"
                   break
-              if status.returncode==0 and ("error" in state or "failed" in state or "cancelled" in state):
-                  print("KAGGLE_PRIVATE_GPU_PROBE_STATUS: FAILED_SEE_PRIVATE_KERNEL")
+              if "error" in state or "failed" in state or "cancel" in state:
+                  final_state="ERROR"
                   break
-              time.sleep(15)
-          else:
-              print("KAGGLE_PRIVATE_GPU_PROBE_STATUS: SUBMITTED_PENDING_OR_RUNNING")
+              time.sleep(10)
+          print("KAGGLE_POST_VERIFICATION_EXECUTION_STATE:",final_state)
+          if final_state!="COMPLETE":
+              # Some Kaggle worker failures are invisible in GitHub Actions
+              # unless explicitly treated as a failed run.
+              print("KAGGLE_CUDA_NOT_VERIFIED_USER_ACCOUNT_OR_GPU_ALLOCATION")
+              sys.exit(7)
+          with tempfile.TemporaryDirectory(prefix="kaggle-probe-output-") as result_dir:
+              got=subprocess.run(["kaggle","kernels","output",kernel,"-p",result_dir],
+                  capture_output=True,text=True,timeout=90)
+              if got.returncode:
+                  print("KAGGLE_COMPLETED_NO_OUTPUT_RECEIPT")
+                  sys.exit(8)
+              receipt_path=Path(result_dir)/"gpu_probe_receipt.json"
+              if not receipt_path.is_file():
+                  print("KAGGLE_COMPLETED_BUT_CUDA_RECEIPT_NOT_FOUND")
+                  sys.exit(9)
+              receipt=json.loads(receipt_path.read_text(encoding="utf-8"))
+              if (receipt.get("mode")!="REAL_KAGGLE_GPU_ONLY_PROBE"
+                  or receipt.get("torch_cuda_available") is not True
+                  or receipt.get("cuda_count",0)<1
+                  or receipt.get("real_4b_training_performed") is not False
+                  or receipt.get("licensed_book_data_uploaded") is not False):
+                  print("KAGGLE_CUDA_RECEIPT_INVALID")
+                  sys.exit(10)
+              print("GPU_PROBE_ACTUAL_CUDA_SUCCESS")
+              print("GPU_MODEL:",str(receipt.get("cuda_name","unknown"))[:80])
+              print("GPU_COUNT:",receipt["cuda_count"])
           print("LICENSED_PRIVATE_BOOK_UPLOAD: NONE")
           print("QWEN_4B_TRAINING_PERFORMED: NO")
           PY
