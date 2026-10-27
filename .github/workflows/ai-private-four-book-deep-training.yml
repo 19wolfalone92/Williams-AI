@@ -1,0 +1,34 @@
+name: Williams AI private originals deep Qwen3-4B training and blind exam
+
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths:
+      - '.github/workflows/ai-private-four-book-deep-training.yml'
+      - 'experiments/private-source-20261027.sealed.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-private-four-book-20261027
+  cancel-in-progress: false
+
+jobs:
+  private-source-only-research:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+      - name: Verify authenticated private transport without any original text
+        run: python -m unittest discover -s tests -p 'test_williams_ai_sealed_source_transport.py' -v
+      - name: Publish encryption PUBLIC key only; secret stays on this runner
+        run: python scripts/ai_sealed_source_transport.py public-key
