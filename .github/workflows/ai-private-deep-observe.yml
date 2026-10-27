@@ -20,14 +20,15 @@ jobs:
           import json,re,subprocess,tempfile
           from pathlib import Path
           from kagglehub.auth import get_username
-          kernel=get_username()+"/williams-ai-private-originals-deep-20261027"
+          kernel=get_username()+"/williams-ai-recovered-full-course-rank16-20261027"
           p=subprocess.run(["kaggle","kernels","status",kernel],capture_output=True,text=True,timeout=40)
           for state in ("complete","running","queued","error","cancel"):
               if state in p.stdout.lower():print("PRIVATE_DEEP_GPU_OBSERVED_STATE",state)
           print("PRIVATE_DEEP_GPU_STATUS_EXIT_CODE",p.returncode)
           for label,slug in (
               ("FULL_COURSE","williams-ai-full-course-corrective-rank16-20261027"),
-              ("GENERATED_EXAM","williams-ai-three-model-transfer-exam-20261027")):
+              ("GENERATED_EXAM","williams-ai-three-model-transfer-exam-20261027"),
+              ("RECOVERED_416_CONTINUATION","williams-ai-recovered-full-course-rank16-20261027")):
               observed=subprocess.run(["kaggle","kernels","status",get_username()+"/"+slug],
                   capture_output=True,text=True,timeout=40)
               states=[s for s in ("complete","running","queued","error","cancel") if s in observed.stdout.lower()]
