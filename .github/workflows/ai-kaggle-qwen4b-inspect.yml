@@ -28,7 +28,7 @@ jobs:
                              capture_output=True,text=True,timeout=40)
           print("PUBLIC_QWEN4B_KAGGLE_STATUS",res.returncode,res.stdout[-180:].strip())
           with tempfile.TemporaryDirectory(prefix="gpu4b-log-only-") as td:
-              r=subprocess.run(["kaggle","kernels","output",ref,"-p",td],
+              r=subprocess.run(["kaggle","kernels","output",ref,"-p",td,"--file-pattern",r".*\\.log$"],
                        capture_output=True,text=True,timeout=150)
               print("GPU4B_LOG_FETCH",r.returncode)
               for path in pathlib.Path(td).rglob("*"):
