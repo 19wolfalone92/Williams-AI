@@ -7,57 +7,14 @@ permissions: {contents: read}
 jobs:
   observe-only-no-new-gpu:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 5
     env:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
       - run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
-      - name: Read existing own private GPU run without submitting a job
-        run: |
-          python - <<'PY'
-          import json,re,subprocess,tempfile
-          from pathlib import Path
-          from kagglehub.auth import get_username
-          kernel=get_username()+"/williams-ai-recovered-full-course-rank16-20261027"
-          p=subprocess.run(["kaggle","kernels","status",kernel],capture_output=True,text=True,timeout=40)
-          for state in ("complete","running","queued","error","cancel"):
-              if state in p.stdout.lower():print("PRIVATE_DEEP_GPU_OBSERVED_STATE",state)
-          print("PRIVATE_DEEP_GPU_STATUS_EXIT_CODE",p.returncode)
-          for label,slug in (
-              ("FULL_COURSE","williams-ai-full-course-corrective-rank16-20261027"),
-              ("GENERATED_EXAM","williams-ai-three-model-transfer-exam-20261027"),
-              ("RECOVERED_416_CONTINUATION","williams-ai-recovered-full-course-rank16-20261027")):
-              observed=subprocess.run(["kaggle","kernels","status",get_username()+"/"+slug],
-                  capture_output=True,text=True,timeout=40)
-              states=[s for s in ("complete","running","queued","error","cancel") if s in observed.stdout.lower()]
-              print("PRIVATE_DEEP_DOWNSTREAM_STATE",label,states if observed.returncode==0 else "NOT_CREATED_OR_UNAVAILABLE")
-          with tempfile.TemporaryDirectory() as td:
-              out=subprocess.run(["kaggle","kernels","output",kernel,"-p",td,
-                  "--file-pattern",r".*(deep_research_failure[.]json|[.]log)$"],
-                  capture_output=True,text=True,timeout=100)
-              print("PRIVATE_DEEP_READ_ONLY_OUTPUT_REQUEST",out.returncode)
-              for path in Path(td).rglob("*"):
-                  if path.name=="deep_research_failure.json":
-                      r=json.loads(path.read_text());print("PRIVATE_DEEP_FAILURE_TYPE",r.get("error_type"))
-                  elif path.is_file() and path.suffix==".log":
-                      raw=path.read_text(errors="replace")
-                      # Whitelist numerical progress and implementation error codes;
-                      # never echo source, generated code, HTTP payloads or secrets.
-                      for line in raw.splitlines():
-                          found=re.search(r"(ValueError|RuntimeError): ([A-Z][A-Z_0-9]{6,100})",line)
-                          if found:print("PRIVATE_DEEP_ERROR_CODE",found.group(1),found.group(2))
-                          found=re.search(r"'loss': ([0-9.]+).*?'epoch': ([0-9.]+)",line)
-                          if found:print("PRIVATE_DEEP_NUMERICAL_PROGRESS_LOSS_EPOCH",found.group(1),found.group(2))
-          with tempfile.TemporaryDirectory() as td:
-              old=get_username()+"/williams-ai-qwen4b-rank8-32steps-20261027"
-              archived=subprocess.run(["kaggle","kernels","output",old,"-p",td,"--file-pattern",r".*[.]log$"],
-                  capture_output=True,text=True,timeout=100)
-              for path in Path(td).rglob("*.log"):
-                  raw=path.read_text(errors="replace")
-                  runtime=re.findall(r"'train_runtime': ([0-9.]+)",raw)
-                  rate=re.findall(r"'train_steps_per_second': ([0-9.]+)",raw)
-                  if runtime:print("PRIOR_REAL_RANK8_TRAIN_RUNTIME_SECONDS",runtime[-1])
-                  if rate:print("PRIOR_REAL_RANK8_OPTIMIZER_STEPS_PER_SECOND",rate[-1])
-          PY
+      - name: Read existing private kernel state, numeric Trainer logs and GPU quota only
+        run: python scripts/ai_observe_own_training.py
