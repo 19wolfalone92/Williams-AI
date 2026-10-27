@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
-      - name: Distinguish private parent-kernel attachment vs Kaggle quota/validation error by no-run uploads only
+      - name: Distinguish private parent-kernel attachment vs Kaggle quota/validation error by CPU-only stub submissions
         shell: bash
         run: |
           python - <<'PY'
@@ -40,9 +40,9 @@ jobs:
                         "dataset_sources":[],"model_sources":[],
                         "competition_sources":[],"kernel_sources":parents}
                   (p/"kernel-metadata.json").write_text(json.dumps(meta))
-                  run=subprocess.run(["kaggle","kernels","push","-p",str(p),"--no-run"],
+                  run=subprocess.run(["kaggle","kernels","push","-p",str(p),"--timeout","60"],
                       capture_output=True,text=True,timeout=90)
-                  print("PRIVATE_KAGGLE_NORUN_DRAFT_TEST",label,run.returncode,
+                  print("PRIVATE_KAGGLE_CPU_STUB_TEST",label,run.returncode,
                         "stdout_len",len(run.stdout),"stderr_len",len(run.stderr))
                   # No secrets in Python or notebook. Filter error strings to prevent
                   # sensitive account attributes being exposed.
