@@ -1,4 +1,4 @@
-name: Williams AI two T4 contrastive rules and four-book replay
+name: Williams AI two T4 contrastive replay with guarded FP16 scaling
 on:
   push:
     branches: [research/private-four-book-deep-training-20261027]

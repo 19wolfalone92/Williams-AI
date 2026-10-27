@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from decimal import Decimal
+import re
 import unittest
 
 from williams_ai.contrastive_book_practice import (paired_cases,quick_development_cases,correct_answer,
@@ -52,6 +54,14 @@ class ContrastiveResearchTests(unittest.TestCase):
         self.assertEqual([(answer[a:b],w) for a,b,w in spans],[('11.55',8.0),('false',8.0),('false',2.0)])
         with self.assertRaises(ValueError):value_spans('{"nested":{"x":2}}')
 
+    def test_wm1_input_extrema_and_output_levels_are_tick_aligned(self):
+        for split in ('train','validation','test'):
+            for row in paired_cases(split):
+                if row['rule_id']!='TC2.WM1.TRIGGER':continue
+                low,high,tick=map(Decimal,re.search(r'Low=([0-9.]+), high=([0-9.]+), tick=([0-9.]+)\.',row['question']).groups())
+                ans=json.loads(row['answer'],parse_float=Decimal)
+                for value in (low,high,Decimal(str(ans['entry'])),Decimal(str(ans['stop']))):self.assertEqual(value%tick,0)
+
     @unittest.skipUnless(importlib.util.find_spec('torch'),'optional CPU torch validation')
     def test_value_gradient_is_weighted_and_prompt_padding_has_no_gradient(self):
         import torch
@@ -62,6 +72,17 @@ class ContrastiveResearchTests(unittest.TestCase):
         self.assertAlmostEqual(float(abs(logits.grad[0,1,1]/logits.grad[0,0,0])),8.0,places=6)
         self.assertTrue(bool((logits.grad[0,2:]==0).all()))
         with self.assertRaises(ValueError):weighted_causal_loss(logits,labels,weights*0)
+
+    @unittest.skipUnless(importlib.util.find_spec('torch'),'optional CPU torch validation')
+    def test_amp_overflow_skips_update_reduces_scale_then_allows_finite_training(self):
+        import torch
+        parameter=torch.nn.Parameter(torch.tensor([1.0]));optimizer=torch.optim.SGD([parameter],lr=0.1)
+        scaler=torch.amp.GradScaler('cpu',init_scale=1024.0)
+        scaler.scale(parameter.square().sum()).backward();parameter.grad.fill_(float('inf'))
+        before=parameter.detach().clone();scaler.step(optimizer);scaler.update()
+        self.assertTrue(torch.equal(parameter.detach(),before));self.assertEqual(scaler.get_scale(),512.0)
+        optimizer.zero_grad();scaler.scale(parameter.square().sum()).backward();scaler.step(optimizer);scaler.update()
+        self.assertTrue(bool(torch.isfinite(parameter).all()));self.assertLess(float(parameter.detach()),float(before))
 
     def test_prompt_only_worker_and_actual_torchrun_entry_compile(self):
         initial={'files':{n:{'url':'https://example.invalid/expiring','sha256':'a'*64} for n in ('adapter_config.json','adapter_model.safetensors')}}

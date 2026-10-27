@@ -31,8 +31,8 @@ def paired_cases(split:str)->list[dict]:
         rng=random.Random(817331+n)
         equity=Decimal(rng.randrange(500,20001));fraction=Decimal(rng.choice(("0.0025","0.004","0.005","0.006","0.007","0.008","0.01")))
         distance=Decimal(rng.randrange(5,101))/10;step=Decimal(rng.choice(("0.01","0.02","0.03","0.05","0.1")))
-        low=Decimal(rng.randrange(500,200000))/100;high=low+Decimal(rng.randrange(10,200))/10
         tick=Decimal(rng.choice(("0.01","0.05","0.1","0.25","0.5")))
+        low=Decimal(rng.randrange(1000,20001))*tick;high=low+Decimal(rng.randrange(5,200))*tick
         end=100+n*17;gap=rng.randrange(1,5)
         hist=Decimal(rng.randrange(-200,201))/100+Decimal(n)/100000
         delta=Decimal(rng.randrange(1,21))/100

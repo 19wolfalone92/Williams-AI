@@ -166,8 +166,9 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
         if rank==0:(output/"research_receipt.json").write_text(json.dumps(report,ensure_ascii=False,indent=2,allow_nan=False))
     write_report()
     class UserStop(StoppingCriteria):
-        def __call__(self,input_ids,scores,**kwargs):return watcher.requested.is_set()
-    def predict(rows,*,stage,thinking=False):
+        def __init__(self,deadline):self.deadline=deadline
+        def __call__(self,input_ids,scores,**kwargs):return watcher.requested.is_set() or time.monotonic()>=self.deadline
+    def predict(rows,*,stage,thinking=False,time_limit=None):
         was_training=model.training;cache=model.config.use_cache;model.eval();model.config.use_cache=True
         local=[]
         with torch.inference_mode():
@@ -179,16 +180,18 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
                 options=({"do_sample":True,"temperature":0.6,"top_p":0.95,"top_k":20,"min_p":0.0,"max_new_tokens":768}
                     if thinking else {"do_sample":False,"max_new_tokens":128})
                 torch.manual_seed(20261028+idx)
+                deadline=time.monotonic()+(time_limit if time_limit is not None else (60 if thinking else 45))
                 with (model.disable_adapter() if stage=="base" else nullcontext()):
                     generated=model.generate(input_ids=ids,attention_mask=torch.ones_like(ids),pad_token_id=tokenizer.eos_token_id,
-                        stopping_criteria=StoppingCriteriaList([UserStop()]),**options)[0,len(prefix):].tolist()
+                        stopping_criteria=StoppingCriteriaList([UserStop(deadline)]),**options)[0,len(prefix):].tolist()
                 complete=True
                 if thinking:
                     close=tokenizer.convert_tokens_to_ids("</think>")
                     if close not in generated:complete=False;generated=[]
                     else:generated=generated[len(generated)-generated[::-1].index(close):]
                 response=tokenizer.decode(generated,skip_special_tokens=True).strip()
-                local.append({"case_id":row["case_id"],"response":response,"thinking_complete":complete})
+                local.append({"case_id":row["case_id"],"response":response,"thinking_complete":complete,
+                    "response_time_limit_reached":time.monotonic()>=deadline})
         values=gather(local);by_id={r["case_id"]:r for r in values}
         if len(by_id)!=len(rows):raise ValueError("NO_MISSING_OR_REPLAYED_GENERATIONS")
         model.config.use_cache=cache;model.train(was_training)
@@ -219,10 +222,27 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
         return {key:torch.tensor([r[key]+[fill]*(width-len(r[key])) for r in batch],dtype=torch.float32 if key=="loss_weights" else torch.long)
             for key,fill in (("input_ids",tokenizer.pad_token_id),("attention_mask",0),("labels",-100),("loss_weights",0.0))}
     class Deadline(TrainerCallback):
+        def __init__(self):self.saw_nonfinite=False;self.actual_updates=0;self.skipped=0;self.consecutive_skips=0;self.updates_by_checkpoint={}
         def on_pre_optimizer_step(self,args,state,control,**kwargs):
             gradients=[p.grad for p in parameters.values() if p.grad is not None]
-            if not gradients or not bool(torch.stack([torch.isfinite(g).all() for g in gradients]).all()):
-                raise ValueError("FINITE_REAL_LORA_GRADIENTS_REQUIRED")
+            if not gradients:raise ValueError("MISSING_REAL_LORA_GRADIENTS")
+            self.saw_nonfinite=not bool(torch.stack([torch.isfinite(g).all() for g in gradients]).all())
+            if self.saw_nonfinite and trainer.accelerator.scaler is None:
+                raise ValueError("NONFINITE_GRADIENT_WITHOUT_AMP_SKIP_GUARD")
+        def on_optimizer_step(self,args,state,control,**kwargs):
+            skipped=bool(trainer.accelerator.optimizer_step_was_skipped)
+            flags=torch.tensor([int(skipped),int(skipped)],device=device)
+            dist.all_reduce(flags[:1],op=dist.ReduceOp.MIN);dist.all_reduce(flags[1:],op=dist.ReduceOp.MAX)
+            if flags[0]!=flags[1]:raise ValueError("DDP_OPTIMIZER_SKIP_MUST_MATCH_BOTH_RANKS")
+            if self.saw_nonfinite and not skipped:raise ValueError("AMP_MUST_SKIP_NONFINITE_GRADIENT_UPDATE")
+            if skipped:
+                self.skipped+=1;self.consecutive_skips+=1
+                if self.consecutive_skips>=8:raise ValueError("PERSISTENT_FP16_OVERFLOW_NO_VALID_UPDATE")
+                if rank==0:print("SAFE_FP16_OVERFLOW_STEP_SKIPPED",self.skipped,trainer.accelerator.scaler.get_scale(),flush=True)
+            else:
+                self.actual_updates+=1;self.consecutive_skips=0
+                if not bool(torch.stack([torch.isfinite(p).all() for p in parameters.values()]).all()):
+                    raise ValueError("NONFINITE_ADAPTER_AFTER_OPTIMIZER_UPDATE")
         def on_step_end(self,args,state,control,**kwargs):
             flag=torch.tensor([int(time.monotonic()-started>=6900),int(watcher.requested.is_set())],device=device)
             dist.all_reduce(flag,op=dist.ReduceOp.MAX)
@@ -232,10 +252,12 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
                 if flag[1]:args.load_best_model_at_end=False
         def on_epoch_end(self,args,state,control,**kwargs):
             control.should_evaluate=not watcher.requested.is_set();control.should_save=True
+        def on_save(self,args,state,control,**kwargs):self.updates_by_checkpoint[state.global_step]=self.actual_updates
     class SemanticTrainer(Trainer):
         def compute_loss(self,model,inputs,return_outputs=False,num_items_in_batch=None):
             inputs=dict(inputs);labels=inputs.pop("labels");weights=inputs.pop("loss_weights")
             outputs=model(**inputs,use_cache=False);loss=weighted_causal_loss(outputs.logits,labels,weights)
+            if not bool(torch.isfinite(loss)):raise ValueError("NONFINITE_WEIGHTED_LOSS_REJECTED")
             return (loss,outputs) if return_outputs else loss
         def evaluation_loop(self,*args,**kwargs):
             result=super().evaluation_loop(*args,**kwargs)
@@ -258,14 +280,23 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
         disable_tqdm=True,remove_unused_columns=False,label_names=["labels"],seed=20261028,data_seed=20261028,
         fp16=True,gradient_checkpointing=True,gradient_checkpointing_kwargs={"use_reentrant":False},
         ddp_backend="nccl",ddp_find_unused_parameters=False,ddp_broadcast_buffers=False,ddp_timeout=720)
+    deadline=Deadline()
     trainer=SemanticTrainer(model=model,args=args,train_dataset=Rows(train_rows),eval_dataset=Rows(dev_rows),
-        data_collator=collate,callbacks=[Deadline(),EarlyStoppingCallback(early_stopping_patience=3)])
+        data_collator=collate,callbacks=[deadline,EarlyStoppingCallback(early_stopping_patience=3)])
     trainer.model_accepts_loss_kwargs=False
+    if trainer.accelerator.scaler is None:raise ValueError("FP16_DYNAMIC_SCALER_REQUIRED")
+    trainer.accelerator.scaler=torch.amp.GradScaler("cuda",init_scale=1024.0,growth_interval=2000)
+    report["initial_fp16_loss_scale"]=1024.0
+    write_report()
     if not stopped():trainer.train()
-    report["joint_optimizer_steps"]=trainer.state.global_step
+    report["joint_optimizer_steps"]=deadline.actual_updates
+    report["optimizer_attempted_steps"]=trainer.state.global_step
+    report["fp16_overflow_steps_skipped"]=deadline.skipped
     report["actual_epoch"]=trainer.state.epoch
     report["selected_checkpoint"]=Path(trainer.state.best_model_checkpoint).name if trainer.state.best_model_checkpoint else None
     report["selected_metric"]=trainer.state.best_metric
+    report["actual_updates_at_selected_checkpoint"]=(deadline.updates_by_checkpoint.get(int(Path(trainer.state.best_model_checkpoint).name.split("-")[-1]))
+        if trainer.state.best_model_checkpoint else None)
     report["training_stopped_by_user_or_control_unavailable"]=stopped()
     if report["training_stopped_by_user_or_control_unavailable"]:
         report["selected_checkpoint"]=f"interrupted-step-{trainer.state.global_step}"
@@ -295,10 +326,12 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
     model.load_adapter(initial_adapter,adapter_name="own416_reference",is_trainable=False,local_files_only=True)
     precommit={"questions_sha256":questions_digest(questions),"stages":{},"inference_mode":report["test_inference_mode_selected_on_development_only"],
         "expected_keys_loaded_on_gpu":False,"new_unseen_numeric_parameters":True,"execution_allowed":False}
+    response_seconds=min(45.0,max(1.0,(10800-(time.monotonic()-started)-420)/(3*math.ceil(len(questions)/world))))
+    precommit["same_response_time_budget_seconds_each_model"]=response_seconds
     for stage,adapter in (("base",None),("initial416","own416_reference"),("candidate","default")):
         if stopped():break
         model.set_adapter(adapter or "default")
-        precommit["stages"][stage]=predict(questions,stage=stage,thinking=mode)
+        precommit["stages"][stage]=predict(questions,stage=stage,thinking=mode,time_limit=response_seconds)
         if rank==0:(output/"contrastive_test_precommit.json").write_text(json.dumps(precommit,ensure_ascii=False,indent=2))
     report["generated_test_stages_completed"]=len(precommit["stages"])
     report["complete_training_and_test"]=len(precommit["stages"])==3 and changed
