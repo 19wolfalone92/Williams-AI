@@ -54,6 +54,22 @@ class ContrastiveResearchTests(unittest.TestCase):
         self.assertEqual([(answer[a:b],w) for a,b,w in spans],[('11.55',8.0),('false',8.0),('false',2.0)])
         with self.assertRaises(ValueError):value_spans('{"nested":{"x":2}}')
 
+    def test_correct_json_past_deadline_or_without_completed_thinking_fails(self):
+        cases=paired_cases('test')
+        answers=[{'case_id':r['case_id'],'response':r['answer'],
+                  'thinking_complete':True,'response_time_limit_reached':False} for r in cases]
+        answers[0]['response_time_limit_reached']=True
+        answers[1]['thinking_complete']=False
+        graded=score_responses(cases,answers)
+        self.assertEqual(graded['correct'],54)
+        self.assertEqual(sum(r['valid_json'] for r in graded['cases']),56)
+        self.assertEqual(graded['response_time_limit_failures'],1)
+        self.assertEqual(graded['incomplete_thinking_failures'],1)
+        self.assertFalse(graded['cases'][0]['correct'])
+        self.assertFalse(graded['cases'][1]['correct'])
+        answers[0]['response_time_limit_reached']='false'
+        with self.assertRaises(ValueError):score_responses(cases,answers)
+
     def test_wm1_input_extrema_and_output_levels_are_tick_aligned(self):
         for split in ('train','validation','test'):
             for row in paired_cases(split):

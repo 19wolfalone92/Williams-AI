@@ -112,9 +112,16 @@ def score_responses(cases:list[dict],responses:list[dict])->dict:
         or set(by_id)!={r["case_id"] for r in responses}):raise ValueError("EXACT_CONTRASTIVE_COHORT_REQUIRED")
     by_rule={rule:[] for rule in RULES};rows=[];observed={rule:[] for rule in RULES};expected_values={rule:[] for rule in RULES}
     for result in responses:
-        case=by_id[result["case_id"]];ok=correct_answer(result["response"],case["answer"])
+        for flag in ("thinking_complete","response_time_limit_reached"):
+            if flag in result and type(result[flag]) is not bool:
+                raise ValueError("BOOLEAN_GENERATION_COMPLETION_FLAGS_REQUIRED")
+        complete=result.get("thinking_complete",True)
+        timed_out=result.get("response_time_limit_reached",False)
+        case=by_id[result["case_id"]]
+        ok=complete and not timed_out and correct_answer(result["response"],case["answer"])
         rows.append({"case_id":case["case_id"],"rule_id":case["rule_id"],"correct":ok,
-            "valid_json":strict_answer(result["response"]) is not None})
+            "valid_json":strict_answer(result["response"]) is not None,
+            "thinking_complete":complete,"response_time_limit_reached":timed_out})
         by_rule[case["rule_id"]].append(ok)
         observed[case["rule_id"]].append(strict_answer(result["response"]))
         expected_values[case["rule_id"]].append(json.loads(case["answer"]))
@@ -128,6 +135,8 @@ def score_responses(cases:list[dict],responses:list[dict])->dict:
             if len(expected)>1 and len(actual)==1:constant_fields.setdefault(rule,[]).append(key)
     return {"correct":sum(r["correct"] for r in rows),"total":len(rows),
         "accuracy":sum(r["correct"] for r in rows)/len(rows),
+        "response_time_limit_failures":sum(r["response_time_limit_reached"] for r in rows),
+        "incomplete_thinking_failures":sum(not r["thinking_complete"] for r in rows),
         "per_rule":{rule:{"correct":sum(v),"total":len(v)} for rule,v in by_rule.items() if v},
         "distinct_responses":len(counts),"largest_identical_response_count":max(counts.values()),
         "constant_fields_despite_varied_expected_values":constant_fields,
