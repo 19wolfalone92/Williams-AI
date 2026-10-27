@@ -19,6 +19,10 @@ _TERM_GROUPS = (
     ("диверген", "divergenc"), ("баланс", "balance"),
     ("ускор", "accelerat", "ac"), ("осциллятор", "oscillator", "ao"),
     ("зон", "zone"), ("пирамид", "pyramid"), ("риск", "risk"),
+    ("нул", "нол", "zero"),
+    ("четверт", "четвёрт", "fourth", "w4"),
+    ("минимальн", "minimum"), ("требован", "requirement"),
+    ("внутренн", "inside"), ("перекры", "overlap"),
 )
 
 
