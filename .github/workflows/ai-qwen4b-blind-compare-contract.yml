@@ -1,0 +1,29 @@
+name: Williams AI Qwen3-4B actual blind before-after evaluation contract
+
+on:
+  pull_request:
+    paths:
+      - 'williams_ai/qwen4b_blind_evaluation.py'
+      - 'tests/test_williams_ai_qwen4b_blind_evaluation.py'
+      - '.github/workflows/ai-qwen4b-blind-compare-contract.yml'
+      - 'williams_ai/independent_chart_holdout.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blind-holdout-contract-NO-FAKE-GPU:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify 30 frozen historical as-of market contexts, no labels in Qwen prompt
+        run: python -m unittest discover -s tests -p 'test_williams_ai_qwen4b_blind_evaluation.py' -v
+      - name: Verify market future-key independence and deterministic Brier benchmark
+        run: python -m unittest discover -s tests -p 'test_williams_ai_independent_chart_holdout.py' -v
