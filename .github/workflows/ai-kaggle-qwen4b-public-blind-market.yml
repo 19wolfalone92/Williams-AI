@@ -47,7 +47,6 @@ jobs:
           root=Path(os.environ["RUNNER_TEMP"])/"strict_market_sealed"
           question=root/"model_questions.jsonl"
           question_bytes=question.read_bytes()
-          sealed_b64=base64.b64encode(zlib.compress(question_bytes,9)).decode("ascii")
           q_sha=hashlib.sha256(question_bytes).hexdigest()
           kernel=f"{username}/williams-ai-qwen4b-public-first-blind-market-20261027"
           training_source=f"{username}/williams-ai-qwen4b-rank8-32steps-20261027"
@@ -62,17 +61,25 @@ jobs:
           subprocess.run(["git","clone","-q","https://github.com/19wolfalone92/Williams-AI.git",
                           repo],check=True)
           subprocess.run(["git","checkout","-q",sha],cwd=repo,check=True)
-          # This Kaggle worker receives only the SEALED PAST-ONLY prompts.
-          # Remove original market archive so future bars cannot accidentally
-          # enter model inference via code pathways or diagnostic fallbacks.
+          # Build sealed as-of prompts in an isolated source-prep process.
+          # Destroy generated future-key file and full OHLC archive BEFORE
+          # importing/loading the model or invoking any inference.
           raw=Path(repo)/"examples/ai_binance_15pair_h1_prior_holdout_20260902.json"
-          if not raw.is_file():raise RuntimeError("EXPECTED_ORIGINAL_ARCHIVE_MISSING_BEFORE_SEAL")
-          raw.unlink()
-          payload=zlib.decompress(base64.b64decode(SEALED_ASOF_B64))
+          if not raw.is_file():raise RuntimeError("EXPECTED_SOURCE_ARCHIVE_MISSING")
+          subprocess.run([sys.executable,"scripts/ai_seal_15pair_blind_charts.py",
+              "--new-output","/tmp/strict_asof_only"],
+              cwd=repo,check=True)
+          question=Path("/tmp/strict_asof_only/model_questions.jsonl")
+          payload=question.read_bytes()
           if hashlib.sha256(payload).hexdigest()!=EXPECTED_ASOF_SHA:
-              raise RuntimeError("REAL_MARKET_ASOF_PROMPTS_TAMPERED")
-          question=Path("/tmp/only_past_30_asof_h1.jsonl")
-          question.write_bytes(payload)
+              raise RuntimeError("QUESTION_HASH_MUST_MATCH_GITHUB_CPU_PRESEAL")
+          future=Path("/tmp/strict_asof_only/WITHHELD_OUTCOME_KEYS.jsonl")
+          if not future.is_file():raise RuntimeError("KEYS_NOT_SEALED")
+          future.unlink()
+          raw.unlink()
+          if future.exists() or raw.exists():
+              raise RuntimeError("FUTURE_PRICE_KEYS_OR_ARCHIVE_NOT_DESTROYED")
+          print("FUTURE_PRICE_KEYS_NOT_SUPPLIED_TO_MODEL_INFERENCE",flush=True)
           subprocess.run([sys.executable,"-m","pip","install","--quiet",
               "--disable-pip-version-check","transformers==4.57.1",
               "peft==0.17.1","accelerate==1.10.1",
@@ -90,9 +97,8 @@ jobs:
           predict_real_public_before_after(
               questions=question,source_adapter_zip=archive[0],
               new_output=Path("/kaggle/working/real_qwen4b_30case_blind_precommit.json"))
-          print("NO_OUTCOME_KEYS_ON_THIS_KAGGLE_GPU_WORKER",flush=True)
+          print("NO_OUTCOME_KEYS_SUPPLIED_TO_GPU_MODEL_INFERENCE",flush=True)
           '''.replace("REVISION_MARKER",repr(sha)).replace(
-              "SEALED_ASOF_B64",repr(sealed_b64)).replace(
               "EXPECTED_ASOF_SHA",repr(q_sha))
           metadata={
               "id":kernel,
@@ -117,6 +123,8 @@ jobs:
                   details=(push.stderr+"\n"+push.stdout)[-2000:]
                   if token:details=details.replace(token,"[REDACTED]")
                   print("PUBLIC_BLIND_SUBMISSION_ERROR_DIAGNOSTIC",details)
+                  print("PUBLIC_BLIND_WORKER_SIZE_BYTES",len(worker))
+                  print("KAGGLE_SUBMISSION_RETURN_CODE",push.returncode)
                   sys.exit(4)
           print("QWEN4B_PRIVATE_BLIND_MARKET_PAGE",f"https://www.kaggle.com/code/{kernel}")
           final="UNKNOWN"
