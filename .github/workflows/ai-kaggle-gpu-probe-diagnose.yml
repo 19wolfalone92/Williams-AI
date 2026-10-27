@@ -60,4 +60,17 @@ jobs:
                           print("GPU_KERNEL_RECEIPT",file.name,raw[-2800:])
                       except OSError:
                           pass
+
+          with TemporaryDirectory() as tmp:
+              r=subprocess.run(["kaggle","kernels","pull",kernel,"-p",tmp,"-m"],
+                  capture_output=True,text=True,timeout=70)
+              print("GPU_KERNEL_PULL_REMOTE_CONFIG",r.returncode)
+              p=Path(tmp)/"kernel-metadata.json"
+              if p.is_file():
+                  obj=__import__("json").loads(p.read_text())
+                  print("ACTUAL_REMOTE_KAGGLE_ACCELERATOR_METADATA",{
+                      key:obj.get(key) for key in ("id","is_private","enable_gpu",
+                                                   "machine_shape","enable_internet")})
+              else:
+                  print("GPU_KERNEL_REMOTE_METADATA_NOT_RETURNED")
           PY
