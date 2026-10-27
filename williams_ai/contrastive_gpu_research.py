@@ -22,7 +22,7 @@ from .contrastive_book_practice import (SYSTEM,RULES,paired_cases,quick_developm
 from .deep_book_research import EDITIONS,MODEL,REVISION,checked_payload
 
 CONTROL_URL="https://raw.githubusercontent.com/19wolfalone92/Williams-AI/research/private-four-book-deep-training-20261027/experiments/contrastive-training-control.json"
-RUN_SLUG="williams-ai-contrastive-four-books-dual-t4-20261027"
+RUN_SLUG="williams-ai-contrastive-2t4-20261027"
 
 
 def checked_stop_control(data:dict)->bool:

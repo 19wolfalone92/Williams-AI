@@ -9,7 +9,7 @@ import unittest
 from williams_ai.contrastive_book_practice import (paired_cases,quick_development_cases,correct_answer,
     score_responses,value_spans,questions_digest,question_rows,weighted_causal_loss)
 from williams_ai.contrastive_gpu_research import checked_stop_control,RUN_SLUG,checked_baselines,training_lessons
-from scripts.ai_run_contrastive_kaggle import worker_source,GPU_SECONDS,POLL_SECONDS
+from scripts.ai_run_contrastive_kaggle import worker_source,GPU_SECONDS,POLL_SECONDS,safe_submission_error
 
 
 class ContrastiveResearchTests(unittest.TestCase):
@@ -93,6 +93,13 @@ class ContrastiveResearchTests(unittest.TestCase):
 
     def test_cached_baseline_rejects_another_checkpoint_or_source_corpus(self):
         with self.assertRaises(ValueError):checked_baselines({'model_repo':'other'},{'manifest_sha256':'x'})
+
+    def test_submission_name_and_provider_diagnostic_protect_private_inputs(self):
+        self.assertLessEqual(len(RUN_SLUG),50)
+        raw='validation error token=private-credential https://example.invalid/signed?token=abc '+('A'*200)
+        safe=safe_submission_error(raw,'private-credential')
+        self.assertNotIn('private-credential',safe);self.assertNotIn('example.invalid',safe);self.assertNotIn('A'*40,safe)
+        self.assertIn('validation error',safe)
 
 
 if __name__=='__main__':unittest.main()

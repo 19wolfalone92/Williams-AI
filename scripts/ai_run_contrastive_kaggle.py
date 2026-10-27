@@ -35,6 +35,13 @@ REFERENCE_RECEIPT_SHA="30fc73e921d550a033d138131bc7a47156f940d1e5fce00643d87720a
 def packed(raw:bytes)->str:return base64.b64encode(lzma.compress(raw,preset=6)).decode()
 
 
+def safe_submission_error(raw:str,credential:str)->str:
+    if credential:raw=raw.replace(credential,"<CREDENTIAL>")
+    raw=re.sub(r"https?://[^\s\"']+","<URL>",raw)
+    raw=re.sub(r"[A-Za-z0-9_+/=.-]{40,}","<LONG_TOKEN>",raw)
+    return raw[-1200:]
+
+
 def worker_source(revision:str,payload:bytes,questions:bytes,initial:dict,reference:dict)->str:
     if not re.fullmatch(r"[a-f0-9]{40}",revision):raise ValueError("IMMUTABLE_RESEARCH_SOURCE_REQUIRED")
     template='''import base64,hashlib,json,lzma,os,re,shutil,subprocess,sys,zipfile
@@ -170,13 +177,16 @@ def main():
     compile(worker,"private_dual_t4_worker","exec")
     del raw,urls,payload
     print("VERIFIED_OWN416_CONTRASTIVE_TWO_GPU_PLAN",json.dumps({"checkpoint_sha256":WEIGHT_SHA,"rank":16,"originals":audited["audit"]["source_page_counts"],"test_prompts":56,"expected_test_keys_sent_to_gpu":False}),flush=True)
+    if len(RUN_SLUG)>50:raise ValueError("KAGGLE_KERNEL_TITLE_MAX50_REQUIRED")
     metadata={"id":owner+"/"+RUN_SLUG,"title":RUN_SLUG,"code_file":"worker.py","language":"python","kernel_type":"script",
         "is_private":"true","enable_gpu":"true","enable_internet":"true","machine_shape":"NvidiaTeslaT4", "dataset_sources":[],"model_sources":[],"competition_sources":[],"kernel_sources":[]}
     with tempfile.TemporaryDirectory() as td:
         root=Path(td);(root/"worker.py").write_text(worker);(root/"worker.py").chmod(0o600)
         (root/"kernel-metadata.json").write_text(json.dumps(metadata))
         pushed=subprocess.run(["kaggle","kernels","push","-p",td,"--accelerator","NvidiaTeslaT4","--timeout",str(GPU_SECONDS)],capture_output=True,text=True,timeout=180)
-        if pushed.returncode:raise RuntimeError("PRIVATE_TWO_GPU_SUBMISSION_REJECTED")
+        if pushed.returncode:
+            print("PRIVATE_TWO_GPU_SUBMISSION_VALIDATION",safe_submission_error(pushed.stdout+"\n"+pushed.stderr,secret),flush=True)
+            raise RuntimeError("PRIVATE_TWO_GPU_SUBMISSION_REJECTED")
     print("PRIVATE_DUAL_T4_KAGGLE_PAGE","https://www.kaggle.com/code/"+owner+"/"+RUN_SLUG,flush=True)
     state="UNKNOWN"
     for attempt in range((GPU_SECONDS+600)//POLL_SECONDS):
