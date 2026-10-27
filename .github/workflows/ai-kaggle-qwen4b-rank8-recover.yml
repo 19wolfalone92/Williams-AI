@@ -1,0 +1,116 @@
+name: Williams AI recover rank8 REAL Qwen3-4B adapter from Kaggle without GPU rerun
+
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: ['.github/workflows/ai-kaggle-qwen4b-rank8-recover.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  actual-lora-archive-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2'
+      - name: Download ONLY research ZIP and verify adapted 4B weights on CPU
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,subprocess,sys,tempfile,zipfile,shutil
+          from pathlib import Path
+          ref="wolf19loner92/williams-ai-qwen4b-rank8-32steps-20261027"
+          sha="b85af751aff558cc24f84fbd49d4602514430cf5"
+          fil=subprocess.run(["kaggle","kernels","files",ref,"--csv",
+                 "--page-size","200"],capture_output=True,text=True,timeout=75)
+          print("RANK8_PRIVATE_KAGGLE_FILE_MANIFEST_STATUS",fil.returncode)
+          print("RANK8_RELEVANT_OUTPUTS",[
+              l[:250] for l in fil.stdout.splitlines()
+              if ".zip" in l or "safetensors" in l or "receipt" in l][:24])
+          with tempfile.TemporaryDirectory(prefix="rank8-qlora-export-") as temp:
+              result=subprocess.run(["kaggle","kernels","output",ref,
+                  "-p",temp,"--file-pattern",r".*zip$"],
+                  capture_output=True,text=True,timeout=150)
+              print("RANK8_FILTERED_OUTPUT_STATUS",result.returncode)
+              zipfiles=[f for f in Path(temp).rglob("*")
+                        if f.is_file() and f.name.endswith(".zip")]
+              print("RANK8_ARCHIVE_NAMES",[f.name for f in zipfiles][:10])
+              match=[f for f in zipfiles
+                  if f.name=="Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER.zip"]
+              if len(match)!=1:
+                  with tempfile.TemporaryDirectory(prefix="rank8-log-only-") as logs:
+                      q=subprocess.run(["kaggle","kernels","output",ref,
+                          "-p",logs,"--file-pattern",r".*log$"],
+                          capture_output=True,text=True,timeout=100)
+                      for path in Path(logs).rglob("*.log"):
+                          try:
+                              a=json.loads(path.read_text(errors="replace"))
+                              if isinstance(a,list):
+                                  found=[str(row.get("data",""))
+                                    for row in a if any(w in str(row.get("data",""))
+                                     for w in ("Traceback","Error","Exception",
+                                             "RuntimeError","ValueError","QWEN",
+                                             "ACTUAL_PRETRAINED","PUBLIC_BOOK",
+                                             "OUT_OF_MEMORY","Killed","Adapter",
+                                             "rank8","rank 8"))]
+                                  for msg in found[-32:]:
+                                      secret=os.environ.get("KAGGLE_API_TOKEN","")
+                                      if secret: msg=msg.replace(secret,"[REDACTED]")
+                                      print("RANK8_PUBLIC_GPU_NOTEBOOK_DIAGNOSTIC",msg[-650:])
+                          except Exception:pass
+                  sys.exit(4)
+              with zipfile.ZipFile(match[0]) as z:
+                  members=z.namelist()
+                  if any(x.startswith("/") or ".." in Path(x).parts for x in members):
+                      raise RuntimeError("UNSAFE_ARCHIVE_MEMBER")
+                  if not {"research_receipt.json","adapter/adapter_model.safetensors",
+                          "adapter/adapter_config.json"}<=set(members):
+                      raise RuntimeError("RESEARCH_ADAPTER_OR_CONFIG_OR_RECEIPT_MISSING")
+                  receipt=json.loads(z.read("research_receipt.json"))
+                  weight=z.read("adapter/adapter_model.safetensors")
+              actual=hashlib.sha256(weight).hexdigest()
+              print("REAL_RANK8_4B_ADAPTER_BYTES",len(weight))
+              print("REAL_RANK8_4B_SOURCE_VALIDATION_GATE",receipt.get("validation_gate"))
+              accepted=(
+                  receipt.get("mode")=="REAL_QWEN3_4B_NVIDIA_GPU_NF4_PUBLIC_PRACTICE_RESEARCH_ONLY"
+                  and receipt.get("model_repo")=="Qwen/Qwen3-4B"
+                  and receipt.get("model_revision")=="3fb356690bbdae7353c94efb3eecdce276e6ed1c"
+                  and receipt.get("source_commit")==sha
+                  and receipt.get("rank")==8
+                  and 1<=receipt.get("steps",0)<=32
+                  and receipt.get("adapter_weights_changed") is True
+                  and receipt.get("validation_gate",{}).get("accepted") is True
+                  and receipt.get("adapter_model_sha256")==actual
+                  and receipt.get("full_original_four_books_trained") is False
+                  and receipt.get("execution_allowed") is False
+                  and len(weight)>100000)
+              if not accepted:
+                  print("REAL_RANK8_4B_PUBLIC_MODEL_NOT_ADMITTED")
+                  sys.exit(5)
+              target=Path(os.environ["RUNNER_TEMP"])/"williams_qwen3_4b_real_rank8"
+              target.mkdir(mode=0o700)
+              shutil.copy2(match[0],target/match[0].name)
+              (target/"PUBLIC_SOURCE_VALIDATION.json").write_text(json.dumps({
+                  "source_commit":sha,"optimizer_steps":receipt["steps"],
+                  "rank":receipt["rank"],"base_model":receipt["model_repo"],
+                  "actual_adapter_sha256":actual,
+                  "public_four_book_source_improvement":
+                      receipt["validation_gate"].get("relative_improvement"),
+                  "expert_market_wave_wm_validation":False,
+                  "trained_original_four_book_pdfs":False,
+                  "exchange_orders_enabled":False},indent=2))
+              print("ACTUAL_QWEN3_4B_RANK8_LORA_ADAPTER_EXPORT_VERIFIED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Williams-AI-actual-Qwen3-4B-Rank8-T4-adapter-PUBLIC-exercises
+          path: ${{ runner.temp }}/williams_qwen3_4b_real_rank8/
+          if-no-files-found: error
+          retention-days: 14
