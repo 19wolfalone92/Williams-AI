@@ -26,6 +26,14 @@ jobs:
           if dest.exists():
               raise RuntimeError("EXISTING_OUTPUT_DIRECTORY")
           dest.mkdir(parents=True,mode=0o700)
+          metadata=subprocess.run(["kaggle","kernels","files",ref,
+              "--page-size","200","--csv"],capture_output=True,text=True,timeout=80)
+          print("KAGGLE_4B_OUTPUT_MANIFEST_STATUS",metadata.returncode)
+          print("KAGGLE_4B_RELEVANT_PATHS",
+                [line[:280] for line in metadata.stdout.splitlines()
+                 if any(term in line.lower() for term in
+                        ("research_receipt","adapter_model","adapter_config",
+                         "tokenizer_config","research_report"))][:20])
           with tempfile.TemporaryDirectory(prefix="kaggle-4b-recovery-") as scratch:
               p=subprocess.run(["kaggle","kernels","output",ref,"-p",scratch,
                   "--file-pattern",r".*(research_receipt\.json|adapter_model\.safetensors|adapter_config\.json|tokenizer_config\.json)$"],
@@ -40,6 +48,7 @@ jobs:
               weights=[x for x in all_files if x.name=="adapter_model.safetensors"]
               if len(reports)!=1 or len(weights)!=1:
                   print("FILTERED_SAFETENSORS_OR_RESEARCH_RECEIPT_MISSING")
+                  print("EXPECTED_REPORT_AND_WEIGHTS",len(reports),len(weights))
                   sys.exit(3)
               report=json.loads(reports[0].read_text())
               h=hashlib.sha256(weights[0].read_bytes()).hexdigest()
