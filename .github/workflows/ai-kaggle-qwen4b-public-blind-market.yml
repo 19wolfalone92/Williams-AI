@@ -1,0 +1,166 @@
+name: Williams AI REAL pretrained Qwen3-4B before-after BLIND 30 H1 on Kaggle
+
+on:
+  push:
+    branches: [research/actual-qwen3-4b-kaggle-qlora-pilot-20261027]
+    paths: ['.github/workflows/ai-kaggle-qwen4b-public-blind-market.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  blind-market-exam-after-verifiable-qlora:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 44
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate safety of actual rank8 adapter + market future-blind evaluation
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_qwen4b_public_market_probe.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_qwen4b_blind_evaluation.py' -v
+      - name: Generate as-of-only 30 H1 prompts; keep withheld future keys on GitHub CPU machine
+        run: python scripts/ai_seal_15pair_blind_charts.py --new-output "$RUNNER_TEMP/strict_market_sealed"
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Start TRUE GPU base-versus-rank8 model inference with ZERO future labels
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64,hashlib,json,os,re,subprocess,sys,tempfile,time,zlib
+          from pathlib import Path
+          from kagglehub.auth import get_username
+          sha=os.environ["GITHUB_SHA"]
+          username=get_username()
+          if len(os.environ.get("KAGGLE_API_TOKEN","").strip())<16:
+              raise RuntimeError("VALIDATED_KAGGLE_SECRET_REQUIRED")
+          if not re.fullmatch(r"[0-9a-f]{40}",sha):
+              raise RuntimeError("REPRODUCIBLE_GITHUB_SOURCE_COMMIT_REQUIRED")
+          if not re.fullmatch(r"[A-Za-z0-9_-]{2,62}",username):
+              raise RuntimeError("KAGGLE_AUTH_ID_REQUIRED")
+          root=Path(os.environ["RUNNER_TEMP"])/"strict_market_sealed"
+          question=root/"model_questions.jsonl"
+          question_bytes=question.read_bytes()
+          sealed_b64=base64.b64encode(zlib.compress(question_bytes,9)).decode("ascii")
+          q_sha=hashlib.sha256(question_bytes).hexdigest()
+          kernel=f"{username}/williams-ai-qwen4b-public-first-blind-market-20261027"
+          training_source=f"{username}/williams-ai-qwen4b-rank8-32steps-20261027"
+          worker=r'''"""30 as-of real H1. Public-source adapter ONLY. NO withheld price labels."""
+          import base64,hashlib,os,subprocess,sys,zlib
+          from pathlib import Path
+          os.environ["CUDA_VISIBLE_DEVICES"]="0"
+          os.environ["HF_HUB_DISABLE_TELEMETRY"]="1"
+          os.environ["TOKENIZERS_PARALLELISM"]="false"
+          repo="/tmp/isolated_public_qwen4b_eval"
+          sha=REVISION_MARKER
+          subprocess.run(["git","clone","-q","https://github.com/19wolfalone92/Williams-AI.git",
+                          repo],check=True)
+          subprocess.run(["git","checkout","-q",sha],cwd=repo,check=True)
+          # This Kaggle worker receives only the SEALED PAST-ONLY prompts.
+          # Remove original market archive so future bars cannot accidentally
+          # enter model inference via code pathways or diagnostic fallbacks.
+          raw=Path(repo)/"examples/ai_binance_15pair_h1_prior_holdout_20260902.json"
+          if not raw.is_file():raise RuntimeError("EXPECTED_ORIGINAL_ARCHIVE_MISSING_BEFORE_SEAL")
+          raw.unlink()
+          payload=zlib.decompress(base64.b64decode(SEALED_ASOF_B64))
+          if hashlib.sha256(payload).hexdigest()!=EXPECTED_ASOF_SHA:
+              raise RuntimeError("REAL_MARKET_ASOF_PROMPTS_TAMPERED")
+          question=Path("/tmp/only_past_30_asof_h1.jsonl")
+          question.write_bytes(payload)
+          subprocess.run([sys.executable,"-m","pip","install","--quiet",
+              "--disable-pip-version-check","transformers==4.57.1",
+              "peft==0.17.1","accelerate==1.10.1",
+              "bitsandbytes==0.48.1","safetensors==0.6.2"],check=True)
+          import torch
+          if not torch.cuda.is_available() or torch.cuda.device_count()!=1:
+              raise RuntimeError("REAL_CUDA_QWEN3_4B_MARKET_EVALUATION_REQUIRED")
+          archive=list(Path("/kaggle/input").rglob(
+              "Qwen3-4B_rank8_PUBLIC_BOOK_RULE_ADAPTER.zip"))
+          print("ATTACHED_ADAPTER_ZIP_COUNT",len(archive),flush=True)
+          if len(archive)!=1:
+              raise RuntimeError("PRIOR_PRIVATE_KAGGLE_TRAINED_ADAPTER_OUTPUT_NOT_ATTACHED")
+          sys.path.insert(0,repo)
+          from williams_ai.qwen4b_public_market_probe import predict_real_public_before_after
+          predict_real_public_before_after(
+              questions=question,source_adapter_zip=archive[0],
+              new_output=Path("/kaggle/working/real_qwen4b_30case_blind_precommit.json"))
+          print("NO_OUTCOME_KEYS_ON_THIS_KAGGLE_GPU_WORKER",flush=True)
+          '''.replace("REVISION_MARKER",repr(sha)).replace(
+              "SEALED_ASOF_B64",repr(sealed_b64)).replace(
+              "EXPECTED_ASOF_SHA",repr(q_sha))
+          metadata={
+              "id":kernel,
+              "title":"williams-ai-qwen4b-public-first-blind-market-20261027",
+              "code_file":"worker.py","language":"python","kernel_type":"script",
+              "is_private":"true","enable_gpu":"true","enable_internet":"true",
+              "machine_shape":"NvidiaTeslaT4",
+              "dataset_sources":[],"model_sources":[],
+              "competition_sources":[],
+              "kernel_sources":[training_source]
+          }
+          with tempfile.TemporaryDirectory(prefix="qwen4b-public-real-blind-") as td:
+              base=Path(td)
+              (base/"kernel-metadata.json").write_text(json.dumps(metadata))
+              (base/"worker.py").write_text(worker)
+              push=subprocess.run(["kaggle","kernels","push","-p",str(base),
+                     "--accelerator","NvidiaTeslaT4","--timeout","2500"],
+                     capture_output=True,text=True,timeout=180)
+              if push.returncode:
+                  print("REAL_QWEN4B_BLIND_GPU_SUBMISSION_FAILED")
+                  sys.exit(4)
+          print("QWEN4B_PRIVATE_BLIND_MARKET_PAGE",f"https://www.kaggle.com/code/{kernel}")
+          final="UNKNOWN"
+          for i in range(67):
+              k=subprocess.run(["kaggle","kernels","status",kernel],
+                  capture_output=True,text=True,timeout=40)
+              msg=k.stdout.lower()
+              if k.returncode==0 and ("complete" in msg or "finished" in msg):
+                  final="COMPLETE";break
+              if k.returncode==0 and ("error" in msg or "failed" in msg or "cancel" in msg):
+                  final="ERROR";break
+              time.sleep(20)
+          print("REAL_QWEN4B_BLIND_MARKET_WORKER_STATUS",final)
+          if final!="COMPLETE":sys.exit(5)
+          with tempfile.TemporaryDirectory(prefix="qwen4b-blind-predictions-") as td:
+              downloaded=subprocess.run(["kaggle","kernels","output",kernel,
+                  "-p",td,"--file-pattern",r".*precommit.json$"],
+                  capture_output=True,text=True,timeout=120)
+              if downloaded.returncode:
+                  print("REAL_QWEN4B_BLIND_PRECOMMIT_DOWNLOAD_FAILED")
+                  sys.exit(6)
+              found=list(Path(td).rglob("real_qwen4b_30case_blind_precommit.json"))
+              if len(found)!=1:
+                  print("REAL_QWEN4B_NO_FUTURE_BLIND_30CASE_PREDICTIONS")
+                  sys.exit(7)
+              predictions=json.loads(found[0].read_text())
+              if (predictions.get("receipt",{}).get("true_future_outcomes_loaded_in_prediction") is not False
+                  or len(predictions.get("baseline",[]))!=30
+                  or len(predictions.get("adapted",[]))!=30
+                  or predictions["receipt"].get("market_questions_file_sha256")!=q_sha):
+                  print("REAL_QWEN4B_FAILED_FUTURE_LABEL_SEPARATION_CONTRACT")
+                  sys.exit(8)
+              out=Path(os.environ["RUNNER_TEMP"])/"qwen4b_public_blind_market_receipts"
+              out.mkdir(parents=True,mode=0o700)
+              import shutil
+              shutil.copy2(found[0],out/"real_qwen4b_30case_blind_precommit.json")
+              print("REAL_QWEN4B_30_CASES_PRECOMMITTED_WITHOUT_OUTCOMES")
+          PY
+      - name: Only NOW unseal future outcomes on GitHub CPU and score actual base/adapted Qwen
+        run: |
+          python -m williams_ai.qwen4b_blind_evaluation grade \
+            --predictions "$RUNNER_TEMP/qwen4b_public_blind_market_receipts/real_qwen4b_30case_blind_precommit.json" \
+            --withheld-outcomes "$RUNNER_TEMP/strict_market_sealed/WITHHELD_OUTCOME_KEYS.jsonl" \
+            --new-report "$RUNNER_TEMP/qwen4b_public_blind_market_receipts/real_qwen4b_30case_blind_grade.json"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Williams_AI_Qwen3-4B_BASE_vs_RANK8_public-source_30_REAL_H1_future-blind_AUDIT
+          path: ${{ runner.temp }}/qwen4b_public_blind_market_receipts/
+          if-no-files-found: error
+          retention-days: 14
