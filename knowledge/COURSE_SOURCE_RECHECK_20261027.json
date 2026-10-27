@@ -1,0 +1,26 @@
+{
+  "format": "COURSE_ASSISTANT_VISUAL_SOURCE_RECHECK_V1",
+  "date": "2026-10-27",
+  "original_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+  "method": "ASSISTANT_INSPECTION_OF_RENDERED_ORIGINAL_PDF_PAGES_WITH_OCR_CROSS_CHECK",
+  "independent_human_expert_review": false,
+  "all_figures_understood": false,
+  "checks": [
+    {"rule_id": "COURSE.HUMP", "pdf_pages": [72, 89], "extreme_formation_bar_overlap_allowed": false,
+     "previous_teaching_error": "Required overlap instead of excluding it; source code already excluded overlap."},
+    {"rule_id": "COURSE.W4.ZERO", "pdf_pages": [43, 44, 45],
+     "zero_cross_means_minimum_requirements_not_completion": true,
+     "zero_approach_equals_cross": false},
+    {"rule_id": "COURSE.AO5345", "pdf_pages": [42, 45],
+     "direction_filter": "5_34_histogram_relative_to_own_SMA5_not_zero_sign"},
+    {"rule_id": "COURSE.THUMB", "pdf_pages": [69, 71], "inside_bar_is_a_finger": false,
+     "page69": "Two of three fingers can be SQUAT or GREEN in any combination.",
+     "page71": "Ideal summary asks for at least one SQUAT and one GREEN; missing one makes it weaker."},
+    {"rule_id": "COURSE.VISUAL.NESTED_ABC", "pdf_pages": [56],
+     "text_ocr_of_diagram_cannot_replace_visual_structure_review": true}
+  ],
+  "first_private_gpu_run_revision": "6099fb60f4f8f050e0e51f0253c970f20826b833",
+  "first_private_gpu_run_contains_old_hump_card": true,
+  "first_private_gpu_candidate_requires_correction_before_promotion": true,
+  "execution_allowed": false
+}
