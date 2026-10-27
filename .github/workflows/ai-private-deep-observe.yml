@@ -25,6 +25,13 @@ jobs:
           for state in ("complete","running","queued","error","cancel"):
               if state in p.stdout.lower():print("PRIVATE_DEEP_GPU_OBSERVED_STATE",state)
           print("PRIVATE_DEEP_GPU_STATUS_EXIT_CODE",p.returncode)
+          for label,slug in (
+              ("FULL_COURSE","williams-ai-full-course-corrective-rank16-20261027"),
+              ("GENERATED_EXAM","williams-ai-three-model-transfer-exam-20261027")):
+              observed=subprocess.run(["kaggle","kernels","status",get_username()+"/"+slug],
+                  capture_output=True,text=True,timeout=40)
+              states=[s for s in ("complete","running","queued","error","cancel") if s in observed.stdout.lower()]
+              print("PRIVATE_DEEP_DOWNSTREAM_STATE",label,states if observed.returncode==0 else "NOT_CREATED_OR_UNAVAILABLE")
           with tempfile.TemporaryDirectory() as td:
               out=subprocess.run(["kaggle","kernels","output",kernel,"-p",td,
                   "--file-pattern",r".*(deep_research_failure[.]json|[.]log)$"],
