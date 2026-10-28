@@ -1,0 +1,1331 @@
+{
+  "status": "RESEARCH_ADMISSION_FAILED_NO_EXECUTION",
+  "models": {
+    "base": {
+      "direct": {
+        "correct": 24,
+        "total": 112,
+        "accuracy": 0.21428571428571427,
+        "response_time_limit_failures": 0,
+        "incomplete_thinking_failures": 0,
+        "per_rule": {
+          "TC1.PSY.PLAN": {
+            "correct": 0,
+            "total": 16
+          },
+          "TC2.WM1.TRIGGER": {
+            "correct": 0,
+            "total": 16
+          },
+          "COURSE.HUMP": {
+            "correct": 8,
+            "total": 16
+          },
+          "COURSE.W4.ZERO": {
+            "correct": 8,
+            "total": 16
+          },
+          "COURSE.AO5345": {
+            "correct": 7,
+            "total": 16
+          },
+          "NTD.AC": {
+            "correct": 0,
+            "total": 16
+          },
+          "TC2.WM3": {
+            "correct": 1,
+            "total": 16
+          }
+        },
+        "distinct_responses": 36,
+        "largest_identical_response_count": 16,
+        "constant_fields_despite_varied_expected_values": {
+          "COURSE.HUMP": [
+            "hump_valid"
+          ],
+          "COURSE.W4.ZERO": [
+            "minimum_w4_met"
+          ],
+          "TC2.WM3": [
+            "confirmed"
+          ]
+        },
+        "expert_market_chart_exam": false,
+        "execution_allowed": false
+      },
+      "market": {
+        "cases": 30,
+        "correct": 6,
+        "top1_accuracy": 0.2,
+        "multiclass_brier": 0.5129345058,
+        "price_outcomes_not_expert_wave_labels": true,
+        "trading_profit_not_measured": true,
+        "execution_allowed": false,
+        "friction_diagnostic": {
+          "conditional_24h_directional_positions": 0,
+          "range_abstentions": 30,
+          "mean_net_return_per_conditional_position": null,
+          "mean_net_return_per_case": 0.0,
+          "positive_positions": 0,
+          "round_trip_friction_assumption": 0.0012000000000000001,
+          "not_a_full_williams_strategy_backtest": true,
+          "funding_fills_intrabar_stops_not_modeled": true,
+          "overlapping_assets_and_dates_not_independent": true,
+          "execution_allowed": false
+        },
+        "free_generation": {
+          "cases": 30,
+          "correct": 6,
+          "accuracy": 0.2,
+          "valid_completed_class_answers": 30,
+          "invalid_or_incomplete_answers": 0,
+          "class_counts": {
+            "RANGE": 30
+          },
+          "range_abstentions": 30,
+          "invalid_answers_are_abstentions_in_friction_only": true,
+          "conditional_24h_positions": 0,
+          "mean_scenario_net_return_per_case": 0.0,
+          "scenario_round_trip_friction": 0.0012000000000000001,
+          "not_a_complete_strategy_backtest": true,
+          "per_case": [
+            {
+              "case_id": "ADAUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ADAUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1786006799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1787129999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1786179599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1787302799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1786352399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1787475599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1786525199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1787648399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1786697999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1787821199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": true
+            }
+          ],
+          "trading_qualification": false,
+          "execution_allowed": false
+        }
+      },
+      "source_test": {
+        "TC1": 2.765907741728283,
+        "NTD": 2.721208526242164,
+        "TC2": 2.6829733271752634,
+        "COURSE": 4.2094165556358565,
+        "ALL": 2.918644116694234
+      }
+    },
+    "previous40": {
+      "direct": {
+        "correct": 40,
+        "total": 112,
+        "accuracy": 0.35714285714285715,
+        "response_time_limit_failures": 0,
+        "incomplete_thinking_failures": 0,
+        "per_rule": {
+          "TC1.PSY.PLAN": {
+            "correct": 0,
+            "total": 16
+          },
+          "TC2.WM1.TRIGGER": {
+            "correct": 5,
+            "total": 16
+          },
+          "COURSE.HUMP": {
+            "correct": 8,
+            "total": 16
+          },
+          "COURSE.W4.ZERO": {
+            "correct": 8,
+            "total": 16
+          },
+          "COURSE.AO5345": {
+            "correct": 7,
+            "total": 16
+          },
+          "NTD.AC": {
+            "correct": 4,
+            "total": 16
+          },
+          "TC2.WM3": {
+            "correct": 8,
+            "total": 16
+          }
+        },
+        "distinct_responses": 33,
+        "largest_identical_response_count": 16,
+        "constant_fields_despite_varied_expected_values": {
+          "COURSE.HUMP": [
+            "hump_valid"
+          ],
+          "COURSE.W4.ZERO": [
+            "minimum_w4_met"
+          ],
+          "NTD.AC": [
+            "signal_ready"
+          ],
+          "TC2.WM3": [
+            "confirmed"
+          ]
+        },
+        "expert_market_chart_exam": false,
+        "execution_allowed": false
+      },
+      "market": {
+        "cases": 30,
+        "correct": 15,
+        "top1_accuracy": 0.5,
+        "multiclass_brier": 0.21247531710472092,
+        "price_outcomes_not_expert_wave_labels": true,
+        "trading_profit_not_measured": true,
+        "execution_allowed": false,
+        "friction_diagnostic": {
+          "conditional_24h_directional_positions": 19,
+          "range_abstentions": 11,
+          "mean_net_return_per_conditional_position": 0.006865655052618338,
+          "mean_net_return_per_case": 0.004348248199991614,
+          "positive_positions": 13,
+          "round_trip_friction_assumption": 0.0012000000000000001,
+          "not_a_full_williams_strategy_backtest": true,
+          "funding_fills_intrabar_stops_not_modeled": true,
+          "overlapping_assets_and_dates_not_independent": true,
+          "execution_allowed": false
+        },
+        "free_generation": {
+          "cases": 30,
+          "correct": 14,
+          "accuracy": 0.4666666666666667,
+          "valid_completed_class_answers": 30,
+          "invalid_or_incomplete_answers": 0,
+          "class_counts": {
+            "RANGE": 10,
+            "DOWN": 19,
+            "UP": 1
+          },
+          "range_abstentions": 10,
+          "invalid_answers_are_abstentions_in_friction_only": true,
+          "conditional_24h_positions": 20,
+          "mean_scenario_net_return_per_case": 0.004105218370224314,
+          "scenario_round_trip_friction": 0.0012000000000000001,
+          "not_a_complete_strategy_backtest": true,
+          "per_case": [
+            {
+              "case_id": "ADAUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ADAUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1786006799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1787129999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1786179599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1787302799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1786352399999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1787475599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1786525199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1787648399999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1786697999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1787821199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": false
+            }
+          ],
+          "trading_qualification": false,
+          "execution_allowed": false
+        }
+      },
+      "source_test": {
+        "TC1": 2.247868887961857,
+        "NTD": 2.25342289094002,
+        "TC2": 1.7828799188137054,
+        "COURSE": 3.5798935095469155,
+        "ALL": 2.31019565569927
+      }
+    },
+    "focused69": {
+      "direct": {
+        "correct": 78,
+        "total": 112,
+        "accuracy": 0.6964285714285714,
+        "response_time_limit_failures": 0,
+        "incomplete_thinking_failures": 0,
+        "per_rule": {
+          "TC1.PSY.PLAN": {
+            "correct": 2,
+            "total": 16
+          },
+          "TC2.WM1.TRIGGER": {
+            "correct": 15,
+            "total": 16
+          },
+          "COURSE.HUMP": {
+            "correct": 15,
+            "total": 16
+          },
+          "COURSE.W4.ZERO": {
+            "correct": 15,
+            "total": 16
+          },
+          "COURSE.AO5345": {
+            "correct": 15,
+            "total": 16
+          },
+          "NTD.AC": {
+            "correct": 6,
+            "total": 16
+          },
+          "TC2.WM3": {
+            "correct": 10,
+            "total": 16
+          }
+        },
+        "distinct_responses": 42,
+        "largest_identical_response_count": 12,
+        "constant_fields_despite_varied_expected_values": {
+          "NTD.AC": [
+            "signal_ready"
+          ]
+        },
+        "expert_market_chart_exam": false,
+        "execution_allowed": false
+      },
+      "market": {
+        "cases": 30,
+        "correct": 6,
+        "top1_accuracy": 0.2,
+        "multiclass_brier": 0.4115317820317615,
+        "price_outcomes_not_expert_wave_labels": true,
+        "trading_profit_not_measured": true,
+        "execution_allowed": false,
+        "friction_diagnostic": {
+          "conditional_24h_directional_positions": 1,
+          "range_abstentions": 29,
+          "mean_net_return_per_conditional_position": -0.0877070729053319,
+          "mean_net_return_per_case": -0.0029235690968443966,
+          "positive_positions": 0,
+          "round_trip_friction_assumption": 0.0012000000000000001,
+          "not_a_full_williams_strategy_backtest": true,
+          "funding_fills_intrabar_stops_not_modeled": true,
+          "overlapping_assets_and_dates_not_independent": true,
+          "execution_allowed": false
+        },
+        "free_generation": {
+          "cases": 30,
+          "correct": 6,
+          "accuracy": 0.2,
+          "valid_completed_class_answers": 30,
+          "invalid_or_incomplete_answers": 0,
+          "class_counts": {
+            "RANGE": 29,
+            "UP": 1
+          },
+          "range_abstentions": 29,
+          "invalid_answers_are_abstentions_in_friction_only": true,
+          "conditional_24h_positions": 1,
+          "mean_scenario_net_return_per_case": -0.0029235690968443966,
+          "scenario_round_trip_friction": 0.0012000000000000001,
+          "not_a_complete_strategy_backtest": true,
+          "per_case": [
+            {
+              "case_id": "ADAUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ADAUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1786006799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1787129999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1786179599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1787302799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1786352399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1787475599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1786525199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1787648399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1786697999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1787821199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": true
+            }
+          ],
+          "trading_qualification": false,
+          "execution_allowed": false
+        }
+      },
+      "source_test": {
+        "TC1": 2.2406637763220165,
+        "NTD": 2.2571264966841666,
+        "TC2": 1.8007130392136113,
+        "COURSE": 3.524778315515229,
+        "ALL": 2.306918226865183
+      }
+    },
+    "restorative768": {
+      "direct": {
+        "correct": 84,
+        "total": 112,
+        "accuracy": 0.75,
+        "response_time_limit_failures": 0,
+        "incomplete_thinking_failures": 0,
+        "per_rule": {
+          "TC1.PSY.PLAN": {
+            "correct": 1,
+            "total": 16
+          },
+          "TC2.WM1.TRIGGER": {
+            "correct": 15,
+            "total": 16
+          },
+          "COURSE.HUMP": {
+            "correct": 16,
+            "total": 16
+          },
+          "COURSE.W4.ZERO": {
+            "correct": 16,
+            "total": 16
+          },
+          "COURSE.AO5345": {
+            "correct": 16,
+            "total": 16
+          },
+          "NTD.AC": {
+            "correct": 6,
+            "total": 16
+          },
+          "TC2.WM3": {
+            "correct": 14,
+            "total": 16
+          }
+        },
+        "distinct_responses": 42,
+        "largest_identical_response_count": 12,
+        "constant_fields_despite_varied_expected_values": {
+          "NTD.AC": [
+            "signal_ready"
+          ]
+        },
+        "expert_market_chart_exam": false,
+        "execution_allowed": false
+      },
+      "market": {
+        "cases": 30,
+        "correct": 6,
+        "top1_accuracy": 0.2,
+        "multiclass_brier": 0.39087787577105654,
+        "price_outcomes_not_expert_wave_labels": true,
+        "trading_profit_not_measured": true,
+        "execution_allowed": false,
+        "friction_diagnostic": {
+          "conditional_24h_directional_positions": 2,
+          "range_abstentions": 28,
+          "mean_net_return_per_conditional_position": -0.04867476468376212,
+          "mean_net_return_per_case": -0.003244984312250808,
+          "positive_positions": 0,
+          "round_trip_friction_assumption": 0.0012000000000000001,
+          "not_a_full_williams_strategy_backtest": true,
+          "funding_fills_intrabar_stops_not_modeled": true,
+          "overlapping_assets_and_dates_not_independent": true,
+          "execution_allowed": false
+        },
+        "free_generation": {
+          "cases": 30,
+          "correct": 6,
+          "accuracy": 0.2,
+          "valid_completed_class_answers": 30,
+          "invalid_or_incomplete_answers": 0,
+          "class_counts": {
+            "RANGE": 28,
+            "DOWN": 1,
+            "UP": 1
+          },
+          "range_abstentions": 28,
+          "invalid_answers_are_abstentions_in_friction_only": true,
+          "conditional_24h_positions": 2,
+          "mean_scenario_net_return_per_case": -0.003244984312250808,
+          "scenario_round_trip_friction": 0.0012000000000000001,
+          "not_a_complete_strategy_backtest": true,
+          "per_case": [
+            {
+              "case_id": "ADAUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ADAUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1786006799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1787129999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1786179599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1787302799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1786352399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1787475599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1786525199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1787648399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1786697999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1787821199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": true
+            }
+          ],
+          "trading_qualification": false,
+          "execution_allowed": false
+        }
+      },
+      "source_test": {
+        "TC1": 2.263172734351385,
+        "NTD": 2.283235207680733,
+        "TC2": 1.8241405477446895,
+        "COURSE": 3.533732038555723,
+        "ALL": 2.3292056884898606
+      }
+    },
+    "candidate": {
+      "direct": {
+        "correct": 85,
+        "total": 112,
+        "accuracy": 0.7589285714285714,
+        "response_time_limit_failures": 0,
+        "incomplete_thinking_failures": 0,
+        "per_rule": {
+          "TC1.PSY.PLAN": {
+            "correct": 0,
+            "total": 16
+          },
+          "TC2.WM1.TRIGGER": {
+            "correct": 16,
+            "total": 16
+          },
+          "COURSE.HUMP": {
+            "correct": 16,
+            "total": 16
+          },
+          "COURSE.W4.ZERO": {
+            "correct": 16,
+            "total": 16
+          },
+          "COURSE.AO5345": {
+            "correct": 16,
+            "total": 16
+          },
+          "NTD.AC": {
+            "correct": 6,
+            "total": 16
+          },
+          "TC2.WM3": {
+            "correct": 15,
+            "total": 16
+          }
+        },
+        "distinct_responses": 42,
+        "largest_identical_response_count": 9,
+        "constant_fields_despite_varied_expected_values": {
+          "NTD.AC": [
+            "signal_ready"
+          ]
+        },
+        "expert_market_chart_exam": false,
+        "execution_allowed": false
+      },
+      "market": {
+        "cases": 30,
+        "correct": 10,
+        "top1_accuracy": 0.3333333333333333,
+        "multiclass_brier": 0.2976599365120553,
+        "price_outcomes_not_expert_wave_labels": true,
+        "trading_profit_not_measured": true,
+        "execution_allowed": false,
+        "friction_diagnostic": {
+          "conditional_24h_directional_positions": 9,
+          "range_abstentions": 21,
+          "mean_net_return_per_conditional_position": -0.017338829257230022,
+          "mean_net_return_per_case": -0.005201648777169007,
+          "positive_positions": 4,
+          "round_trip_friction_assumption": 0.0012000000000000001,
+          "not_a_full_williams_strategy_backtest": true,
+          "funding_fills_intrabar_stops_not_modeled": true,
+          "overlapping_assets_and_dates_not_independent": true,
+          "execution_allowed": false
+        },
+        "free_generation": {
+          "cases": 30,
+          "correct": 10,
+          "accuracy": 0.3333333333333333,
+          "valid_completed_class_answers": 30,
+          "invalid_or_incomplete_answers": 0,
+          "class_counts": {
+            "RANGE": 21,
+            "UP": 8,
+            "DOWN": 1
+          },
+          "range_abstentions": 21,
+          "invalid_answers_are_abstentions_in_friction_only": true,
+          "conditional_24h_positions": 9,
+          "mean_scenario_net_return_per_case": -0.005201648777169007,
+          "scenario_round_trip_friction": 0.0012000000000000001,
+          "not_a_complete_strategy_backtest": true,
+          "per_case": [
+            {
+              "case_id": "ADAUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ADAUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "AVAXUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BCHUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BNBUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "BTCUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1786006799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOGEUSDT-H1-asof-1787129999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1786179599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "DOTUSDT-H1-asof-1787302799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1786352399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "ETHUSDT-H1-asof-1787475599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1786525199999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "LINKUSDT-H1-asof-1787648399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1786697999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "LTCUSDT-H1-asof-1787821199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1785142799999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "NEARUSDT-H1-asof-1786265999999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1785315599999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SOLUSDT-H1-asof-1786438799999",
+              "valid_final_class": true,
+              "correct": true
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1785488399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "SUIUSDT-H1-asof-1786611599999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1785661199999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "TRXUSDT-H1-asof-1786784399999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1785833999999",
+              "valid_final_class": true,
+              "correct": false
+            },
+            {
+              "case_id": "XRPUSDT-H1-asof-1786957199999",
+              "valid_final_class": true,
+              "correct": true
+            }
+          ],
+          "trading_qualification": false,
+          "execution_allowed": false
+        }
+      },
+      "source_test": {
+        "TC1": 2.269012831506275,
+        "NTD": 2.298970910810655,
+        "TC2": 1.8411998008528063,
+        "COURSE": 3.536333113005667,
+        "ALL": 2.3410577030770807
+      }
+    }
+  },
+  "combined_research_admission": {
+    "selected_mode": "direct",
+    "accepted_for_further_research": false,
+    "selected_mode_transfer_gate_passed": false,
+    "source_and_practice_validation_gates": {
+      "final_source_validation_gate": {
+        "accepted": false,
+        "reasons": [
+          "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+        ],
+        "regressed_books": [],
+        "relative_improvement": -0.003478123159039926,
+        "minimum_relative_improvement": 0.01,
+        "maximum_book_regression": 0.02
+      },
+      "final_practice_validation_gate": {
+        "accepted": true,
+        "reasons": [],
+        "regressed_books": [],
+        "relative_improvement": 0.6815500450221931,
+        "minimum_relative_improvement": 0.01,
+        "maximum_book_regression": 0.02
+      },
+      "initial_focused_source_gate": {
+        "accepted": false,
+        "reasons": [
+          "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+        ],
+        "regressed_books": [],
+        "relative_improvement": -0.01121968153282272,
+        "minimum_relative_improvement": 0.01,
+        "maximum_book_regression": 0.02
+      },
+      "initial_focused_practice_gate": {
+        "accepted": true,
+        "reasons": [],
+        "regressed_books": [],
+        "relative_improvement": 0.45135384518315314,
+        "minimum_relative_improvement": 0.01,
+        "maximum_book_regression": 0.02
+      },
+      "parent_source_validation_gate": {
+        "accepted": false,
+        "reasons": [
+          "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+        ],
+        "regressed_books": [],
+        "relative_improvement": -0.003318676647556855,
+        "minimum_relative_improvement": 0.01,
+        "maximum_book_regression": 0.02
+      },
+      "parent_practice_validation_gate": {
+        "accepted": false,
+        "reasons": [
+          "BOOK_VALIDATION_REGRESSION"
+        ],
+        "regressed_books": [
+          "NTD"
+        ],
+        "relative_improvement": 0.2664894004580977,
+        "minimum_relative_improvement": 0.01,
+        "maximum_book_regression": 0.02
+      }
+    },
+    "original_source_test_gate_passed": false,
+    "market_results_did_not_select_mode_or_weights": true,
+    "trading_qualification": false,
+    "execution_allowed": false
+  },
+  "all_cpu_recomputations_agree": true,
+  "inference_source_commit": "3106472454f96924af3e1746fb28487cd9243722",
+  "predictions_sha256": "51e10e40b9b8b89b9a9d98cce862878cef4bfec9ad2e6d956df6a4ae79ac7db5",
+  "training_updates_executed": 4585,
+  "original_bot_modified": false
+}
