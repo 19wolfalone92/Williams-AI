@@ -1,0 +1,36 @@
+name: Williams AI original-source preserving corrective two T4 training
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['.github/workflows/ai-source-consolidation-dual-t4.yml']
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-source-consolidation-20261028
+  cancel-in-progress: false
+jobs:
+  source-preserving-training-no-final-test-input:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 220
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'numpy>=2,<3' 'safetensors==0.6.2'
+      - name: Verify preservation-first selection and real worker protocol
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_source_consolidation.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_restorative_research.py' -v
+      - name: Train original source and replay without reading final exam results
+        run: python scripts/ai_run_source_consolidation_kaggle.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_Qwen3_4B_SOURCE_CONSOLIDATION_DUAL_T4_RESEARCH
+          path: ${{ runner.temp }}/source_consolidation_results/
+          if-no-files-found: warn
+          retention-days: 14

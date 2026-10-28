@@ -45,8 +45,11 @@ def safe_submission_error(raw:str,credential:str)->str:
     return raw[-1200:]
 
 
-def worker_source(revision:str,payload:bytes,questions:bytes,initial:dict,reference:dict,reference40:dict)->str:
+def worker_source(revision:str,payload:bytes,questions:bytes,initial:dict,reference:dict,reference40:dict,*,source_consolidation:bool=False)->str:
     if not re.fullmatch(r"[a-f0-9]{40}",revision):raise ValueError("IMMUTABLE_RESEARCH_SOURCE_REQUIRED")
+    if type(source_consolidation) is not bool:raise ValueError('EXPLICIT_SOURCE_CONSOLIDATION_PROTOCOL_REQUIRED')
+    from williams_ai.source_consolidation import START_SHA
+    initial_sha=START_SHA if source_consolidation else INITIAL_SHA
     template='''import base64,hashlib,json,lzma,os,re,shutil,subprocess,sys,zipfile
 from pathlib import Path
 from urllib.request import urlopen
@@ -86,7 +89,7 @@ for name,meta in reference40["files"].items():
     (refadapter/name).write_bytes(raw)
 if hashlib.sha256((refadapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=__PREVIOUS40_SHA__:raise RuntimeError("EXACT_PREVIOUS40_SHA_REQUIRED")
 entry=Path("/tmp/run_own_dual_t4.py")
-entry.write_text("from pathlib import Path\\nimport sys\\nsys.path.insert(0,"+repr(str(repo))+")\\nfrom williams_ai.restorative_gpu_research import train_joint\\ntrain_joint(Path("+repr(str(private))+"),Path("+repr(str(questions))+"),Path("+repr(str(adapter))+"),Path("+repr(str(reference))+"),Path('/kaggle/working/restorative_qwen4b'),Path('/tmp/restorative_reference40'))\\n")
+entry.write_text("from pathlib import Path\\nimport sys\\nsys.path.insert(0,"+repr(str(repo))+")\\nfrom williams_ai.restorative_gpu_research import train_joint\\ntrain_joint(Path("+repr(str(private))+"),Path("+repr(str(questions))+"),Path("+repr(str(adapter))+"),Path("+repr(str(reference))+"),Path('/kaggle/working/restorative_qwen4b'),Path('/tmp/restorative_reference40')__TRAIN_OPTIONS__)\\n")
 out=Path("/kaggle/working/restorative_qwen4b")
 failed=None
 try:
@@ -97,7 +100,7 @@ except Exception as error:
 finally:
     private.unlink(missing_ok=True)
     if out.is_dir():
-        with zipfile.ZipFile("/kaggle/working/Williams_Qwen3_4B_RESTORATIVE_DUAL_T4.zip","w",compression=zipfile.ZIP_DEFLATED,compresslevel=4) as z:
+        with zipfile.ZipFile("/kaggle/working/__OUTPUT_ZIP__","w",compression=zipfile.ZIP_DEFLATED,compresslevel=4) as z:
             for p in sorted(out.rglob("*")):
                 if p.is_file():
                     rel=p.relative_to(out)
@@ -107,8 +110,10 @@ print("OWN_DUAL_T4_TRAINING_PROCESS_FINISHED_CHECK_RECEIPT",flush=True)
 '''
     return (template.replace("__REVISION__",repr(revision)).replace("__PAYLOAD__",repr(packed(payload)))
         .replace("__QUESTIONS__",repr(packed(questions))).replace("__QUESTION_SHA__",repr(sha256(questions).hexdigest()))
-        .replace("__REFERENCE__",repr(reference)).replace("__INITIAL__",repr(initial)).replace("__INITIAL_SHA__",repr(INITIAL_SHA))
-        .replace("__REFERENCE40__",repr(reference40)).replace("__PREVIOUS40_SHA__",repr(PREVIOUS40_SHA)))
+        .replace("__REFERENCE__",repr(reference)).replace("__INITIAL__",repr(initial)).replace("__INITIAL_SHA__",repr(initial_sha))
+        .replace("__REFERENCE40__",repr(reference40)).replace("__PREVIOUS40_SHA__",repr(PREVIOUS40_SHA))
+        .replace('__TRAIN_OPTIONS__',',source_consolidation=True' if source_consolidation else '')
+        .replace('__OUTPUT_ZIP__','Williams_Qwen3_4B_SOURCE_CONSOLIDATION_DUAL_T4.zip' if source_consolidation else 'Williams_Qwen3_4B_RESTORATIVE_DUAL_T4.zip'))
 
 
 def checked_result_archive(path:Path,destination:Path,questions:list[dict],cases:list[dict],*,expected_source_commit:str)->dict:

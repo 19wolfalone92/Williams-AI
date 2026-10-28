@@ -70,7 +70,7 @@ def checked_baselines(reference:dict,audit:dict)->dict:
     return result
 
 
-def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,reference_path:Path,output:Path,reference40_adapter:Path)->dict:
+def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,reference_path:Path,output:Path,reference40_adapter:Path,*,source_consolidation:bool=False)->dict:
     import torch
     import torch.distributed as dist
     from huggingface_hub import HfApi,snapshot_download
@@ -80,6 +80,10 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
     from .private_book_source import tokenize_source_pages
     from .private_lora import _tokenized
     from .lora_integrity import validation_admission
+    if type(source_consolidation) is not bool:raise ValueError('EXPLICIT_TRAINING_PROTOCOL_REQUIRED')
+    from .source_consolidation import START_SHA,PARENT_RECEIPT_SHA,selection as source_selection
+    expected_initial=START_SHA if source_consolidation else INITIAL_SHA
+    wall_budget=8400 if source_consolidation else 6000
     started=time.monotonic();rank=int(os.environ["LOCAL_RANK"]);world=int(os.environ["WORLD_SIZE"])
     if world!=2 or torch.cuda.device_count()!=2:raise ValueError("TWO_ACTUAL_CUDA_DEVICES_AND_DDP_RANKS_REQUIRED")
     torch.cuda.set_device(rank);dist.init_process_group("nccl",timeout=timedelta(minutes=12))
@@ -95,10 +99,16 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
     set_seed(20261030)
     source=checked_payload(json.loads(payload_path.read_bytes()));reference=json.loads(reference_path.read_bytes())
     baselines=checked_baselines(reference,source["audit"])
+    if source_consolidation:
+        for field in ('parent_source_loss','parent_practice_loss'):
+            values=reference.get(field,{})
+            if set(values)!=set(EDITIONS)|{'ALL'} or any(type(v) not in (int,float) or not math.isfinite(v) or v<=0 for v in values.values()):
+                raise ValueError('SAME_COHORT_PARENT768_LOSS_BASELINES_REQUIRED')
+            baselines[field]=values
     questions=json.loads(questions_path.read_bytes())
-    if len(questions)!=112 or any(set(q)!={"case_id","domain","prompt"} for q in questions):
+    if (source_consolidation and questions) or (not source_consolidation and (len(questions)!=112 or any(set(q)!={"case_id","domain","prompt"} for q in questions))):
         raise ValueError("SEALED_112_PROMPTS_WITHOUT_EXPECTED_KEYS_REQUIRED")
-    if sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=INITIAL_SHA:
+    if sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=expected_initial:
         raise ValueError("EXACT_FOCUSED69_INITIAL_WEIGHTS_REQUIRED")
     if sha256((reference40_adapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=PREVIOUS40_SHA:
         raise ValueError("EXACT_PREVIOUS40_COMPARISON_WEIGHTS_REQUIRED")
@@ -123,16 +133,20 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
     from .structured_rule_practice import balanced_recovery_curriculum
     legacy,old_validation,_=balanced_recovery_curriculum()
     typed=restorative_cases("train")
-    ntd_replay=[r for r in legacy if r["edition"]=="NTD"]*11
+    ntd_replay=[r for r in legacy if r["edition"]=="NTD"]*(5 if source_consolidation else 11)
     source_rows=tokenize_source_pages(source["train"],tokenizer,max_tokens=384)
     source_val={e:tokenize_source_pages([r for r in source["validation"] if r["edition"]==e],tokenizer,max_tokens=384) for e in EDITIONS}
     task_val={e:_tokenized(old_validation[e],tokenizer,max_tokens=768) for e in EDITIONS}
     def ordinary(rows):return [{**r,"loss_weights":[float(t!=-100) for t in r["labels"]]} for r in rows]
     typed_tokens=tokenize_typed(typed,tokenizer)
-    reasoned_tokens=tokenize_reasoned(typed,tokenizer)
+    if source_consolidation:reasoned_tokens=[]
+    else:reasoned_tokens=tokenize_reasoned(typed,tokenizer)
     ntd_source=tokenize_source_pages([r for r in source["train"] if r["edition"]=="NTD"],tokenizer,max_tokens=384)
-    train_rows=(ordinary(source_rows)+ordinary(ntd_source)+ordinary(_tokenized(legacy+ntd_replay,tokenizer,max_tokens=768))
+    train_rows=(ordinary(source_rows)*(3 if source_consolidation else 1)+ordinary(ntd_source)+ordinary(_tokenized(legacy+ntd_replay,tokenizer,max_tokens=768))
         +typed_tokens+reasoned_tokens)
+    if source_consolidation:
+        train_rows += [t for row,t in zip(typed,typed_tokens) if row['rule_id']=='TC1.PSY.PLAN']*2
+        train_rows += [t for row,t in zip(typed,typed_tokens) if row['rule_id']=='NTD.AC']
     random.Random(20261030).shuffle(train_rows)
     quick=restorative_cases("validation");quick_questions=question_rows(quick)
     quick_sources={e:[source_val[e][round(i*(len(source_val[e])-1)/3)] for i in range(4)] for e in EDITIONS}
@@ -148,25 +162,31 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
     if sum(p.numel() for p in parameters.values())!=33030144 or any(".lora_" not in n for n in parameters):
         raise ValueError("ONLY_EXPECTED_LORA_PARAMETERS_TRAINABLE")
     initial={n:p.detach().cpu().clone() for n,p in parameters.items()}
-    report={"mode":"TWO_T4_RESTORATIVE_REASONED_AND_DIRECT_REPLAY_V1","model_repo":MODEL,"model_revision":REVISION,
+    report={"mode":"TWO_T4_SOURCE_CONSOLIDATION_DIRECT_REPLAY_V1" if source_consolidation else "TWO_T4_RESTORATIVE_REASONED_AND_DIRECT_REPLAY_V1","model_repo":MODEL,"model_revision":REVISION,
         "source_commit":os.environ.get("TRAINING_SOURCE_SHA"),"official_weights_sha256":official,
         "gpu_names":[torch.cuda.get_device_name(i) for i in range(2)],"world_size":world,"rank":16,"trainable_parameters":33030144,
         "initial_adapter_sha256":sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest(),
         "reference40_adapter_sha256":PREVIOUS40_SHA,
-        "initialization":"VERIFIED_FOCUSED69_NEW_OPTIMIZER_NOT_PREVIOUSLY_ADMITTED","optimizer_state_resumed":False,
+        "initialization":"VERIFIED_RESTORATIVE768_SOURCE_CORRECTION" if source_consolidation else "VERIFIED_FOCUSED69_NEW_OPTIMIZER_NOT_PREVIOUSLY_ADMITTED","optimizer_state_resumed":False,
         "source_audit":source["audit"],"source_train_windows":len(source_rows),"joint_train_rows_including_repeats":len(train_rows),
-        "typed_unique_train":len(typed),"typed_train_repetitions":1,"new_restorative_unique_train":len(typed),"reasoned_train":len(reasoned_tokens),
+        "typed_unique_train":len(typed),"typed_train_repetitions":1,"new_restorative_unique_train":0 if source_consolidation else len(typed),"reasoned_train":len(reasoned_tokens),
         "legacy_train":len(legacy),"ntd_extra_practice_replay_rows":len(ntd_replay),
-        "source_train_repetitions":1,"ntd_extra_source_windows":len(ntd_source),
-        "new_parameter_test_cases":112,"generated_development_cases":len(quick),"validation_examples":122,
+        "source_train_repetitions":3 if source_consolidation else 1,"ntd_extra_source_windows":len(ntd_source),
+        "new_parameter_test_cases":0 if source_consolidation else 112,"generated_development_cases":len(quick),"validation_examples":122,
         "source_baseline_loss":baselines["source_baseline_loss"],"practice_baseline_loss":baselines["practice_baseline_loss"],
         "official_base_source_loss":baselines["official_base_source_loss"],"official_base_practice_loss":baselines["official_base_practice_loss"],
         "full_baseline_reused_from_verified_same_cohort_receipt":True,"previous_receipt_sha256":PREVIOUS_RECEIPT_SHA,
         "initial_focused_source_loss":baselines["initial_focused_source_loss"],"initial_focused_practice_loss":baselines["initial_focused_practice_loss"],
         "development_checkpoints":[],"previous56_and_previous84_are_revealed_development_only":True,
-        "source_adapter_role":"READ_ONLY_FOCUSED69_REFERENCE_NOT_ADMITTED","source_adapter_sha256":sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest(),
+        "source_adapter_role":"READ_ONLY_RESTORATIVE768_REFERENCE_NOT_ADMITTED" if source_consolidation else "READ_ONLY_FOCUSED69_REFERENCE_NOT_ADMITTED","source_adapter_sha256":sha256((initial_adapter/"adapter_model.safetensors").read_bytes()).hexdigest(),
         "old24_are_development_diagnostic_not_new_test":True,"market_profitability_measured":False,"expert_market_labels":False,
-        "execution_allowed":False,"trading_qualification":False,"training_wall_budget_seconds":6000}
+        "execution_allowed":False,"trading_qualification":False,"training_wall_budget_seconds":wall_budget}
+    if source_consolidation:
+        report.update({'source_consolidation_protocol':True,'extra_typed_risk_repeats':2,'extra_typed_ac_repeats':1,
+            'final_test_scores_used_for_training_or_selection':False,'inference_mode_for_development':'direct',
+            'learning_rate':8e-6,'maximum_epochs':2,'new_unique_train_cases_added':0,
+            'parent_restorative_receipt_sha256':PARENT_RECEIPT_SHA,
+            'parent_source_loss':baselines['parent_source_loss'],'parent_practice_loss':baselines['parent_practice_loss']})
     def write_report():
         if rank==0:(output/"research_receipt.json").write_text(json.dumps(report,ensure_ascii=False,indent=2,allow_nan=False))
     write_report()
@@ -189,7 +209,7 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
                 with (model.disable_adapter() if stage=="base" else nullcontext()):
                     generated=model.generate(input_ids=ids,attention_mask=torch.ones_like(ids),pad_token_id=tokenizer.eos_token_id,
                         stopping_criteria=StoppingCriteriaList([UserStop(deadline)]),**options)[0,len(prefix):].tolist()
-                complete=True
+                complete=bool(generated and generated[-1]==tokenizer.eos_token_id) if source_consolidation else True
                 if thinking:
                     close=tokenizer.convert_tokens_to_ids("</think>")
                     if close not in generated:complete=False;generated=[]
@@ -201,7 +221,7 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
         if len(by_id)!=len(rows):raise ValueError("NO_MISSING_OR_REPLAYED_GENERATIONS")
         model.config.use_cache=cache;model.train(was_training)
         return [by_id[r["case_id"]] for r in rows]
-    def source_scores(groups):
+    def source_scores(groups,*,capture_name=None):
         was_training=model.training;model.eval();local=[]
         with torch.inference_mode(),torch.autocast("cuda",dtype=torch.float16):
             for ed,rows in groups.items():
@@ -213,10 +233,13 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
                     local.append((ed,idx,value))
         values=gather(local);result={e:sum(x[2] for x in values if x[0]==e)/len(groups[e]) for e in EDITIONS}
         result["ALL"]=sum(result[e]*len(groups[e]) for e in EDITIONS)/sum(map(len,groups.values()))
+        if capture_name is not None and rank==0:
+            (output/(capture_name+'.json')).write_text(json.dumps({'window_counts':{e:len(groups[e]) for e in EDITIONS},'window_losses':values}))
         model.train(was_training);return result
     initial_dev_source=source_scores(quick_sources)
     report["initial_dev_source_loss"]=initial_dev_source
-    report["initial_thinking_development"]=score_responses(quick,predict(quick_questions,stage="initial",thinking=True,time_limit=25))
+    report['initial_direct_development' if source_consolidation else 'initial_thinking_development']=score_responses(
+        quick,predict(quick_questions,stage='initial',thinking=not source_consolidation,time_limit=10 if source_consolidation else 25))
     write_report()
     class Rows:
         def __init__(self,rows):self.rows=rows
@@ -249,7 +272,7 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
                 if not bool(torch.stack([torch.isfinite(p).all() for p in parameters.values()]).all()):
                     raise ValueError("NONFINITE_ADAPTER_AFTER_OPTIMIZER_UPDATE")
         def on_step_end(self,args,state,control,**kwargs):
-            flag=torch.tensor([int(time.monotonic()-started>=6000),int(watcher.requested.is_set())],device=device)
+            flag=torch.tensor([int(time.monotonic()-started>=wall_budget),int(watcher.requested.is_set())],device=device)
             dist.all_reduce(flag,op=dist.ReduceOp.MAX)
             if bool(flag.any()):
                 control.should_training_stop=True;control.should_save=True
@@ -267,9 +290,11 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
         def evaluation_loop(self,*args,**kwargs):
             result=super().evaluation_loop(*args,**kwargs)
             if stopped():return result._replace(metrics={**result.metrics,"eval_semantic_replay_score":-2.0})
-            generated=predict(quick_questions,stage="candidate",thinking=True,time_limit=25);graded=score_responses(quick,generated);accuracy=graded["accuracy"]
+            generated=predict(quick_questions,stage='candidate',thinking=not source_consolidation,time_limit=10 if source_consolidation else 25)
+            graded=score_responses(quick,generated);accuracy=graded['accuracy']
             values=source_scores(source_val);practice_values=source_scores(task_val)
-            selection=restorative_selection(graded,values,practice_values,baselines["source_baseline_loss"],baselines["practice_baseline_loss"])
+            selection=(source_selection(graded,values,practice_values,baselines) if source_consolidation else
+                restorative_selection(graded,values,practice_values,baselines['source_baseline_loss'],baselines['practice_baseline_loss']))
             regression=max(selection["max_source_regression"],selection["max_practice_regression"]);score=selection["score"]
             row={"accuracy":accuracy,"max_source_regression":selection["max_source_regression"],"selection_score":score,
                 "minimum_rule_accuracy":selection["minimum_rule_accuracy"],"collapsed_rules":selection["collapsed_rules"],
@@ -282,10 +307,10 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
                 "eval_semantic_replay_score":score}
             if rank==0:print("RESTORATIVE_DEV_SELECTION",json.dumps({k:v for k,v in row.items() if type(v) in (int,float)}),flush=True)
             return result._replace(metrics=metrics)
-    args=TrainingArguments(output_dir=str(output.parent/"restorative_private_checkpoints"),num_train_epochs=1.0,
+    args=TrainingArguments(output_dir=str(output.parent/"restorative_private_checkpoints"),num_train_epochs=2.0 if source_consolidation else 1.0,
         per_device_train_batch_size=1,per_device_eval_batch_size=1,gradient_accumulation_steps=1,
-        learning_rate=5.0e-6,warmup_ratio=0.03,weight_decay=0.01,lr_scheduler_type="cosine",max_grad_norm=1.0,
-        optim="adamw_torch",eval_strategy="steps",eval_steps=384,save_strategy="steps",save_steps=384,
+        learning_rate=8.0e-6 if source_consolidation else 5.0e-6,warmup_ratio=0.03,weight_decay=0.01,lr_scheduler_type="cosine",max_grad_norm=1.0,
+        optim="adamw_torch",eval_strategy="steps",eval_steps=512 if source_consolidation else 384,save_strategy="steps",save_steps=512 if source_consolidation else 384,
         save_total_limit=2,save_safetensors=True,load_best_model_at_end=True,metric_for_best_model="semantic_replay_score",
         greater_is_better=True,prediction_loss_only=True,logging_steps=32,logging_nan_inf_filter=False,report_to="none",
         disable_tqdm=True,remove_unused_columns=False,label_names=["labels"],seed=20261030,data_seed=20261030,
@@ -322,16 +347,28 @@ def train_joint(payload_path:Path,questions_path:Path,initial_adapter:Path,refer
     write_report();dist.barrier()
     if report["training_stopped_by_user_or_control_unavailable"]:
         watcher.finished.set();dist.destroy_process_group();return report
-    report["source_final_loss"]=source_scores(source_val);report["practice_final_loss"]=source_scores(task_val)
+    report["source_final_loss"]=source_scores(source_val,capture_name='source_validation_window_losses' if source_consolidation else None)
+    report["practice_final_loss"]=source_scores(task_val,capture_name='practice_validation_window_losses' if source_consolidation else None)
     report["final_source_validation_gate"]=validation_admission(report["source_baseline_loss"],report["source_final_loss"])
     report["final_practice_validation_gate"]=validation_admission(report["practice_baseline_loss"],report["practice_final_loss"])
     report["initial_focused_source_gate"]=validation_admission(report["initial_focused_source_loss"],report["source_final_loss"])
     report["initial_focused_practice_gate"]=validation_admission(report["initial_focused_practice_loss"],report["practice_final_loss"])
     report["text_validation_gates_passed"]=all(report[k]["accepted"] for k in ("final_source_validation_gate","final_practice_validation_gate","initial_focused_source_gate","initial_focused_practice_gate"))
+    if source_consolidation:
+        report['parent_source_validation_gate']=validation_admission(report['parent_source_loss'],report['source_final_loss'])
+        report['parent_practice_validation_gate']=validation_admission(report['parent_practice_loss'],report['practice_final_loss'])
+        report['text_validation_gates_passed'] &= report['parent_source_validation_gate']['accepted'] and report['parent_practice_validation_gate']['accepted']
     report["candidate_accepted_for_further_research"]=False
     report["admission_status"]="PENDING_CPU_SEALED_GENERATED_TEST"
     model.gradient_checkpointing_disable();model.eval()
-    report["final_thinking_development"]=score_responses(quick,predict(quick_questions,stage="candidate",thinking=True,time_limit=25))
+    final_development_predictions=predict(quick_questions,stage='candidate',thinking=not source_consolidation,time_limit=10 if source_consolidation else 25)
+    report['final_direct_development' if source_consolidation else 'final_thinking_development']=score_responses(quick,final_development_predictions)
+    if source_consolidation:
+        if rank==0:(output/'final_direct_development_predictions.json').write_text(json.dumps(final_development_predictions,ensure_ascii=False,indent=2))
+        report['complete_source_consolidation']=changed
+        report['complete_training_and_test']=False
+        report['admission_status']='PENDING_FRESH_FINAL_EXAM_NOT_PERFORMED_IN_TRAINING'
+        write_report();watcher.finished.set();dist.barrier();dist.destroy_process_group();return report
     mode=True
     report["test_inference_mode_precommitted"]="thinking"
     write_report()
