@@ -46,14 +46,16 @@ def independent_rule_cases(cases):
     return [{'case_id':q['case_id'],'rule_id':q['domain'],'answer':json.dumps(independent_key(q),ensure_ascii=False)} for q in rows]
 
 
-def verify(directory:Path,gpu_archive:Path,market_archive:Path):
+def verify(directory:Path,gpu_archive:Path,market_archive:Path,*,expected_inference_source_commit:str):
     read=lambda n:json.loads((directory/n).read_bytes())
     predictions=read('spread_market_predictions.json');grade=read('spread_market_grade.json');report=predictions['receipt']
     with zipfile.ZipFile(gpu_archive) as z:
         raw_receipt=z.read('research_receipt.json');receipt=json.loads(raw_receipt)
         thinking=json.loads(z.read('restorative_test_precommit.json'))
     expected={'candidate':receipt['candidate_adapter_sha256'],'focused69':INITIAL_SHA,'previous40':PREVIOUS40_SHA}
-    if (report['adapter_sha256']!=expected or report['training_source_commit']!=receipt['source_commit']
+    if (set(predictions['stages'])!={'base','previous40','focused69','candidate'}
+        or report['inference_source_commit']!=expected_inference_source_commit
+        or report['adapter_sha256']!=expected or report['training_source_commit']!=receipt['source_commit']
         or report['training_receipt_sha256']!=sha256(raw_receipt).hexdigest()
         or any(report[k]!=receipt[k] for k in ('model_repo','model_revision','official_weights_sha256'))
         or report['world_size']!=2 or report['gpu_names']!=['Tesla T4','Tesla T4']
@@ -107,6 +109,7 @@ def verify(directory:Path,gpu_archive:Path,market_archive:Path):
         'trading_qualification':False,'execution_allowed':False}
     if combined!=grade['combined_research_admission']:raise ValueError('COMBINED_RESEARCH_ADMISSION_MISMATCH')
     return {'candidate_adapter_sha256':receipt['candidate_adapter_sha256'],'all_cpu_recomputations_agree':True,
+        'inference_source_commit':expected_inference_source_commit,
         'market_outcomes_and_atr_independently_recalculated':True,'direct_rule_keys_independently_recalculated':True,
         'original_thinking_exam_preserved':True,'source_test_windows':sum(counts.values()),'source_test_pages':96,
         'class_distribution':dict(Counter(k['true_class'] for k in independent)),
@@ -119,8 +122,9 @@ def verify(directory:Path,gpu_archive:Path,market_archive:Path):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for name in ('result-directory','gpu-archive','market-archive','new-output'):p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--inference-source-commit',required=True)
     a=p.parse_args()
     if a.new_output.exists():raise ValueError('NEW_AUDIT_FILE_REQUIRED')
-    proof=verify(a.result_directory,a.gpu_archive,a.market_archive)
+    proof=verify(a.result_directory,a.gpu_archive,a.market_archive,expected_inference_source_commit=a.inference_source_commit)
     a.new_output.write_text(json.dumps(proof,ensure_ascii=False,indent=2,allow_nan=False)+'\n')
     print(json.dumps({k:v for k,v in proof.items() if k not in ('market_stages','original_source_test','direct_test_summary')},ensure_ascii=False))

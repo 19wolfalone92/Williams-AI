@@ -99,6 +99,11 @@ def audit(archive:Path,previous:Path,*,source_commit:str):
         cases=[{'case_id':q['case_id'],'rule_id':q['domain'],'answer':json.dumps(independent_key(q),ensure_ascii=False)} for q in questions]
         if set(pre['stages'])!={'base','previous40','focused69','candidate'} or pre['inference_mode']!='thinking' or pre['expected_keys_loaded_on_gpu'] is not False:
             raise ValueError('SAME_FOUR_MODEL_THINKING_PROTOCOL_REQUIRED')
+        if (type(pre.get('same_response_time_budget_seconds_each_model')) not in (int,float)
+            or not 0<pre['same_response_time_budget_seconds_each_model']<=45
+            or any(type(row.get(flag)) is not bool for rows in pre['stages'].values() for row in rows
+                for flag in ('thinking_complete','response_time_limit_reached'))):
+            raise ValueError('EXPLICIT_SAME_RESPONSE_BUDGET_AND_COMPLETION_FLAGS_REQUIRED')
         grades={s:score_responses(cases,v) for s,v in pre['stages'].items()}
         gates={}
         for name,before,after in (('source_previous40','source_baseline_loss','source_final_loss'),('practice_previous40','practice_baseline_loss','practice_final_loss'),
