@@ -1,4 +1,7 @@
-"""Two-rank inference only. Reads no books, future bars or outcome labels."""
+"""Two-rank inference only: frozen questions, then final source-page LM test.
+
+Future market bars and expected answer keys are never loaded here.
+"""
 from __future__ import annotations
 from contextlib import nullcontext
 from datetime import timedelta

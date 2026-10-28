@@ -132,11 +132,11 @@ def main():
         'model_sources':[],'competition_sources':[],'kernel_sources':[]}
     with tempfile.TemporaryDirectory() as td:
         p=Path(td);(p/'worker.py').write_text(worker);(p/'worker.py').chmod(0o600);(p/'kernel-metadata.json').write_text(json.dumps(metadata))
-        submitted=subprocess.run(['kaggle','kernels','push','-p',td,'--accelerator','NvidiaTeslaT4','--timeout','4500'],capture_output=True,text=True,timeout=180)
+        submitted=subprocess.run(['kaggle','kernels','push','-p',td,'--accelerator','NvidiaTeslaT4','--timeout','6000'],capture_output=True,text=True,timeout=180)
         if submitted.returncode:
             print(safe_submission_error(submitted.stdout+submitted.stderr,token),flush=True);raise RuntimeError('PRIVATE_MARKET_INFERENCE_REJECTED')
     state='UNKNOWN'
-    for i in range(255):
+    for i in range(360):
         state=str(api.kernels_status(owner+'/'+RUN_SLUG).status).upper()
         if i%10==0:print('OWN_MARKET_INFERENCE_STATE',state,flush=True)
         if any(s in state for s in ('COMPLETE','ERROR','CANCEL')):break
