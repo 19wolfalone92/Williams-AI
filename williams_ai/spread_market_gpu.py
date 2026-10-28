@@ -9,6 +9,20 @@ from pathlib import Path
 import time
 
 
+def complete_class_suffixes(tokenizer,messages):
+    from .qwen4b_blind_evaluation import candidate_first_token_ids,CLASSES
+    prefix,_=candidate_first_token_ids(tokenizer,messages);suffixes=[]
+    for label in CLASSES:
+        full=tokenizer.apply_chat_template(messages+[{'role':'assistant','content':label}],tokenize=True,
+            add_generation_prompt=False,enable_thinking=False)
+        tail=full[len(prefix):]
+        if full[:len(prefix)]!=prefix or tokenizer.eos_token_id not in tail:raise ValueError('COMPLETE_CLASS_TEMPLATE_REQUIRED')
+        tail=tail[:tail.index(tokenizer.eos_token_id)+1]
+        if tokenizer.decode(tail[:-1],skip_special_tokens=True)!=label:raise ValueError('EXACT_FULL_CLASS_VERBALIZER_REQUIRED')
+        suffixes.append(tail)
+    return prefix,suffixes
+
+
 def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
     import torch
     import torch.distributed as dist
@@ -16,7 +30,7 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
     from transformers import AutoTokenizer,AutoModelForCausalLM,BitsAndBytesConfig,StoppingCriteria,StoppingCriteriaList
     from peft import PeftModel
     from .deep_book_research import MODEL,REVISION
-    from .qwen4b_blind_evaluation import verified_blind_questions,market_prompt,candidate_first_token_ids,CLASSES
+    from .qwen4b_blind_evaluation import verified_blind_questions,market_prompt,CLASSES
     from .restorative_gpu_research import StopWatcher
     rank=int(os.environ['LOCAL_RANK']);world=int(os.environ['WORLD_SIZE'])
     if world!=2 or torch.cuda.device_count()!=2:raise ValueError('TWO_ACTUAL_T4_RANKS_REQUIRED')
@@ -46,18 +60,25 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
             if watch.requested.is_set():raise RuntimeError('USER_STOP_OR_CONTROL_UNAVAILABLE')
             messages=[{'role':'system','content':'Исследуй только предоставленные закрытые данные. Не отправляй ордера.'},
                 {'role':'user','content':market_prompt(case)}]
-            prefix,targets=candidate_first_token_ids(tokenizer,messages)
+            prefix,suffixes=complete_class_suffixes(tokenizer,messages)
             if len(prefix)>8192:raise ValueError('FULL_PROMPT_EXCEEDS_CONTEXT_NO_TRUNCATION')
             max_prefix=max(max_prefix,len(prefix));ids=torch.tensor([prefix],device=torch.device('cuda',rank))
             for name in ('base','previous40','focused69','candidate'):
                 model.set_adapter('candidate' if name=='base' else name)
                 with (model.disable_adapter() if name=='base' else nullcontext()):
-                    logits=model(input_ids=ids,attention_mask=torch.ones_like(ids),use_cache=False).logits[0,-1,targets].float()
+                    label_scores=[]
+                    for suffix in suffixes:
+                        full=torch.tensor([prefix+suffix],device=ids.device)
+                        result=model(input_ids=full,attention_mask=torch.ones_like(full),use_cache=False)
+                        selected=result.logits[0,len(prefix)-1:len(prefix)-1+len(suffix)].float()
+                        targets=torch.tensor(suffix,device=ids.device)
+                        score=torch.log_softmax(selected,-1).gather(-1,targets[:,None]).sum()
+                        if not bool(torch.isfinite(score)):raise ValueError('FINITE_COMPLETE_CLASS_LIKELIHOOD_REQUIRED')
+                        label_scores.append(float(score));del result,selected,score
                     deadline=time.monotonic()+15
                     generated=model.generate(input_ids=ids,attention_mask=torch.ones_like(ids),do_sample=False,max_new_tokens=64,
                         pad_token_id=tokenizer.eos_token_id,use_cache=True,stopping_criteria=StoppingCriteriaList([Deadline(deadline)]))[0,len(prefix):].tolist()
-                if not bool(torch.isfinite(logits).all()):raise ValueError('FINITE_CLASS_LOGITS_REQUIRED')
-                local.append({'stage':name,'case_id':case['case_id'],'probabilities':dict(zip(CLASSES,torch.softmax(logits,-1).cpu().tolist())),
+                local.append({'stage':name,'case_id':case['case_id'],'probabilities':dict(zip(CLASSES,torch.softmax(torch.tensor(label_scores,dtype=torch.float64),-1).tolist())),
                     'generated_response':tokenizer.decode(generated,skip_special_tokens=True).strip(),
                     'generated_complete':bool(generated and generated[-1]==tokenizer.eos_token_id),
                     'generation_time_limit_reached':time.monotonic()>=deadline})
@@ -69,9 +90,10 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
             lookup={x['case_id']:{k:v for k,v in x.items() if k!='stage'} for x in combined if x['stage']==name}
             if len(lookup)!=30:raise ValueError('EXACT_THIRTY_PREDICTIONS_PER_MODEL_REQUIRED')
             stages[name]=[lookup[c['case_id']] for c in cases]
-        receipt={**identity,'mode':'REAL_H1_FOUR_MODEL_CLASS_TOKEN_COMPARISON','world_size':world,
+        receipt={**identity,'mode':'REAL_H1_FOUR_MODEL_COMPLETE_LABEL_AND_FREE_GENERATION_COMPARISON','world_size':world,
             'gpu_names':[torch.cuda.get_device_name(i) for i in range(2)],'maximum_full_prompt_tokens':int(max_t.item()),
-            'scores_are_uncalibrated_normalized_class_token_probabilities':True,'future_outcomes_loaded_in_inference':False,
+            'class_score_method':'normalized_full_label_plus_eos_likelihood','class_probabilities_are_not_empirically_calibrated':True,
+            'future_outcomes_loaded_in_inference':False,
             'free_generation_protocol':{'mode':'greedy_non_thinking','maximum_new_tokens':64,'seconds_per_response':15,'strict_one_word_class':True},
             'inference_source_commit':os.environ['TRAINING_SOURCE_SHA'],'trading_qualification':False,'execution_allowed':False}
         output.write_text(json.dumps({'receipt':receipt,'stages':stages},ensure_ascii=False,indent=2,allow_nan=False))

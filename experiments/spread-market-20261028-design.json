@@ -102,6 +102,7 @@
   "archive_previously_available_to_developers": true,
   "forecast_cases_not_statistically_independent": true,
   "expert_wave_labels": false,
+  "class_score_method": "normalized_full_label_plus_eos_likelihood",
   "free_generation_protocol": {
     "mode": "greedy_non_thinking",
     "maximum_new_tokens": 64,

@@ -30,6 +30,7 @@ def frozen_market_cohort(path:Path):
         'archive_sha256':ARCHIVE_SHA,'questions_file_sha256':sha256(qbytes).hexdigest(),'utc_dates':sorted(dates),
         'previous_two_cut_cohort_reused':False,'archive_previously_available_to_developers':True,
         'forecast_cases_not_statistically_independent':True,'expert_wave_labels':False,
+        'class_score_method':'normalized_full_label_plus_eos_likelihood',
         'free_generation_protocol':{'mode':'greedy_non_thinking','maximum_new_tokens':64,'seconds_per_response':15,'strict_one_word_class':True},
         'precommitted_fee_per_side_scenario':FEE_PER_SIDE,'precommitted_slippage_per_side_scenario':SLIPPAGE_PER_SIDE,
         'fees_are_assumptions_not_verified_exchange_rates':True,'candidate_selection_on_this_exam':False})

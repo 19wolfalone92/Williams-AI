@@ -122,6 +122,7 @@ def main():
     if any(report[k]!=v for k,v in identity.items()) or report['inference_source_commit']!=revision or report['future_outcomes_loaded_in_inference'] is not False:
         raise ValueError('SEALED_MARKET_PREDICTION_IDENTITY_MISMATCH')
     if report['free_generation_protocol']!=seal['free_generation_protocol']:raise ValueError('FROZEN_FREE_GENERATION_PROTOCOL_CHANGED')
+    if report['class_score_method']!=seal['class_score_method']:raise ValueError('FROZEN_COMPLETE_CLASS_SCORING_CHANGED')
     if set(predictions['stages'])!={'base','previous40','focused69','candidate'}:raise ValueError('ALL_FOUR_MODELS_REQUIRED')
     grade=grade_market_comparison(keys,predictions['stages']);grade['seal']=seal;grade['predictions_file_sha256']=sha256(prediction_file.read_bytes()).hexdigest()
     (dest/'spread_market_grade.json').write_text(json.dumps(grade,ensure_ascii=False,indent=2,allow_nan=False))
