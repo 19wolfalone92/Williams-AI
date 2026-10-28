@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from williams_ai.independent_chart_holdout import build_blind_market_cases
-from williams_ai.spread_market_exam import frozen_market_cohort,grade_market_comparison,FEE_PER_SIDE,SLIPPAGE_PER_SIDE
+from williams_ai.spread_market_exam import frozen_market_cohort,grade_market_comparison,free_generation_grade,FEE_PER_SIDE,SLIPPAGE_PER_SIDE
 from scripts.ai_run_spread_market_kaggle import worker_source
 
 DATA=Path('examples/ai_binance_15pair_h1_prior_holdout_20260902.json')
@@ -34,7 +34,8 @@ class SpreadMarketTests(unittest.TestCase):
 
     def test_fixed_friction_and_abstentions_do_not_create_a_trading_qualification(self):
         q,k,_,_=frozen_market_cohort(DATA)
-        rows=[{'case_id':r['case_id'],'probabilities':{'UP':0.,'DOWN':0.,'RANGE':1.}} for r in q]
+        rows=[{'case_id':r['case_id'],'probabilities':{'UP':0.,'DOWN':0.,'RANGE':1.},
+            'generated_response':'RANGE','generated_complete':True,'generation_time_limit_reached':False} for r in q]
         report=grade_market_comparison(k,{'candidate':rows})
         cost=report['stages']['candidate']['friction_diagnostic']
         self.assertEqual(cost['range_abstentions'],30);self.assertEqual(cost['conditional_24h_directional_positions'],0)
@@ -42,6 +43,17 @@ class SpreadMarketTests(unittest.TestCase):
         self.assertEqual(cost['round_trip_friction_assumption'],2*(FEE_PER_SIDE+SLIPPAGE_PER_SIDE))
         self.assertFalse(report['trading_qualification']);self.assertFalse(report['execution_allowed'])
         self.assertAlmostEqual(report['uniform_probability_baseline']['multiclass_brier'],2/9)
+
+    def test_generated_json_extra_words_timeout_or_missing_eos_are_not_repaired_to_pass(self):
+        _,keys,_,_=frozen_market_cohort(DATA)
+        good=[{'case_id':k['case_id'],'generated_response':k['true_class'],'generated_complete':True,'generation_time_limit_reached':False} for k in keys]
+        self.assertEqual(free_generation_grade(keys,good)['correct'],30)
+        for change in ({'generated_response':'{"direction":"UP"}'},{'generated_response':'UP because trend'},
+                {'generated_complete':False},{'generation_time_limit_reached':True}):
+            bad=[{**r,**change} for r in good]
+            result=free_generation_grade(keys,bad)
+            self.assertEqual(result['correct'],0);self.assertEqual(result['invalid_or_incomplete_answers'],30)
+            self.assertFalse(result['execution_allowed'])
 
     def test_real_two_rank_entry_has_no_future_payload_or_unsubstituted_tokens(self):
         _,_,qbytes,seal=frozen_market_cohort(DATA)

@@ -71,6 +71,10 @@ def audit(archive:Path,previous:Path,*,source_commit:str):
         changed_values=sum(int(np.count_nonzero(tensors['source'][n]!=v)) for n,v in tensors['candidate'].items())
         if changed==0 or changed_values==0:raise ValueError('ACTUAL_TRAINED_CHANGES_REQUIRED')
         if r['optimizer_attempted_steps']!=r['joint_optimizer_steps']+r['fp16_overflow_steps_skipped']:raise ValueError('OPTIMIZER_COUNTS_INCONSISTENT')
+        if any(type(r[k]) is not int for k in ('optimizer_attempted_steps','joint_optimizer_steps','fp16_overflow_steps_skipped','actual_updates_at_selected_checkpoint')):
+            raise ValueError('INTEGER_OPTIMIZER_COUNTS_REQUIRED')
+        if not 0<r['actual_updates_at_selected_checkpoint']<=r['joint_optimizer_steps']<=r['optimizer_attempted_steps']:
+            raise ValueError('POSITIVE_SELECTED_OPTIMIZER_UPDATES_REQUIRED')
         history=r['development_checkpoints']
         if not history:raise ValueError('DEVELOPMENT_SELECTION_HISTORY_REQUIRED')
         for row in history:
@@ -85,6 +89,7 @@ def audit(archive:Path,previous:Path,*,source_commit:str):
                 raise ValueError('INDEPENDENT_DEVELOPMENT_SELECTION_MISMATCH')
         best=max(history,key=lambda x:x['selection_score'])
         if r['selected_checkpoint']!='checkpoint-'+str(best['optimizer_step']):raise ValueError('SELECTED_CHECKPOINT_NOT_PRECOMMITTED_BEST')
+        if not math.isclose(r['selected_metric'],best['selection_score'],rel_tol=1e-10,abs_tol=1e-10):raise ValueError('SELECTED_METRIC_DIFFERS_FROM_DEVELOPMENT_HISTORY')
         pre=strict_json(z.read('restorative_test_precommit.json'))
         from williams_ai.restorative_book_practice import restorative_cases
         from williams_ai.contrastive_book_practice import question_rows

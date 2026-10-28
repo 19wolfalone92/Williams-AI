@@ -6,13 +6,14 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
+import time
 
 
 def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
     import torch
     import torch.distributed as dist
     from huggingface_hub import snapshot_download
-    from transformers import AutoTokenizer,AutoModelForCausalLM,BitsAndBytesConfig
+    from transformers import AutoTokenizer,AutoModelForCausalLM,BitsAndBytesConfig,StoppingCriteria,StoppingCriteriaList
     from peft import PeftModel
     from .deep_book_research import MODEL,REVISION
     from .qwen4b_blind_evaluation import verified_blind_questions,market_prompt,candidate_first_token_ids,CLASSES
@@ -36,6 +37,9 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
     for name in ('previous40','focused69'):model.load_adapter(adapters/name,adapter_name=name,is_trainable=False,local_files_only=True)
     model.eval();model.config.use_cache=False
     local=[];max_prefix=0
+    class Deadline(StoppingCriteria):
+        def __init__(self,deadline):self.deadline=deadline
+        def __call__(self,input_ids,scores,**kwargs):return watch.requested.is_set() or time.monotonic()>=self.deadline
     with torch.inference_mode():
         for index,case in enumerate(cases):
             if index%world!=rank:continue
@@ -49,8 +53,14 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
                 model.set_adapter('candidate' if name=='base' else name)
                 with (model.disable_adapter() if name=='base' else nullcontext()):
                     logits=model(input_ids=ids,attention_mask=torch.ones_like(ids),use_cache=False).logits[0,-1,targets].float()
+                    deadline=time.monotonic()+15
+                    generated=model.generate(input_ids=ids,attention_mask=torch.ones_like(ids),do_sample=False,max_new_tokens=64,
+                        pad_token_id=tokenizer.eos_token_id,use_cache=True,stopping_criteria=StoppingCriteriaList([Deadline(deadline)]))[0,len(prefix):].tolist()
                 if not bool(torch.isfinite(logits).all()):raise ValueError('FINITE_CLASS_LOGITS_REQUIRED')
-                local.append({'stage':name,'case_id':case['case_id'],'probabilities':dict(zip(CLASSES,torch.softmax(logits,-1).cpu().tolist()))})
+                local.append({'stage':name,'case_id':case['case_id'],'probabilities':dict(zip(CLASSES,torch.softmax(logits,-1).cpu().tolist())),
+                    'generated_response':tokenizer.decode(generated,skip_special_tokens=True).strip(),
+                    'generated_complete':bool(generated and generated[-1]==tokenizer.eos_token_id),
+                    'generation_time_limit_reached':time.monotonic()>=deadline})
     parts=[None]*world;dist.all_gather_object(parts,local)
     max_t=torch.tensor(max_prefix,device=torch.device('cuda',rank));dist.all_reduce(max_t,op=dist.ReduceOp.MAX)
     if rank==0:
@@ -62,6 +72,7 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path):
         receipt={**identity,'mode':'REAL_H1_FOUR_MODEL_CLASS_TOKEN_COMPARISON','world_size':world,
             'gpu_names':[torch.cuda.get_device_name(i) for i in range(2)],'maximum_full_prompt_tokens':int(max_t.item()),
             'scores_are_uncalibrated_normalized_class_token_probabilities':True,'future_outcomes_loaded_in_inference':False,
+            'free_generation_protocol':{'mode':'greedy_non_thinking','maximum_new_tokens':64,'seconds_per_response':15,'strict_one_word_class':True},
             'inference_source_commit':os.environ['TRAINING_SOURCE_SHA'],'trading_qualification':False,'execution_allowed':False}
         output.write_text(json.dumps({'receipt':receipt,'stages':stages},ensure_ascii=False,indent=2,allow_nan=False))
         print('FOUR_MODEL_MARKET_PREDICTIONS_SEALED',json.dumps({'models':4,'cases_each':30,'maximum_prompt_tokens':int(max_t.item())}),flush=True)
