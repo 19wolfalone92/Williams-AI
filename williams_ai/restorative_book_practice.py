@@ -57,10 +57,13 @@ def calculated_answer(rule: str, question: str) -> dict:
     return {**result, "execution_allowed": False}
 
 
-def restorative_cases(split: str) -> list[dict]:
+def restorative_cases(split: str, *, seed_override: int | None = None, case_namespace: str = 'restorative') -> list[dict]:
     if split not in ("train", "validation", "test"):
         raise ValueError("EXPLICIT_RESTORATIVE_SPLIT_REQUIRED")
-    rng = random.Random({"train": 48102731, "validation": 59213843, "test": 60324959}[split])
+    if seed_override is not None and (type(seed_override) is not int or not 0<=seed_override<2**63):
+        raise ValueError('BOUNDED_INTEGER_PARAMETER_SEED_REQUIRED')
+    if not re.fullmatch('[a-z0-9-]{2,64}',case_namespace):raise ValueError('EXPLICIT_CASE_NAMESPACE_REQUIRED')
+    rng = random.Random({"train": 48102731, "validation": 59213843, "test": 60324959}[split] if seed_override is None else seed_override)
     count = 64 if split == "train" else 8
     introductions = {
         "train": ("Реши учебное условие.", "Проверь числовую ситуацию.", "Выполни проверку правила."),
@@ -74,7 +77,7 @@ def restorative_cases(split: str) -> list[dict]:
         result = calculated_answer(rule, question)
         fields = ", ".join(k + ": " + ("true/false" if type(v) is bool else "число" if type(v) in (int, float) else "строка") for k, v in result.items())
         question += " Финальный ответ — один JSON: " + fields + ". execution_allowed=false. Без дополнительных полей."
-        rows.append({"case_id": f"restorative-{split}-{i}-{rule}-{variant}", "pair_id": f"restorative-{split}-{i}-{rule}",
+        rows.append({"case_id": f"{case_namespace}-{split}-{i}-{rule}-{variant}", "pair_id": f"{case_namespace}-{split}-{i}-{rule}",
             "edition": ed, "rule_id": rule, "pdf_page": page, "question": question,
             "answer": json.dumps(result, ensure_ascii=False, separators=(",", ":")), "teaching_explanation": explanation})
     for i in range(count):
