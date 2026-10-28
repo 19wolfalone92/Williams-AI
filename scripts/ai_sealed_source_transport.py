@@ -2,7 +2,8 @@
 
 Only an X25519 public key and AES-GCM ciphertext may enter the public branch.
 The existing Kaggle secret remains on the Actions runner; neither that secret
-nor a decryption key is returned. Test-book texts never leave local storage.
+nor a decryption key is returned. Training envelopes exclude test-book texts;
+final-only held-out inference uses a separate explicit test-only schema.
 This is a research transport, not model qualification or trading authority.
 """
 from __future__ import annotations

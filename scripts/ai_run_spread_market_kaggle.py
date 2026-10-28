@@ -16,12 +16,14 @@ from scripts.ai_run_restorative_kaggle import packed,safe_submission_error
 from williams_ai.restorative_book_practice import INITIAL_SHA,PREVIOUS40_SHA
 from williams_ai.deep_book_research import MODEL,REVISION
 from williams_ai.spread_market_exam import frozen_market_cohort,grade_market_comparison
+from williams_ai.frozen_source_test import checked_test_payload,recompute_source_scores,grade_source_test
+from scripts.ai_sealed_source_transport import open_envelope
 
 RUN_SLUG='williams-ai-spread-market30-20261028'
 TRAINING_SOURCE='4b5590dde578e97adbb964b35dd4d8ac43f94fdd'
 
 
-def worker_source(revision,qbytes,config,identity):
+def worker_source(revision,qbytes,config,identity,source_test_payload):
     if not re.fullmatch('[a-f0-9]{40}',revision):raise ValueError('PINNED_CODE_REQUIRED')
     template='''import base64,hashlib,json,lzma,os,shutil,subprocess,sys
 from pathlib import Path
@@ -35,6 +37,7 @@ subprocess.run(['git','checkout','-q',__REVISION__],cwd=repo,check=True)
 shutil.rmtree(repo/'examples')
 subprocess.run([sys.executable,'-m','pip','install','--quiet','--disable-pip-version-check','transformers==4.57.1','peft==0.17.1','accelerate==1.10.1','bitsandbytes==0.48.1','safetensors==0.6.2'],check=True)
 questions=Path('/tmp/market_questions_only.jsonl');questions.write_bytes(lzma.decompress(base64.b64decode(__QUESTIONS__)))
+source_test=Path('/tmp/frozen_original_source_test_only.json');source_test.write_bytes(lzma.decompress(base64.b64decode(__SOURCE_TEST__)));source_test.chmod(0o600)
 identity=__IDENTITY__;manifest=Path('/tmp/inference_identity.json');manifest.write_text(json.dumps(identity))
 if hashlib.sha256(questions.read_bytes()).hexdigest()!=identity['questions_sha256']:raise RuntimeError('FROZEN_QUESTIONS_CHANGED')
 adapters=Path('/tmp/verified_own_adapters');adapters.mkdir(mode=0o700)
@@ -47,13 +50,14 @@ for stage,files in __CONFIG__.items():
         (dest/name).write_bytes(raw)
 out=Path('/kaggle/working/spread_market_predictions.json')
 entry=Path('/tmp/run_spread_inference.py')
-entry.write_text('from pathlib import Path\\nimport sys\\nsys.path.insert(0,'+repr(str(repo))+')\\nfrom williams_ai.spread_market_gpu import predict\\npredict(Path('+repr(str(questions))+'),Path('+repr(str(adapters))+'),Path('+repr(str(manifest))+'),Path('+repr(str(out))+'))\\n')
+entry.write_text('from pathlib import Path\\nimport sys\\nsys.path.insert(0,'+repr(str(repo))+')\\nfrom williams_ai.spread_market_gpu import predict\\npredict(Path('+repr(str(questions))+'),Path('+repr(str(adapters))+'),Path('+repr(str(manifest))+'),Path('+repr(str(out))+'),Path('+repr(str(source_test))+'))\\n')
 try:subprocess.run([sys.executable,'-m','torch.distributed.run','--standalone','--nproc_per_node=2',str(entry)],check=True)
 except Exception as e:
     Path('/kaggle/working/spread_market_failure.json').write_text(json.dumps({'error_type':type(e).__name__,'complete_comparison':False,'execution_allowed':False}))
     raise
+finally:source_test.unlink(missing_ok=True)
 '''
-    return template.replace('__REVISION__',repr(revision)).replace('__QUESTIONS__',repr(packed(qbytes))).replace('__CONFIG__',repr(config)).replace('__IDENTITY__',repr(identity))
+    return template.replace('__REVISION__',repr(revision)).replace('__QUESTIONS__',repr(packed(qbytes))).replace('__CONFIG__',repr(config)).replace('__IDENTITY__',repr(identity)).replace('__SOURCE_TEST__',repr(packed(source_test_payload)))
 
 
 def main():
@@ -81,6 +85,15 @@ def main():
     if (receipt['source_commit']!=TRAINING_SOURCE or receipt['initial_adapter_sha256']!=INITIAL_SHA or receipt['model_repo']!=MODEL
         or receipt['model_revision']!=REVISION or receipt['complete_training_and_test'] is not True or receipt['execution_allowed'] is not False):
         raise ValueError('VERIFIED_COMPLETED_RESTORATIVE_RESEARCH_REQUIRED')
+    marker=json.loads(Path('experiments/restorative-market-start.json').read_bytes())
+    if (marker.get('training_source_commit')!=TRAINING_SOURCE or marker.get('candidate_adapter_sha256')!=receipt['candidate_adapter_sha256']
+        or marker.get('start_frozen_inference') is not True or marker.get('execution_allowed') is not False):
+        raise ValueError('FROZEN_SELECTED_CANDIDATE_MARKER_REQUIRED')
+    test_payload=open_envelope(json.loads(Path('experiments/private-frozen-source-test-20261028.sealed.json').read_bytes()),token)
+    _,test_audit=checked_test_payload(json.loads(test_payload),expected_manifest_sha256=receipt['source_audit']['manifest_sha256'])
+    test_design=json.loads(Path('experiments/frozen-source-test-20261028-design.json').read_bytes())
+    if sha256(test_payload).hexdigest()!=test_design['payload_sha256'] or marker.get('source_test_payload_sha256')!=test_design['payload_sha256']:
+        raise ValueError('PRECOMMITTED_PRIVATE_SOURCE_TEST_CHANGED')
     questions,keys,qbytes,seal=frozen_market_cohort(Path('examples/ai_binance_15pair_h1_prior_holdout_20260902.json'))
     pinned=json.loads(Path('experiments/spread-market-20261028-design.json').read_bytes())
     if seal!=pinned:raise ValueError('PRECOMMITTED_MARKET_DESIGN_CHANGED')
@@ -96,8 +109,9 @@ def main():
             config[stage][name]={'url':item.url,'sha256':digest}
     identity={'model_repo':MODEL,'model_revision':REVISION,'official_weights_sha256':receipt['official_weights_sha256'],
         'training_source_commit':TRAINING_SOURCE,'training_receipt_sha256':sha256(raw).hexdigest(),
-        'adapter_sha256':expected,'questions_sha256':seal['questions_file_sha256']}
-    worker=worker_source(revision,qbytes,config,identity)
+        'adapter_sha256':expected,'questions_sha256':seal['questions_file_sha256'],
+        'source_manifest_sha256':test_audit['manifest_sha256'],'source_test_payload_sha256':sha256(test_payload).hexdigest()}
+    worker=worker_source(revision,qbytes,config,identity,test_payload)
     if token in worker or 'WITHHELD_OUTCOME_KEYS' in worker or len(worker)>3_000_000:raise ValueError('NO_SECRETS_OR_OUTCOME_KEYS_IN_WORKER')
     compile(worker,'frozen_market_worker','exec')
     metadata={'id':owner+'/'+RUN_SLUG,'title':RUN_SLUG,'code_file':'worker.py','language':'python','kernel_type':'script',
@@ -124,7 +138,12 @@ def main():
     if report['free_generation_protocol']!=seal['free_generation_protocol']:raise ValueError('FROZEN_FREE_GENERATION_PROTOCOL_CHANGED')
     if report['class_score_method']!=seal['class_score_method']:raise ValueError('FROZEN_COMPLETE_CLASS_SCORING_CHANGED')
     if set(predictions['stages'])!={'base','previous40','focused69','candidate'}:raise ValueError('ALL_FOUR_MODELS_REQUIRED')
+    actual_audit=report['source_test_audit']
+    if any(actual_audit[k]!=v for k,v in test_audit.items()):raise ValueError('SOURCE_TEST_AUDIT_MISMATCH')
+    scores=recompute_source_scores(predictions['source_test_window_losses'],actual_audit['windows_per_book'])
+    if scores!=predictions['source_test_scores']:raise ValueError('CPU_RECOMPUTED_SOURCE_TEST_LOSS_MISMATCH')
     grade=grade_market_comparison(keys,predictions['stages']);grade['seal']=seal;grade['predictions_file_sha256']=sha256(prediction_file.read_bytes()).hexdigest()
+    grade['source_test']=grade_source_test(scores)
     (dest/'spread_market_grade.json').write_text(json.dumps(grade,ensure_ascii=False,indent=2,allow_nan=False))
     (dest/'withheld_market_outcomes_cpu_only.json').write_text(json.dumps(keys,ensure_ascii=False,indent=2))
     (dest/'spread_market_seal.json').write_text(json.dumps(seal,ensure_ascii=False,indent=2))

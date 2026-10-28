@@ -57,7 +57,7 @@ class SpreadMarketTests(unittest.TestCase):
 
     def test_real_two_rank_entry_has_no_future_payload_or_unsubstituted_tokens(self):
         _,_,qbytes,seal=frozen_market_cohort(DATA)
-        w=worker_source('a'*40,qbytes,{}, {'questions_sha256':seal['questions_file_sha256']})
+        w=worker_source('a'*40,qbytes,{}, {'questions_sha256':seal['questions_file_sha256']},b'private original source TEST only; never train')
         tree=ast.parse(w);self.assertNotIn('KAGGLE_API_TOKEN',w);self.assertNotIn('WITHHELD_OUTCOME_KEYS',w)
         self.assertFalse(re.search(r'__[A-Z][A-Z0-9_]+__',w));self.assertIn('--nproc_per_node=2',w)
         with tempfile.TemporaryDirectory() as td:
@@ -65,7 +65,7 @@ class SpreadMarketTests(unittest.TestCase):
             node=next(n for n in tree.body if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call) and isinstance(n.value.func,ast.Attribute)
                 and isinstance(n.value.func.value,ast.Name) and n.value.func.value.id=='entry' and n.value.func.attr=='write_text')
             exec(compile(ast.Module(body=[node],type_ignores=[]),'entry_writer','exec'),
-                {'entry':entry,'repo':Path(td),'questions':Path(td)/'q','adapters':Path(td)/'a','manifest':Path(td)/'m','out':Path(td)/'o'})
+                {'entry':entry,'repo':Path(td),'questions':Path(td)/'q','adapters':Path(td)/'a','manifest':Path(td)/'m','out':Path(td)/'o','source_test':Path(td)/'t'})
             ast.parse(entry.read_text())
         self.assertIn("shutil.rmtree(repo/'examples')",w)
 
