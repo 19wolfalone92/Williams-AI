@@ -1,0 +1,252 @@
+{
+  "source_commit": "4b5590dde578e97adbb964b35dd4d8ac43f94fdd",
+  "model_revision": "3fb356690bbdae7353c94efb3eecdce276e6ed1c",
+  "archive_sha256": "6e18ff47570223a7f099c30401ca2e23b073e5670f0fef899944f74c78926841",
+  "weights": {
+    "source": {
+      "sha256": "00daeb1d26417713334b88580735c944108c1a4d8fa4b5dd3cc3145dfa42533f",
+      "matrices": 504,
+      "parameters": 33030144,
+      "all_finite": true
+    },
+    "candidate": {
+      "sha256": "6fb8a52a31c49ed789e2efb193cba406851f7a7d05850f8e48a3a14ae8d076a9",
+      "matrices": 504,
+      "parameters": 33030144,
+      "all_finite": true
+    }
+  },
+  "changed_matrices": 504,
+  "changed_values": 33030123,
+  "actual_updates": 1537,
+  "attempted_steps": 1537,
+  "skipped_steps": 0,
+  "selected_checkpoint": "checkpoint-768",
+  "selected_actual_updates": 768,
+  "development_selection_independently_recomputed": true,
+  "selected_checkpoint_guard_passed": true,
+  "questions_sha256": "c315d1a5c67e516c34e2f7fd3034881cd241a2df94aba18378970fe2742571ba",
+  "keys_independently_recalculated_from_prompts": true,
+  "text_gates": {
+    "source_previous40": {
+      "accepted": false,
+      "reasons": [
+        "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+      ],
+      "regressed_books": [],
+      "relative_improvement": -0.00015891911034272602,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "practice_previous40": {
+      "accepted": true,
+      "reasons": [],
+      "regressed_books": [],
+      "relative_improvement": 0.5658550058081128,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "source_initial_focused": {
+      "accepted": false,
+      "reasons": [
+        "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+      ],
+      "regressed_books": [],
+      "relative_improvement": -0.007874870735652925,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "practice_initial_focused": {
+      "accepted": true,
+      "reasons": [],
+      "regressed_books": [],
+      "relative_improvement": 0.2520269575388664,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    }
+  },
+  "transfer_gate_accepted": false,
+  "all_research_gates_accepted": false,
+  "execution_allowed": false,
+  "trading_qualification": false,
+  "thinking_test_seconds_each_model": 9.58585406874553,
+  "thinking_test": {
+    "base": {
+      "correct": 0,
+      "total": 112,
+      "accuracy": 0.0,
+      "response_time_limit_failures": 112,
+      "incomplete_thinking_failures": 112,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.HUMP": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.AO5345": {
+          "correct": 0,
+          "total": 16
+        },
+        "NTD.AC": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM3": {
+          "correct": 0,
+          "total": 16
+        }
+      },
+      "distinct_responses": 1,
+      "largest_identical_response_count": 112,
+      "constant_fields_despite_varied_expected_values": {},
+      "expert_market_chart_exam": false,
+      "execution_allowed": false
+    },
+    "previous40": {
+      "correct": 0,
+      "total": 112,
+      "accuracy": 0.0,
+      "response_time_limit_failures": 112,
+      "incomplete_thinking_failures": 112,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.HUMP": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.AO5345": {
+          "correct": 0,
+          "total": 16
+        },
+        "NTD.AC": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM3": {
+          "correct": 0,
+          "total": 16
+        }
+      },
+      "distinct_responses": 1,
+      "largest_identical_response_count": 112,
+      "constant_fields_despite_varied_expected_values": {},
+      "expert_market_chart_exam": false,
+      "execution_allowed": false
+    },
+    "focused69": {
+      "correct": 0,
+      "total": 112,
+      "accuracy": 0.0,
+      "response_time_limit_failures": 112,
+      "incomplete_thinking_failures": 112,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.HUMP": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 0,
+          "total": 16
+        },
+        "COURSE.AO5345": {
+          "correct": 0,
+          "total": 16
+        },
+        "NTD.AC": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM3": {
+          "correct": 0,
+          "total": 16
+        }
+      },
+      "distinct_responses": 1,
+      "largest_identical_response_count": 112,
+      "constant_fields_despite_varied_expected_values": {},
+      "expert_market_chart_exam": false,
+      "execution_allowed": false
+    },
+    "candidate": {
+      "correct": 51,
+      "total": 112,
+      "accuracy": 0.45535714285714285,
+      "response_time_limit_failures": 56,
+      "incomplete_thinking_failures": 24,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 16
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 8,
+          "total": 16
+        },
+        "COURSE.HUMP": {
+          "correct": 2,
+          "total": 16
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 8,
+          "total": 16
+        },
+        "COURSE.AO5345": {
+          "correct": 16,
+          "total": 16
+        },
+        "NTD.AC": {
+          "correct": 1,
+          "total": 16
+        },
+        "TC2.WM3": {
+          "correct": 16,
+          "total": 16
+        }
+      },
+      "distinct_responses": 38,
+      "largest_identical_response_count": 24,
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ],
+        "NTD.AC": [
+          "required_green",
+          "signal_ready"
+        ]
+      },
+      "expert_market_chart_exam": false,
+      "execution_allowed": false
+    }
+  },
+  "interpretation": "Latency-constrained thinking exam; controls all timed out. Not a general understanding or market profitability gain."
+}
