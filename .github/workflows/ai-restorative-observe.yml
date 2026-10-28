@@ -1,4 +1,5 @@
 # Read-only observation. Training is pinned to 4b5590d and is never resubmitted here.
+# Second read-only probe while the new independent market design is frozen.
 name: Williams AI read-only restorative GPU progress
 on:
   push:

@@ -25,7 +25,7 @@ def _iso(timestamp_ms: int) -> str:
         timespec="milliseconds").replace("+00:00","Z")
 
 
-def build_blind_market_cases(archive: dict[str,Any]) -> tuple[list[dict],list[dict],dict]:
+def build_blind_market_cases(archive: dict[str,Any], *, cuts_by_symbol: dict[str,tuple[int,int]] | None = None) -> tuple[list[dict],list[dict],dict]:
     if (not isinstance(archive,dict)
             or archive.get("schema") != "WILLIAMS_AI_PUBLIC_BINANCE_15_H1_V1"
             or archive.get("evaluation_design") !=
@@ -34,6 +34,10 @@ def build_blind_market_cases(archive: dict[str,Any]) -> tuple[list[dict],list[di
             or not isinstance(archive.get("pairs"), dict)
             or len(archive["pairs"]) != 15):
         raise ValueError("EXPLICIT_REAL_15PAIR_FROZEN_HISTORY_REQUIRED")
+    if cuts_by_symbol is not None and (set(cuts_by_symbol)!=set(archive['pairs']) or any(
+            not isinstance(cuts,(tuple,list)) or len(cuts)!=2 or any(type(c) is not int or not LOOKBACK-1<=c<1200-HORIZON for c in cuts)
+            or cuts[1]-cuts[0]<LOOKBACK+HORIZON for cuts in cuts_by_symbol.values())):
+        raise ValueError('TWO_ORDERED_SEPARATED_VISIBLE_AND_FUTURE_WINDOWS_REQUIRED')
     questions, outcomes=[],[]
     for symbol,pair in sorted(archive["pairs"].items()):
         klines=pair["klines"]
@@ -48,7 +52,7 @@ def build_blind_market_cases(archive: dict[str,Any]) -> tuple[list[dict],list[di
                             and max(bar[1],bar[4])<=bar[2])
                        for bar in klines)):
             raise ValueError("REAL_H1_HISTORY_NOT_CAUSAL_OR_MALFORMED")
-        for cutoff in CUTS:
+        for cutoff in (CUTS if cuts_by_symbol is None else cuts_by_symbol[symbol]):
             visible=klines[cutoff-LOOKBACK+1:cutoff+1]
             future=klines[cutoff+1:cutoff+HORIZON+1]
             if len(visible)!=LOOKBACK or len(future)!=HORIZON:
@@ -89,7 +93,8 @@ def build_blind_market_cases(archive: dict[str,Any]) -> tuple[list[dict],list[di
     private=json.dumps(outcomes,ensure_ascii=False,sort_keys=True,separators=(",",":"))
     return questions,outcomes,{
         "mode":"REAL_15PAIR_H1_BLIND_DIRECTIONAL_CANDIDATE_ONLY",
-        "pairs":15,"cases":30,"cuts":list(CUTS),"lookback_closed_bars":LOOKBACK,
+        "pairs":15,"cases":30,"cuts":list(CUTS) if cuts_by_symbol is None else None,"lookback_closed_bars":LOOKBACK,
+        **({"cuts_by_symbol":{s:list(v) for s,v in sorted(cuts_by_symbol.items())}} if cuts_by_symbol is not None else {}),
         "future_horizon_bars":HORIZON,"future_market_bars_in_inference_prompt":False,
         "market_context_sha256":hashlib.sha256(public.encode()).hexdigest(),
         "result_keys_sha256":hashlib.sha256(private.encode()).hexdigest(),
