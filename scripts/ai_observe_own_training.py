@@ -17,6 +17,8 @@ def numerical_progress(text:str)->list[dict]:
         common={"accuracy","max_source_regression","selection_score","optimizer_step"}
         markers=(("CONTRASTIVE_DEV_SELECTION ",common,"generated_dev"),
                  ("FOCUSED_DEV_SELECTION ",common|{"minimum_rule_accuracy","collapsed_rules"},"generated_dev"),
+                 ("RESTORATIVE_DEV_SELECTION ",common|{"minimum_rule_accuracy","collapsed_rules","max_practice_regression"},"generated_dev"),
+                 ("RESTORATIVE_TEST_STAGE_COMPLETED ",{"completed_stages","responses"},"generated_test_progress"),
                  ("FOCUSED_TEST_STAGE_COMPLETED ",{"completed_stages","responses"},"generated_test_progress"))
         for marker,expected,kind in markers:
             if marker in line:

@@ -1,0 +1,285 @@
+"""Continue the verified restorative 69/84 adapter with restorative numeric lessons.
+
+Existing Kaggle credential stays on this CPU runner. Private books, signed
+own-output URLs and test prompts enter only the PRIVATE Kaggle worker.
+"""
+from __future__ import annotations
+import base64
+from hashlib import sha256
+import json
+import lzma
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from urllib.parse import urlsplit
+from urllib.request import urlopen
+import zipfile
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from scripts.ai_continue_own_checkpoint_kaggle import PARAMETERS,TARGETS
+from scripts.ai_sealed_source_transport import open_envelope
+from williams_ai.deep_book_research import checked_payload,MODEL,REVISION
+from williams_ai.lora_integrity import validation_admission
+from williams_ai.contrastive_book_practice import question_rows,questions_digest,score_responses
+from williams_ai.restorative_book_practice import restorative_cases as paired_cases,INITIAL_SHA,PREVIOUS_RECEIPT_SHA,PREVIOUS40_SHA
+from williams_ai.restorative_gpu_research import RUN_SLUG,CONTROL_URL,checked_stop_control,checked_baselines
+
+GPU_SECONDS=10800
+POLL_SECONDS=20
+REFERENCE_RECEIPT_SHA=PREVIOUS_RECEIPT_SHA
+RESTORATIVE_OUTPUT_PATTERN=r".*(RESTORATIVE_DUAL_T4[.]zip|restorative_failure[.]json)$"
+
+
+def packed(raw:bytes)->str:return base64.b64encode(lzma.compress(raw,preset=6)).decode()
+
+
+def safe_submission_error(raw:str,credential:str)->str:
+    if credential:raw=raw.replace(credential,"<CREDENTIAL>")
+    raw=re.sub(r"https?://[^\s\"']+","<URL>",raw)
+    raw=re.sub(r"[A-Za-z0-9_+/=.-]{40,}","<LONG_TOKEN>",raw)
+    return raw[-1200:]
+
+
+def worker_source(revision:str,payload:bytes,questions:bytes,initial:dict,reference:dict,reference40:dict)->str:
+    if not re.fullmatch(r"[a-f0-9]{40}",revision):raise ValueError("IMMUTABLE_RESEARCH_SOURCE_REQUIRED")
+    template='''import base64,hashlib,json,lzma,os,re,shutil,subprocess,sys,zipfile
+from pathlib import Path
+from urllib.request import urlopen
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+os.environ["TOKENIZERS_PARALLELISM"]="false"
+os.environ["HF_HUB_DISABLE_TELEMETRY"]="1"
+os.environ["NCCL_P2P_DISABLE"]="1"
+os.environ["NCCL_IB_DISABLE"]="1"
+os.environ["TRAINING_SOURCE_SHA"]=__REVISION__
+repo=Path("/tmp/own-restorative-research-source")
+subprocess.run(["git","clone","-q","https://github.com/19wolfalone92/Williams-AI.git",str(repo)],check=True)
+subprocess.run(["git","checkout","-q",__REVISION__],cwd=repo,check=True)
+shutil.rmtree(repo/"examples")
+subprocess.run([sys.executable,"-m","pip","install","--quiet","--disable-pip-version-check",
+    "transformers==4.57.1","peft==0.17.1","accelerate==1.10.1","bitsandbytes==0.48.1","safetensors==0.6.2"],check=True)
+private=Path("/tmp/restorative_source_train_validation.json")
+private.write_bytes(lzma.decompress(base64.b64decode(__PAYLOAD__)));private.chmod(0o600)
+questions=Path("/tmp/restorative_112_prompts_only.json")
+questions.write_bytes(lzma.decompress(base64.b64decode(__QUESTIONS__)));questions.chmod(0o600)
+if hashlib.sha256(questions.read_bytes()).hexdigest()!=__QUESTION_SHA__:raise RuntimeError("SEALED_PROMPTS_CHANGED")
+reference=Path("/tmp/own_same_cohort_baselines.json");reference.write_text(json.dumps(__REFERENCE__))
+config=__INITIAL__
+adapter=Path("/tmp/own_verified_focused69");adapter.mkdir(mode=0o700)
+if set(config["files"])!={"adapter_config.json","adapter_model.safetensors"}:raise RuntimeError("OWN_SAFE_FILES_ONLY")
+for name,meta in config["files"].items():
+    raw=urlopen(meta["url"],timeout=240).read()
+    if hashlib.sha256(raw).hexdigest()!=meta["sha256"]:raise RuntimeError("OWN_CHECKPOINT_FILE_SHA_CHANGED")
+    (adapter/name).write_bytes(raw)
+if hashlib.sha256((adapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=__INITIAL_SHA__:
+    raise RuntimeError("FOCUSED69_INITIAL_WEIGHT_SHA_CHANGED")
+reference40=__REFERENCE40__
+refadapter=Path("/tmp/restorative_reference40");refadapter.mkdir(mode=0o700)
+if set(reference40["files"])!={"adapter_config.json","adapter_model.safetensors"}:raise RuntimeError("SAFE_REFERENCE40_FILES_REQUIRED")
+for name,meta in reference40["files"].items():
+    raw=urlopen(meta["url"],timeout=240).read()
+    if hashlib.sha256(raw).hexdigest()!=meta["sha256"]:raise RuntimeError("REFERENCE40_FILE_SHA_CHANGED")
+    (refadapter/name).write_bytes(raw)
+if hashlib.sha256((refadapter/"adapter_model.safetensors").read_bytes()).hexdigest()!=__PREVIOUS40_SHA__:raise RuntimeError("EXACT_PREVIOUS40_SHA_REQUIRED")
+entry=Path("/tmp/run_own_dual_t4.py")
+entry.write_text("from pathlib import Path\\nimport sys\\nsys.path.insert(0,"+repr(str(repo))+")\\nfrom williams_ai.restorative_gpu_research import train_joint\\ntrain_joint(Path("+repr(str(private))+"),Path("+repr(str(questions))+"),Path("+repr(str(adapter))+"),Path("+repr(str(reference))+"),Path('/kaggle/working/restorative_qwen4b'),Path('/tmp/restorative_reference40'))\\n")
+out=Path("/kaggle/working/restorative_qwen4b")
+failed=None
+try:
+    subprocess.run([sys.executable,"-m","torch.distributed.run","--standalone","--nproc_per_node=2",str(entry)],check=True)
+except Exception as error:
+    failed=type(error).__name__
+    Path("/kaggle/working/restorative_failure.json").write_text(json.dumps({"error_type":failed,"complete_training_claimed":False,"execution_allowed":False}))
+finally:
+    private.unlink(missing_ok=True)
+    if out.is_dir():
+        with zipfile.ZipFile("/kaggle/working/Williams_Qwen3_4B_RESTORATIVE_DUAL_T4.zip","w",compression=zipfile.ZIP_DEFLATED,compresslevel=4) as z:
+            for p in sorted(out.rglob("*")):
+                if p.is_file():
+                    rel=p.relative_to(out)
+                    if rel.parts[0] in ("source_adapter","candidate_adapter") or (len(rel.parts)==1 and p.suffix==".json"):z.write(p,str(rel))
+if failed:raise RuntimeError("OWN_DUAL_T4_RESEARCH_INCOMPLETE_PARTIAL_EVIDENCE_SAVED")
+print("OWN_DUAL_T4_TRAINING_PROCESS_FINISHED_CHECK_RECEIPT",flush=True)
+'''
+    return (template.replace("__REVISION__",repr(revision)).replace("__PAYLOAD__",repr(packed(payload)))
+        .replace("__QUESTIONS__",repr(packed(questions))).replace("__QUESTION_SHA__",repr(sha256(questions).hexdigest()))
+        .replace("__REFERENCE__",repr(reference)).replace("__INITIAL__",repr(initial)).replace("__INITIAL_SHA__",repr(INITIAL_SHA))
+        .replace("__REFERENCE40__",repr(reference40)).replace("__PREVIOUS40_SHA__",repr(PREVIOUS40_SHA)))
+
+
+def checked_result_archive(path:Path,destination:Path,questions:list[dict],cases:list[dict],*,expected_source_commit:str)->dict:
+    with zipfile.ZipFile(path) as z:
+        if any(Path(n).is_absolute() or ".." in Path(n).parts for n in z.namelist()):raise ValueError("UNSAFE_OWN_TRAINED_ARCHIVE")
+        report=json.loads(z.read("research_receipt.json"))
+        if (report.get("initial_adapter_sha256")!=INITIAL_SHA or report.get("execution_allowed") is not False or report.get("world_size")!=2
+            or report.get("model_repo")!=MODEL or report.get("model_revision")!=REVISION or report.get("source_commit")!=expected_source_commit):
+            raise ValueError("OWN_DUAL_GPU_RESULT_PROVENANCE_REQUIRED")
+        if any(stage+"_adapter/adapter_model.safetensors" not in z.namelist() for stage in ("source","candidate")):
+            raise ValueError("INCOMPLETE_RESTORATIVE_GPU_CANDIDATE_MISSING_PARTIAL_EVIDENCE_PRESERVED")
+        for stage in ("source","candidate"):
+            actual=sha256(z.read(stage+"_adapter/adapter_model.safetensors")).hexdigest()
+            if actual!=report[stage+"_adapter_sha256"]:raise ValueError("SAVED_ADAPTER_SHA_FAILED")
+        if not report.get("training_stopped_by_user_or_control_unavailable") and (report.get("complete_training_and_test") is not True
+            or report.get("adapter_weights_changed") is not True or type(report.get("joint_optimizer_steps")) is not int or report["joint_optimizer_steps"]<=0):
+            raise ValueError("ACTUAL_COMPLETE_RESTORATIVE_TRAINING_REQUIRED")
+        if not report.get("training_stopped_by_user_or_control_unavailable") and "restorative_test_precommit.json" not in z.namelist():
+            raise ValueError("COMPLETE_RESTORATIVE_TEST_PRECOMMIT_REQUIRED")
+        if "restorative_test_precommit.json" in z.namelist() and not report.get("training_stopped_by_user_or_control_unavailable"):
+            pre=json.loads(z.read("restorative_test_precommit.json"))
+            if pre["questions_sha256"]!=questions_digest(questions) or set(pre["stages"])!={"base","previous40","focused69","candidate"}:
+                raise ValueError("COMPLETE_SEALED_NEW_PARAMETER_TEST_REQUIRED")
+            if (pre.get("inference_mode")!="thinking" or pre.get("expected_keys_loaded_on_gpu") is not False
+                or type(pre.get("same_response_time_budget_seconds_each_model")) not in (int,float)
+                or not 0<pre["same_response_time_budget_seconds_each_model"]<=45
+                or any(type(r.get(k)) is not bool for rows in pre["stages"].values() for r in rows for k in ("thinking_complete","response_time_limit_reached"))):
+                raise ValueError("SAME_PRECOMMITTED_THINKING_MODE_AND_COMPLETION_FLAGS_REQUIRED")
+            cpu_gates={}
+            for name,before in (("final_source_validation_gate","source_baseline_loss"),("final_practice_validation_gate","practice_baseline_loss"),
+                ("initial_focused_source_gate","initial_focused_source_loss"),("initial_focused_practice_gate","initial_focused_practice_loss")):
+                after="source_final_loss" if "source" in name else "practice_final_loss"
+                cpu_gates[name]=validation_admission(report[before],report[after])
+                if cpu_gates[name]!=report[name]:raise ValueError("CPU_RECOMPUTED_TEXT_GATE_MISMATCH")
+            if all(g['accepted'] for g in cpu_gates.values())!=report['text_validation_gates_passed']:
+                raise ValueError("CPU_TEXT_GATE_AGREEMENT_REQUIRED")
+            grades={stage:score_responses(cases,rows) for stage,rows in pre["stages"].items()}
+            grade={"mode":"SEALED_112_RESTORATIVE_PARAMETER_AND_PHRASING_TRANSFER_NOT_EXPERT_MARKET","stages":grades,
+                "inference_mode":pre["inference_mode"],"expected_keys_on_cpu_only":True,"trading_qualification":False,"execution_allowed":False}
+            candidate=grades["candidate"]
+            grade["further_research_transfer_gate"]={"accepted":candidate["accuracy"]>=0.8
+                and candidate["accuracy"]>=max(grades[s]["accuracy"] for s in ("base","previous40","focused69"))+0.05
+                and all(v["correct"]/v["total"]>=0.75 for v in candidate["per_rule"].values())
+                and not candidate["constant_fields_despite_varied_expected_values"],
+                "minimum_accuracy":0.8,"minimum_each_rule_accuracy":0.75,"minimum_gain":0.05,
+                "trading_qualification":False}
+            grade["all_research_gates_accepted"]=(report["text_validation_gates_passed"] and grade["further_research_transfer_gate"]["accepted"])
+            admission={"candidate_adapter_sha256":report["candidate_adapter_sha256"],"source_commit":report["source_commit"],
+                "accepted_for_further_research":grade["all_research_gates_accepted"],"text_gates_passed":report["text_validation_gates_passed"],
+                "sealed_transfer_gate_passed":grade["further_research_transfer_gate"]["accepted"],
+                "trading_qualification":False,"execution_allowed":False}
+            (destination/"final_research_admission.json").write_text(json.dumps(admission,ensure_ascii=False,indent=2))
+            (destination/"restorative_test_grade.json").write_text(json.dumps(grade,ensure_ascii=False,indent=2))
+            (destination/"restorative_test_precommit.json").write_text(json.dumps(pre,ensure_ascii=False,indent=2))
+            print("OWN_DUAL_T4_NEW_PARAMETER_GRADE",json.dumps({s:{"correct":r["correct"],"total":r["total"],"per_rule":r["per_rule"]} for s,r in grades.items()}),flush=True)
+    (destination/"research_receipt.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
+    return report
+
+
+def checked_previous_adapter(config:dict,report:dict,weights:bytes)->dict:
+    if (report.get("candidate_adapter_sha256")!=INITIAL_SHA or report.get("source_commit")!="8711a2a72393382fc617c286e7fd9c7e38940caa"
+        or report.get("complete_training_and_test") is not True or report.get("execution_allowed") is not False):
+        raise ValueError("VERIFIED_FOCUSED69_RESULT_REQUIRED")
+    if (config.get("r")!=16 or config.get("lora_alpha")!=32 or config.get("bias")!="none" or set(config.get("target_modules",[]))!=TARGETS
+        or config.get("peft_type")!="LORA" or config.get("modules_to_save") or config.get("use_dora") or sha256(weights).hexdigest()!=INITIAL_SHA):
+        raise ValueError("EXACT_COMPATIBLE_FOCUSED69_WEIGHTS_REQUIRED")
+    import numpy as np
+    from safetensors.numpy import load
+    tensors=load(weights)
+    if (len(tensors)!=504 or any(".lora_" not in n or x.dtype!=np.float32 or not np.isfinite(x).all() for n,x in tensors.items())
+        or sum(x.size for x in tensors.values())!=PARAMETERS or sum(".lora_B." in n and np.any(x!=0) for n,x in tensors.items())!=252):
+        raise ValueError("FINITE_FOCUSED69_LORA_TENSORS_REQUIRED")
+    return {"adapter_sha256":INITIAL_SHA,"parameters":PARAMETERS,"all_finite":True,"previous_admission_passed":False,"execution_allowed":False}
+
+
+def main():
+    from kagglehub.auth import get_username
+    from kaggle.api.kaggle_api_extended import KaggleApi
+    from kagglesdk.kernels.types.kernels_api_service import ApiListKernelSessionOutputRequest
+    secret=os.environ["KAGGLE_API_TOKEN"];revision=os.environ["GITHUB_SHA"];owner=get_username()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{2,62}",owner):raise ValueError("OWN_KAGGLE_ACCOUNT_REQUIRED")
+    api=KaggleApi();api.authenticate()
+    from kagglesdk.kernels.types.kernels_api_service import ApiGetAcceleratorQuotaStatisticsRequest
+    with api.build_kaggle_client() as client:
+        quota=client.kernels.kernels_api_client.get_accelerator_quota_statistics(ApiGetAcceleratorQuotaStatisticsRequest()).gpu_quota
+        if quota:
+            remaining=(quota.total_time_allowed-quota.time_used).total_seconds()
+            print("OWN_AVAILABLE_GPU_HOURS",round(remaining/3600,4),flush=True)
+            if remaining<=0:raise RuntimeError("OWN_FREE_GPU_QUOTA_EXHAUSTED_NO_TRAINING_SUBMITTED")
+    with urlopen(CONTROL_URL+"?preflight="+str(int(time.time())),timeout=20) as response:
+        if checked_stop_control(json.load(response)):raise RuntimeError("USER_STOP_FLAG_NO_TRAINING_SUBMITTED")
+    for slug in ("williams-ai-private-originals-deep-20261027","williams-ai-recovered-full-course-rank16-20261027","williams-ai-contrastive-2t4-20261027","williams-ai-focused-2t4-20261027"):
+        state=str(api.kernels_status(owner+"/"+slug).status).lower()
+        if not any(s in state for s in ("complete","error","cancel")):raise RuntimeError("EXISTING_OWN_GPU_MUST_BE_STOPPED")
+    def files(slug):
+        found={};page=None;seen=set()
+        with api.build_kaggle_client() as client:
+            while True:
+                request=ApiListKernelSessionOutputRequest();request.user_name=owner;request.kernel_slug=slug
+                if page:request.page_token=page
+                response=client.kernels.kernels_api_client.list_kernel_session_output(request)
+                found.update({f.file_name:f for f in response.files})
+                page=getattr(response,"next_page_token",None)
+                if not page:break
+                if page in seen:raise ValueError("OWN_OUTPUT_PAGINATION_LOOP")
+                seen.add(page)
+        return found
+    previous=files("williams-ai-focused-2t4-20261027")
+    reference_bytes=urlopen(previous["focused_qwen4b/research_receipt.json"].url,timeout=60).read()
+    if sha256(reference_bytes).hexdigest()!=REFERENCE_RECEIPT_SHA:raise ValueError("EXACT_OWN_BASELINE_RECEIPT_SHA_REQUIRED")
+    reference=json.loads(reference_bytes)
+    initial_raw={};initial_urls={}
+    for name in ("adapter_config.json","adapter_model.safetensors"):
+        item=previous.get("focused_qwen4b/candidate_adapter/"+name)
+        if item is None or urlsplit(item.url).scheme!="https":raise ValueError("OWN_PREVIOUS40_SIGNED_FILES_REQUIRED")
+        initial_urls[name]=item.url;initial_raw[name]=urlopen(item.url,timeout=240).read()
+    initial_proof=checked_previous_adapter(json.loads(initial_raw["adapter_config.json"]),reference,initial_raw["adapter_model.safetensors"])
+    initial={"files":{n:{"url":initial_urls[n],"sha256":sha256(initial_raw[n]).hexdigest()} for n in initial_raw}}
+    reference40={"files":{}}
+    for name in ("adapter_config.json","adapter_model.safetensors"):
+        item=previous.get("focused_qwen4b/source_adapter/"+name)
+        if item is None or urlsplit(item.url).scheme!="https":raise ValueError("OWN_PREVIOUS40_REFERENCE_REQUIRED")
+        raw=urlopen(item.url,timeout=240).read()
+        if name=="adapter_model.safetensors" and sha256(raw).hexdigest()!=PREVIOUS40_SHA:raise ValueError("EXACT_PREVIOUS40_REFERENCE_SHA_REQUIRED")
+        reference40["files"][name]={"url":item.url,"sha256":sha256(raw).hexdigest()}
+    del initial_raw,initial_urls
+    payload=open_envelope(json.loads(Path("experiments/private-source-20261027-course-full.sealed.json").read_bytes()),secret)
+    audited=checked_payload(json.loads(payload));checked_baselines(reference,audited["audit"])
+    cases=paired_cases("test");questions=question_rows(cases);qbytes=json.dumps(questions,ensure_ascii=False).encode()
+    worker=worker_source(revision,payload,qbytes,initial,reference,reference40)
+    if secret in worker or "WITHHELD_OUTCOME_KEYS" in worker or len(worker)>3_000_000:raise ValueError("PRIVATE_WORKER_SECRET_OR_SIZE_VIOLATION")
+    compile(worker,"private_dual_t4_worker","exec")
+    del raw,payload
+    print("VERIFIED_FOCUSED69_RESTORATIVE_TWO_GPU_PLAN",json.dumps({"checkpoint_sha256":INITIAL_SHA,"reference40_sha256":PREVIOUS40_SHA,"rank":16,"originals":audited["audit"]["source_page_counts"],"test_prompts":112,"expected_test_keys_sent_to_gpu":False}),flush=True)
+    if len(RUN_SLUG)>50:raise ValueError("KAGGLE_KERNEL_TITLE_MAX50_REQUIRED")
+    metadata={"id":owner+"/"+RUN_SLUG,"title":RUN_SLUG,"code_file":"worker.py","language":"python","kernel_type":"script",
+        "is_private":"true","enable_gpu":"true","enable_internet":"true","machine_shape":"NvidiaTeslaT4", "dataset_sources":[],"model_sources":[],"competition_sources":[],"kernel_sources":[]}
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td);(root/"worker.py").write_text(worker);(root/"worker.py").chmod(0o600)
+        (root/"kernel-metadata.json").write_text(json.dumps(metadata))
+        pushed=subprocess.run(["kaggle","kernels","push","-p",td,"--accelerator","NvidiaTeslaT4","--timeout",str(GPU_SECONDS)],capture_output=True,text=True,timeout=180)
+        if pushed.returncode:
+            print("PRIVATE_TWO_GPU_SUBMISSION_VALIDATION",safe_submission_error(pushed.stdout+"\n"+pushed.stderr,secret),flush=True)
+            raise RuntimeError("PRIVATE_TWO_GPU_SUBMISSION_REJECTED")
+    print("PRIVATE_DUAL_T4_KAGGLE_PAGE","https://www.kaggle.com/code/"+owner+"/"+RUN_SLUG,flush=True)
+    state="UNKNOWN"
+    for attempt in range((GPU_SECONDS+600)//POLL_SECONDS):
+        state=str(api.kernels_status(owner+"/"+RUN_SLUG).status).upper()
+        if attempt%15==0:
+            print("PRIVATE_DUAL_T4_CURRENT_STATE",state,flush=True)
+            if attempt:
+                probe=subprocess.run([sys.executable,"scripts/ai_observe_own_training.py"],env={**os.environ,"WILLIAMS_OBSERVE_SLUG":RUN_SLUG},capture_output=True,text=True,timeout=55)
+                for line in probe.stdout.splitlines():
+                    if line.startswith(("OWN_TRAINER_NUMERICAL_PROGRESS ","OWN_OBSERVED_ACTUAL_GPUS ","OWN_GPU_QUOTA_HOURS ")):print(line,flush=True)
+        if any(s in state for s in ("COMPLETE","ERROR","CANCEL")):break
+        time.sleep(POLL_SECONDS)
+    print("PRIVATE_DUAL_T4_FINAL_STATE",state,flush=True)
+    dest=Path(os.environ["RUNNER_TEMP"])/"restorative_dual_t4_results";dest.mkdir(mode=0o700)
+    result=subprocess.run(["kaggle","kernels","output",owner+"/"+RUN_SLUG,"-p",str(dest),"--file-pattern",RESTORATIVE_OUTPUT_PATTERN],capture_output=True,text=True,timeout=420)
+    archive=dest/"Williams_Qwen3_4B_RESTORATIVE_DUAL_T4.zip"
+    if result.returncode or not archive.is_file():
+        subprocess.run(["kaggle","kernels","output",owner+"/"+RUN_SLUG,"-p",str(dest/"safe_partial_checkpoints"),"--file-pattern",r".*(adapter_model[.]safetensors|adapter_config[.]json|trainer_state[.]json|research_receipt[.]json)$"],capture_output=True,text=True,timeout=420)
+        raise RuntimeError("INCOMPLETE_GPU_SAFE_CHECKPOINTS_REQUESTED_NO_COMPLETION_CLAIM")
+    report=checked_result_archive(archive,dest,questions,cases,expected_source_commit=revision)
+    print("REAL_TWO_GPU_WEIGHT_SHA256",report.get("candidate_adapter_sha256"),flush=True)
+    print("REAL_TWO_GPU_OPTIMIZER_STEPS",report.get("joint_optimizer_steps"),report.get("selected_checkpoint"),flush=True)
+    print("REAL_TWO_GPU_FOUR_BOOK_GATE",json.dumps(report.get("final_source_validation_gate")),flush=True)
+    print("REAL_TWO_GPU_PRACTICE_GATE",json.dumps(report.get("final_practice_validation_gate")),flush=True)
+    if report.get("training_stopped_by_user_or_control_unavailable"):
+        print("USER_STOPPED_OWN_CHECKPOINT_PRESERVED",flush=True);return
+    if "COMPLETE" not in state or report.get("complete_training_and_test") is not True:raise RuntimeError("INCOMPLETE_TRAINING_OR_EXAM_PARTIAL_EVIDENCE_SAVED")
+
+
+if __name__=="__main__":main()
