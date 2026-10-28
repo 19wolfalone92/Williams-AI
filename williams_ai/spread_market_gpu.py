@@ -43,8 +43,12 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
     from .contrastive_book_practice import SYSTEM
     rank=int(os.environ['LOCAL_RANK']);world=int(os.environ['WORLD_SIZE'])
     if world!=2 or torch.cuda.device_count()!=2:raise ValueError('TWO_ACTUAL_T4_RANKS_REQUIRED')
-    torch.cuda.set_device(rank);dist.init_process_group('nccl',timeout=timedelta(minutes=5));watch=StopWatcher();watch.start()
+    torch.cuda.set_device(rank);dist.init_process_group('nccl',timeout=timedelta(minutes=30));watch=StopWatcher();watch.start()
     cases,digest=verified_blind_questions(questions);identity=json.loads(manifest.read_bytes())
+    parent=identity.get('source_consolidation_final',False)
+    if type(parent) is not bool:raise ValueError('EXPLICIT_INFERENCE_PROTOCOL_REQUIRED')
+    stages=('base','previous40','focused69','restorative768','candidate') if parent else ('base','previous40','focused69','candidate')
+    if set(identity['adapter_sha256'])!=set(stages)-{'base'}:raise ValueError('ALL_AND_ONLY_PRECOMMITTED_ADAPTERS_REQUIRED')
     if sha256(source_test_file.read_bytes()).hexdigest()!=identity['source_test_payload_sha256']:raise ValueError('FROZEN_SOURCE_TEST_PAYLOAD_CHANGED')
     test_pages,test_audit=checked_test_payload(json.loads(source_test_file.read_bytes()),expected_manifest_sha256=identity['source_manifest_sha256'])
     direct_inputs={}
@@ -66,7 +70,8 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
         bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.float16))
     model_base=prepare_model_for_kbit_training(model_base,use_gradient_checkpointing=False)
     model=PeftModel.from_pretrained(model_base,adapters/'candidate',adapter_name='candidate',is_trainable=False,local_files_only=True)
-    for name in ('previous40','focused69'):model.load_adapter(adapters/name,adapter_name=name,is_trainable=False,local_files_only=True)
+    for name in stages:
+        if name not in ('base','candidate'):model.load_adapter(adapters/name,adapter_name=name,is_trainable=False,local_files_only=True)
     model.eval();model.config.use_cache=False
     local=[];max_prefix=0
     class Deadline(StoppingCriteria):
@@ -90,7 +95,7 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
         if len(lookup)!=112:raise ValueError('COMPLETE_DIRECT_COHORT_REQUIRED')
         return [lookup[r['case_id']] for r in rows]
     direct_development=direct_predict(direct_inputs['development'],'candidate')
-    direct_stages={s:direct_predict(direct_inputs['test'],s) for s in ('base','previous40','focused69','candidate')}
+    direct_stages={s:direct_predict(direct_inputs['test'],s) for s in stages}
     with torch.inference_mode():
         for index,case in enumerate(cases):
             if index%world!=rank:continue
@@ -100,7 +105,7 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
             prefix,suffixes=complete_class_suffixes(tokenizer,messages)
             if len(prefix)>8192:raise ValueError('FULL_PROMPT_EXCEEDS_CONTEXT_NO_TRUNCATION')
             max_prefix=max(max_prefix,len(prefix));ids=torch.tensor([prefix],device=torch.device('cuda',rank))
-            for name in ('base','previous40','focused69','candidate'):
+            for name in stages:
                 model.set_adapter('candidate' if name=='base' else name)
                 with (model.disable_adapter() if name=='base' else nullcontext()):
                     label_scores=[]
@@ -125,7 +130,7 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
     # the market prompt. Only preselected frozen weights are used.
     test_windows={e:tokenize_source_pages([r for r in test_pages if r['edition']==e],tokenizer,max_tokens=384) for e in EDITIONS}
     counts={e:len(v) for e,v in test_windows.items()};local_test=[]
-    for stage in ('base','previous40','focused69','candidate'):
+    for stage in stages:
         model.set_adapter('candidate' if stage=='base' else stage)
         with (model.disable_adapter() if stage=='base' else nullcontext()),torch.inference_mode(),torch.autocast('cuda',dtype=torch.float16):
             for edition,rows in test_windows.items():
@@ -137,15 +142,15 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
                     if not math.isfinite(loss):raise ValueError('FINITE_ORIGINAL_SOURCE_TEST_LOSS_REQUIRED')
                     local_test.append((stage,edition,index,loss))
     test_parts=[None]*world;dist.all_gather_object(test_parts,local_test)
-    window_losses=[r for p in test_parts for r in p];source_scores=recompute_source_scores(window_losses,counts)
+    window_losses=[r for p in test_parts for r in p];source_scores=recompute_source_scores(window_losses,counts,include_restorative_parent=parent)
     max_t=torch.tensor(max_prefix,device=torch.device('cuda',rank));dist.all_reduce(max_t,op=dist.ReduceOp.MAX)
     if rank==0:
-        combined=[x for p in parts for x in p];stages={}
-        for name in ('base','previous40','focused69','candidate'):
+        combined=[x for p in parts for x in p];market_stages={}
+        for name in stages:
             lookup={x['case_id']:{k:v for k,v in x.items() if k!='stage'} for x in combined if x['stage']==name}
             if len(lookup)!=30:raise ValueError('EXACT_THIRTY_PREDICTIONS_PER_MODEL_REQUIRED')
-            stages[name]=[lookup[c['case_id']] for c in cases]
-        receipt={**identity,'mode':'REAL_H1_FOUR_MODEL_COMPLETE_LABEL_AND_FREE_GENERATION_COMPARISON','world_size':world,
+            market_stages[name]=[lookup[c['case_id']] for c in cases]
+        receipt={**identity,'mode':'REAL_H1_FIVE_MODEL_COMPLETE_LABEL_AND_FREE_GENERATION_COMPARISON' if parent else 'REAL_H1_FOUR_MODEL_COMPLETE_LABEL_AND_FREE_GENERATION_COMPARISON','world_size':world,
             'gpu_names':[torch.cuda.get_device_name(i) for i in range(2)],'maximum_full_prompt_tokens':int(max_t.item()),
             'inference_runtime':{'torch':str(torch.__version__),'cuda':torch.version.cuda,
                 **{name:version(name) for name in ('transformers','peft','accelerate','bitsandbytes','safetensors')}},
@@ -156,7 +161,7 @@ def predict(questions:Path,adapters:Path,manifest:Path,output:Path,source_test_f
             'direct_rule_protocol':{'mode':'direct','maximum_new_tokens':128,'seconds_per_response':10,'expected_keys_on_gpu':False},
             'source_test_audit':{**test_audit,'windows_per_book':counts,'original_test_pages_sent_only_for_final_inference':True},
             'inference_source_commit':os.environ['TRAINING_SOURCE_SHA'],'trading_qualification':False,'execution_allowed':False}
-        output.write_text(json.dumps({'receipt':receipt,'stages':stages,'direct_rule_development':direct_development,'direct_rule_test':direct_stages,'source_test_scores':source_scores,
+        output.write_text(json.dumps({'receipt':receipt,'stages':market_stages,'direct_rule_development':direct_development,'direct_rule_test':direct_stages,'source_test_scores':source_scores,
             'source_test_window_losses':window_losses},ensure_ascii=False,indent=2,allow_nan=False))
-        print('FOUR_MODEL_MARKET_PREDICTIONS_SEALED',json.dumps({'models':4,'cases_each':30,'maximum_prompt_tokens':int(max_t.item())}),flush=True)
+        print('FROZEN_MODEL_MARKET_PREDICTIONS_SEALED',json.dumps({'models':len(stages),'cases_each':30,'maximum_prompt_tokens':int(max_t.item())}),flush=True)
     dist.barrier();watch.finished.set();dist.destroy_process_group()

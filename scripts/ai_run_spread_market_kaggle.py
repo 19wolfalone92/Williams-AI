@@ -48,7 +48,7 @@ identity=__IDENTITY__;manifest=Path('/tmp/inference_identity.json');manifest.wri
 if hashlib.sha256(questions.read_bytes()).hexdigest()!=identity['questions_sha256']:raise RuntimeError('FROZEN_QUESTIONS_CHANGED')
 adapters=Path('/tmp/verified_own_adapters');adapters.mkdir(mode=0o700)
 for stage,files in __CONFIG__.items():
-    if stage not in ('candidate','focused69','previous40') or set(files)!={'adapter_model.safetensors','adapter_config.json'}:raise RuntimeError('SAFE_KNOWN_ADAPTER_FILES_REQUIRED')
+    if stage not in ('candidate','focused69','previous40','restorative768') or set(files)!={'adapter_model.safetensors','adapter_config.json'}:raise RuntimeError('SAFE_KNOWN_ADAPTER_FILES_REQUIRED')
     dest=adapters/stage;dest.mkdir(mode=0o700)
     for name,meta in files.items():
         raw=urlopen(meta['url'],timeout=240).read()

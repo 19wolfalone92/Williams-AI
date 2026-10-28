@@ -30,17 +30,19 @@ def select_development_mode(thinking_grade,direct_grade):
         'trading_qualification':False,'execution_allowed':False}
 
 
-def grade_direct_test(cases,predictions):
-    if set(predictions)!={'base','previous40','focused69','candidate'}:raise ValueError('FOUR_SAME_MODE_MODELS_REQUIRED')
+def grade_direct_test(cases,predictions,*,include_restorative_parent=False):
+    expected={'base','previous40','focused69','candidate'}|({'restorative768'} if include_restorative_parent else set())
+    if type(include_restorative_parent) is not bool or set(predictions)!=expected:raise ValueError('ALL_SAME_MODE_MODELS_REQUIRED')
     grades={s:score_responses(cases,rows) for s,rows in predictions.items()}
-    return {'mode':'FRESH_PARAMETER_DIRECT_TRANSFER_NOT_EXPERT_MARKETS','stages':grades,'transfer_gate_passed':transfer_gate(grades),
+    return {'mode':'FRESH_PARAMETER_DIRECT_TRANSFER_NOT_EXPERT_MARKETS','stages':grades,'transfer_gate_passed':transfer_gate(grades,include_restorative_parent=include_restorative_parent),
         'same_questions_and_response_budget_each_model':True,'execution_allowed':False,'trading_qualification':False}
 
 
-def transfer_gate(grades):
-    if set(grades)!={'base','previous40','focused69','candidate'}:raise ValueError('FOUR_COMPARABLE_MODEL_GRADES_REQUIRED')
+def transfer_gate(grades,*,include_restorative_parent=False):
+    expected={'base','previous40','focused69','candidate'}|({'restorative768'} if include_restorative_parent else set())
+    if type(include_restorative_parent) is not bool or set(grades)!=expected:raise ValueError('ALL_COMPARABLE_MODEL_GRADES_REQUIRED')
     c=grades['candidate']
-    return (c['accuracy']>=.8 and c['accuracy']>=max(grades[s]['accuracy'] for s in ('base','previous40','focused69'))+.05
+    return (c['accuracy']>=.8 and c['accuracy']>=max(g['accuracy'] for s,g in grades.items() if s!='candidate')+.05
         and all(v['correct']/v['total']>=.75 for v in c['per_rule'].values()) and not c['constant_fields_despite_varied_expected_values'])
 
 

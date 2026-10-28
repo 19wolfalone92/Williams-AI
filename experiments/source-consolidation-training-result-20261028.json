@@ -1,0 +1,127 @@
+{
+  "source_commit": "29ef792c258d1faf5891106e114f322bdb7acc11",
+  "archive_sha256": "de167f57f0b91fba2d985da0dcdd7b64469a86ea0a5387b5bea79aff42f90432",
+  "initial_adapter_sha256": "6fb8a52a31c49ed789e2efb193cba406851f7a7d05850f8e48a3a14ae8d076a9",
+  "candidate_adapter_sha256": "df90e8366acc8ddb8ad9d348850719b49fef4e9d1f43fc1ca1b80f090294a621",
+  "parent_receipt_sha256": "f0802e08ef946bd7a8afadf60f1a4eca4dee1c8eb9d964bd237fc4f25824b40c",
+  "matrices": 504,
+  "parameters": 33030144,
+  "all_finite": true,
+  "changed_matrices": 504,
+  "changed_values": 33030124,
+  "actual_updates": 3048,
+  "attempted_steps": 3048,
+  "skipped_steps": 0,
+  "selected_checkpoint": "checkpoint-1024",
+  "selected_actual_updates": 1024,
+  "selected_on_development_only": true,
+  "final_test_performed_here": false,
+  "text_gates": {
+    "final_source_validation_gate": {
+      "accepted": false,
+      "reasons": [
+        "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+      ],
+      "regressed_books": [],
+      "relative_improvement": -0.003478123159039926,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "final_practice_validation_gate": {
+      "accepted": true,
+      "reasons": [],
+      "regressed_books": [],
+      "relative_improvement": 0.6815500450221931,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "initial_focused_source_gate": {
+      "accepted": false,
+      "reasons": [
+        "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+      ],
+      "regressed_books": [],
+      "relative_improvement": -0.01121968153282272,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "initial_focused_practice_gate": {
+      "accepted": true,
+      "reasons": [],
+      "regressed_books": [],
+      "relative_improvement": 0.45135384518315314,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "parent_source_validation_gate": {
+      "accepted": false,
+      "reasons": [
+        "INSUFFICIENT_VALIDATION_IMPROVEMENT"
+      ],
+      "regressed_books": [],
+      "relative_improvement": -0.003318676647556855,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    },
+    "parent_practice_validation_gate": {
+      "accepted": false,
+      "reasons": [
+        "BOOK_VALIDATION_REGRESSION"
+      ],
+      "regressed_books": [
+        "NTD"
+      ],
+      "relative_improvement": 0.2664894004580977,
+      "minimum_relative_improvement": 0.01,
+      "maximum_book_regression": 0.02
+    }
+  },
+  "direct_development": {
+    "correct": 92,
+    "total": 112,
+    "accuracy": 0.8214285714285714,
+    "response_time_limit_failures": 0,
+    "incomplete_thinking_failures": 0,
+    "per_rule": {
+      "TC1.PSY.PLAN": {
+        "correct": 7,
+        "total": 16
+      },
+      "TC2.WM1.TRIGGER": {
+        "correct": 16,
+        "total": 16
+      },
+      "COURSE.HUMP": {
+        "correct": 15,
+        "total": 16
+      },
+      "COURSE.W4.ZERO": {
+        "correct": 16,
+        "total": 16
+      },
+      "COURSE.AO5345": {
+        "correct": 16,
+        "total": 16
+      },
+      "NTD.AC": {
+        "correct": 6,
+        "total": 16
+      },
+      "TC2.WM3": {
+        "correct": 16,
+        "total": 16
+      }
+    },
+    "distinct_responses": 42,
+    "largest_identical_response_count": 9,
+    "constant_fields_despite_varied_expected_values": {
+      "NTD.AC": [
+        "signal_ready"
+      ]
+    },
+    "expert_market_chart_exam": false,
+    "execution_allowed": false
+  },
+  "trading_qualification": false,
+  "execution_allowed": false
+}

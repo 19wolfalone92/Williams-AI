@@ -79,19 +79,22 @@ def build_test_payload(directory:Path):
     return raw,design
 
 
-def grade_source_test(scores):
-    if set(scores)!={'base','previous40','focused69','candidate'}:raise ValueError('EXACT_FOUR_SOURCE_TEST_MODELS_REQUIRED')
+def grade_source_test(scores,*,include_restorative_parent=False):
+    expected={'base','previous40','focused69','candidate'}|({'restorative768'} if include_restorative_parent else set())
+    if type(include_restorative_parent) is not bool or set(scores)!=expected:raise ValueError('EXACT_SOURCE_TEST_MODELS_REQUIRED')
     for values in scores.values():
         if set(values)!=set(EDITIONS)|{'ALL'} or any(type(v) not in (int,float) or not math.isfinite(v) or v<0 for v in values.values()):
             raise ValueError('FINITE_FULL_FOUR_BOOK_TEST_LOSSES_REQUIRED')
-    gates={name:validation_admission(scores[name],scores['candidate']) for name in ('previous40','focused69')}
+    refs=('previous40','focused69','restorative768') if include_restorative_parent else ('previous40','focused69')
+    gates={name:validation_admission(scores[name],scores['candidate']) for name in refs}
     return {'mode':'FROZEN_96_ORIGINAL_PAGE_FINAL_LM_TEST_NOT_EXPERT_UNDERSTANDING','scores':scores,'gates':gates,
         'source_test_gate_passed':all(g['accepted'] for g in gates.values()),'checkpoint_selected_on_this_test':False,
         'text_loss_is_not_market_profitability':True,'trading_qualification':False,'execution_allowed':False}
 
 
-def recompute_source_scores(window_losses,window_counts):
-    stages=('base','previous40','focused69','candidate')
+def recompute_source_scores(window_losses,window_counts,*,include_restorative_parent=False):
+    if type(include_restorative_parent) is not bool:raise ValueError('EXPLICIT_SOURCE_PROTOCOL_REQUIRED')
+    stages=('base','previous40','focused69','restorative768','candidate') if include_restorative_parent else ('base','previous40','focused69','candidate')
     if set(window_counts)!=set(EDITIONS) or any(type(v) is not int or v<=0 for v in window_counts.values()):
         raise ValueError('POSITIVE_FOUR_BOOK_TEST_WINDOW_COUNTS_REQUIRED')
     seen=set();groups={s:{e:[] for e in EDITIONS} for s in stages}
@@ -101,7 +104,7 @@ def recompute_source_scores(window_losses,window_counts):
             or key in seen or type(loss) not in (int,float) or not math.isfinite(loss) or loss<0):
             raise ValueError('EXACT_FINITE_UNIQUE_SOURCE_TEST_WINDOW_REQUIRED')
         seen.add(key);groups[stage][edition].append((index,loss))
-    if len(seen)!=4*sum(window_counts.values()):raise ValueError('ALL_MODELS_ALL_SOURCE_TEST_WINDOWS_REQUIRED')
+    if len(seen)!=len(stages)*sum(window_counts.values()):raise ValueError('ALL_MODELS_ALL_SOURCE_TEST_WINDOWS_REQUIRED')
     result={}
     for stage,books in groups.items():
         values={e:sum(v for _,v in sorted(rows))/len(rows) for e,rows in books.items()}

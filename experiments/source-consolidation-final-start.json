@@ -1,0 +1,7 @@
+{
+  "training_source_commit": "29ef792c258d1faf5891106e114f322bdb7acc11",
+  "candidate_adapter_sha256": "df90e8366acc8ddb8ad9d348850719b49fef4e9d1f43fc1ca1b80f090294a621",
+  "source_test_payload_sha256": "97cbb7155940ed54902ae3d3f1c106eaaac584c0256b9d50da52be2904b7e07c",
+  "start_frozen_inference": true,
+  "execution_allowed": false
+}

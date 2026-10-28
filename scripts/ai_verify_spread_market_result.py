@@ -21,6 +21,20 @@ from williams_ai.frozen_source_test import recompute_source_scores,grade_source_
 from williams_ai.lora_integrity import validation_admission
 
 
+def numerical_equal(a,b):
+    """Allow only floating summation roundoff across Python 3.11/3.12.
+
+    Counts, flags, strings, cohort sizes and dictionary keys remain exact.
+    This does not change any admission threshold or repair model answers.
+    """
+    if type(a) is float and type(b) is float:
+        return math.isfinite(a) and math.isfinite(b) and math.isclose(a,b,rel_tol=1e-12,abs_tol=1e-12)
+    if type(a) is not type(b):return False
+    if isinstance(a,dict):return a.keys()==b.keys() and all(numerical_equal(a[k],b[k]) for k in a)
+    if isinstance(a,list):return len(a)==len(b) and all(numerical_equal(x,y) for x,y in zip(a,b))
+    return a==b
+
+
 def independent_market_keys(archive:Path,seal):
     raw=archive.read_bytes()
     if sha256(raw).hexdigest()!=ARCHIVE_SHA:raise ValueError('EXACT_FROZEN_PUBLIC_MARKET_HISTORY_REQUIRED')
@@ -71,7 +85,7 @@ def verify(directory:Path,gpu_archive:Path,market_archive:Path,*,expected_infere
                 raise ValueError('INDEPENDENT_PRICE_OUTCOME_OR_ATR_KEY_MISMATCH')
     market=grade_market_comparison(keys,predictions['stages'])
     for k,v in market.items():
-        if grade[k]!=v:raise ValueError('CPU_MARKET_GRADE_RECOMPUTATION_MISMATCH:'+k)
+        if not numerical_equal(grade[k],v):raise ValueError('CPU_MARKET_GRADE_RECOMPUTATION_MISMATCH:'+k)
     if grade['seal']!=seal or read('spread_market_seal.json')!=seal:raise ValueError('FROZEN_MARKET_SEAL_CHANGED')
     if (report['questions_sha256']!=seal['questions_file_sha256'] or report['class_score_method']!=seal['class_score_method']
         or report['free_generation_protocol']!=seal['free_generation_protocol']
@@ -96,7 +110,7 @@ def verify(directory:Path,gpu_archive:Path,market_archive:Path,*,expected_infere
     counts=report['source_test_audit']['windows_per_book']
     if counts!={'TC1':63,'NTD':93,'TC2':62,'COURSE':33}:raise ValueError('EXACT_TOKENIZER_PREFLIGHT_WINDOWS_REQUIRED')
     source_scores=recompute_source_scores(predictions['source_test_window_losses'],counts);source=grade_source_test(source_scores)
-    if source_scores!=predictions['source_test_scores'] or grade['source_test']!=source:raise ValueError('SOURCE_TEST_WINDOW_RECOMPUTATION_MISMATCH')
+    if not numerical_equal(source_scores,predictions['source_test_scores']) or not numerical_equal(grade['source_test'],source):raise ValueError('SOURCE_TEST_WINDOW_RECOMPUTATION_MISMATCH')
     text_gates={}
     for name,before in (('final_source_validation_gate','source_baseline_loss'),('final_practice_validation_gate','practice_baseline_loss'),
         ('initial_focused_source_gate','initial_focused_source_loss'),('initial_focused_practice_gate','initial_focused_practice_loss')):
@@ -107,7 +121,7 @@ def verify(directory:Path,gpu_archive:Path,market_archive:Path,*,expected_infere
         'selected_mode_transfer_gate_passed':transfer,'source_and_practice_validation_gates':text_gates,
         'original_source_test_gate_passed':source['source_test_gate_passed'],'market_results_did_not_select_mode_or_weights':True,
         'trading_qualification':False,'execution_allowed':False}
-    if combined!=grade['combined_research_admission']:raise ValueError('COMBINED_RESEARCH_ADMISSION_MISMATCH')
+    if not numerical_equal(combined,grade['combined_research_admission']):raise ValueError('COMBINED_RESEARCH_ADMISSION_MISMATCH')
     return {'candidate_adapter_sha256':receipt['candidate_adapter_sha256'],'all_cpu_recomputations_agree':True,
         'inference_source_commit':expected_inference_source_commit,
         'market_outcomes_and_atr_independently_recalculated':True,'direct_rule_keys_independently_recalculated':True,
@@ -116,7 +130,8 @@ def verify(directory:Path,gpu_archive:Path,market_archive:Path,*,expected_infere
         'generation_mode_selection':selection,'combined_research_admission':combined,
         'direct_test_summary':{s:{k:v for k,v in g.items() if k not in ('cases',)} for s,g in direct['stages'].items()},
         'market_stages':market['stages'],'original_source_test':source,
-        'predictions_sha256':grade['predictions_file_sha256'],'execution_allowed':False,'trading_qualification':False}
+        'predictions_sha256':grade['predictions_file_sha256'],'floating_recomputation_relative_and_absolute_tolerance':1e-12,
+        'execution_allowed':False,'trading_qualification':False}
 
 
 if __name__=='__main__':
