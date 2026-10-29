@@ -105,9 +105,24 @@ def verify_archive(archive, dest, *, revision, manifest, historical, numeric):
         if not changed: raise ValueError("REAL_LEARNED_WEIGHT_CHANGES_REQUIRED")
         if receipt["actual_updates"] <= 0 or receipt["optimizer_attempted_steps"] != receipt["actual_updates"] + receipt["amp_skipped_steps"]:
             raise ValueError("ACTUAL_OPTIMIZER_COUNTS_REQUIRED")
+        development = cases_from_pack(load_pack(Path(manifest["packs"]["validation"]["path"])))
         for row in receipt["checkpoints"]:
-            recalculated = selection(row["grade"], row["source_loss"], row["practice_loss"], receipt["references"])
+            raw_grade = score(development, json.loads(z.read("development_"+str(row["optimizer_step"])+".json")))
+            if raw_grade != row["grade"]: raise ValueError("SAVED_DEVELOPMENT_ANSWERS_MUST_RECOMPUTE")
+            refs = receipt["references"]
+            # Separate CPU arithmetic; do not trust a cached selection metric.
+            regression = max(after[e]/before[e]-1 for after, before in (
+                (row["source_loss"], refs["focused69_source"]), (row["source_loss"], refs["previous40_source"]),
+                (row["practice_loss"], refs["focused69_practice"]), (row["practice_loss"], refs["previous40_practice"])) for e in EDITIONS)
+            minimum = min(v["correct"]/v["total"] for v in raw_grade["per_rule"].values())
+            collapsed = len(raw_grade["constant_fields_despite_varied_expected_values"])
+            metric = -3-regression if regression>.02 else minimum+.1*raw_grade["accuracy"]-.1*collapsed
+            recalculated = {"score": metric, "max_any_reference_book_regression": regression,
+                "minimum_rule_accuracy": minimum, "collapsed_rules": collapsed, "preserved_within_two_percent": regression<=.02}
             if recalculated != row["selection"]: raise ValueError("DEVELOPMENT_SELECTION_MUST_RECOMPUTE")
+        if (any(type(receipt[k]) is not int for k in ("actual_updates", "optimizer_attempted_steps", "amp_skipped_steps", "selected_actual_updates"))
+                or not 0 < receipt["selected_actual_updates"] <= receipt["actual_updates"] <= receipt["optimizer_attempted_steps"]):
+            raise ValueError("REAL_SELECTED_UPDATE_COUNTER_REQUIRED")
         best = max(receipt["checkpoints"], key=lambda x: x["selection"]["score"])
         if receipt["selected_checkpoint"] != "checkpoint-"+str(best["optimizer_step"]): raise ValueError("DEVELOPMENT_ONLY_CHECKPOINT_SELECTION_REQUIRED")
         for filename, field, total in (("source_validation_window_losses.json", "source_final_loss", 178), ("practice_validation_window_losses.json", "practice_final_loss", 122)):
