@@ -1,0 +1,159 @@
+{
+  "schema": "HISTORICAL_BOOK_RULE_CALCULATION_RESEARCH_V1",
+  "partitions": {
+    "train": {
+      "start": "2022-01-01T00:00:00.000Z",
+      "end": "2022-11-16T23:59:59.999Z"
+    },
+    "validation": {
+      "start": "2024-01-01T00:00:00.000Z",
+      "end": "2024-11-15T23:59:59.999Z"
+    },
+    "test": {
+      "start": "2025-01-01T00:00:00.000Z",
+      "end": "2025-11-16T23:59:59.999Z"
+    }
+  },
+  "packs": {
+    "train": {
+      "path": "examples/historical_rule_20261029/train.json.gz",
+      "sha256": "2b1a63591986c97a733826e6d2eb698320a0fef84ee856b3ba645d3882c9ee67",
+      "uncompressed_sha256": "2e494bea0d4662a0c80df377186661f67bed45027c706cd12797ece653bf3b71",
+      "compressed_bytes": 420544,
+      "bars": 20000
+    },
+    "validation": {
+      "path": "examples/historical_rule_20261029/validation.json.gz",
+      "sha256": "298797799be3fd3b586332399dc79b1320125bf34756b690808be0c5c891a34b",
+      "uncompressed_sha256": "0b07f13a20b0ce21a0fbb7f8f7ff66b19c5ea238ce4fa245386f9be17a883bf8",
+      "compressed_bytes": 412420,
+      "bars": 20000
+    },
+    "test": {
+      "path": "examples/historical_rule_20261029/test.json.gz",
+      "sha256": "6145df7b8a64f5253a0dcbe5b5286e3da1e559695e967d461263cd13aff94c0d",
+      "uncompressed_sha256": "dbd927b45c345d54b180e4f3116f03cd7885c02228602ece5433499cfe1a8a5f",
+      "compressed_bytes": 424642,
+      "bars": 20000
+    }
+  },
+  "cases": {
+    "train": {
+      "cases": 1440,
+      "unique_windows": 822,
+      "per_rule": {
+        "TC1.PSY.PLAN": 160,
+        "NTD.AC": 160,
+        "NTD.ALLIGATOR": 160,
+        "NTD.AO": 160,
+        "TC2.WM1.TRIGGER": 160,
+        "TC2.WM3": 160,
+        "COURSE.AO5345": 160,
+        "COURSE.HUMP": 160,
+        "COURSE.W4.ZERO": 160
+      },
+      "per_timeframe": {
+        "H1": 650,
+        "H4": 449,
+        "D1": 341
+      },
+      "assets": [
+        "ADAUSDT",
+        "AVAXUSDT",
+        "BNBUSDT",
+        "BTCUSDT",
+        "DOGEUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "SOLUSDT",
+        "XRPUSDT"
+      ],
+      "questions_sha256": "a6a1c364428d89f98905be2d235cec6f020e7dd1f24dab65c9cb4ad1eee975df",
+      "calculation_labels_not_expert_chart_labels": true,
+      "execution_allowed": false
+    },
+    "validation": {
+      "cases": 72,
+      "unique_windows": 72,
+      "per_rule": {
+        "TC1.PSY.PLAN": 8,
+        "NTD.AC": 8,
+        "NTD.ALLIGATOR": 8,
+        "NTD.AO": 8,
+        "TC2.WM1.TRIGGER": 8,
+        "TC2.WM3": 8,
+        "COURSE.AO5345": 8,
+        "COURSE.HUMP": 8,
+        "COURSE.W4.ZERO": 8
+      },
+      "per_timeframe": {
+        "H1": 32,
+        "D1": 20,
+        "H4": 20
+      },
+      "assets": [
+        "ADAUSDT",
+        "AVAXUSDT",
+        "BNBUSDT",
+        "BTCUSDT",
+        "DOGEUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "SOLUSDT",
+        "XRPUSDT"
+      ],
+      "questions_sha256": "9abac15644e03b0ff663231c000616150106df5e507d2220e05eee9c959380f5",
+      "calculation_labels_not_expert_chart_labels": true,
+      "execution_allowed": false
+    },
+    "test": {
+      "cases": 144,
+      "unique_windows": 137,
+      "per_rule": {
+        "TC1.PSY.PLAN": 16,
+        "NTD.AC": 16,
+        "NTD.ALLIGATOR": 16,
+        "NTD.AO": 16,
+        "TC2.WM1.TRIGGER": 16,
+        "TC2.WM3": 16,
+        "COURSE.AO5345": 16,
+        "COURSE.HUMP": 16,
+        "COURSE.W4.ZERO": 16
+      },
+      "per_timeframe": {
+        "H1": 70,
+        "H4": 48,
+        "D1": 26
+      },
+      "assets": [
+        "ADAUSDT",
+        "AVAXUSDT",
+        "BNBUSDT",
+        "BTCUSDT",
+        "DOGEUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "SOLUSDT",
+        "XRPUSDT"
+      ],
+      "questions_sha256": "c97afff31848751d962094aae097e2b6d74b488e55d0c8afb6d5fb3a19facdac",
+      "calculation_labels_not_expert_chart_labels": true,
+      "execution_allowed": false
+    }
+  },
+  "machine_labels_not_expert_reviews": true,
+  "execution_allowed": false,
+  "numeric_test_questions_sha256": "d12286217dba2168529a46750f150d3c5cda615b7ae67ffa46bd3f54f8568e76",
+  "numeric_test_cases": 112,
+  "initial_adapter_sha256": "00daeb1d26417713334b88580735c944108c1a4d8fa4b5dd3cc3145dfa42533f",
+  "maximum_optimizer_attempts": 768,
+  "maximum_training_seconds": 3600,
+  "learning_rate": 8e-06,
+  "book_text_context": "original train pages replay plus source-scoped rule paraphrases on every historical question",
+  "human_chart_approval_gate_modified": false,
+  "expert_wave_labels_available": false,
+  "raw_test_history_sent_to_gpu": false
+}
