@@ -1,0 +1,261 @@
+{
+  "workflow_run": 40573990158,
+  "artifact_id": 12772875412,
+  "artifact_sha256": "ce35429a8791d473118c94dd200e56871fc2d5a9e32ce7f3a1630a635f0e5e71",
+  "source_commit": "8711a2a72393382fc617c286e7fd9c7e38940caa",
+  "model_revision": "3fb356690bbdae7353c94efb3eecdce276e6ed1c",
+  "source_manifest_sha256": "300b2acf1519ea76c0a377abd64f0f1490a971ef7413f4d3b980d53b6c75994b",
+  "questions_sha256": "b755e2807099569e7d197f1f1722b5f3c0d7f321f3f77bf372158b9f1d709882",
+  "actual_updates": 2604,
+  "attempted_steps": 2604,
+  "skipped_steps": 0,
+  "selected_checkpoint": "checkpoint-2048",
+  "selected_actual_updates": 2048,
+  "stages": {
+    "source": {
+      "sha256": "bf8580fbb74d4ae8b041332146e64408f06900999837826d06ef93b4a6404891",
+      "bytes": 132187888,
+      "parameters": 33030144,
+      "tensors": 504,
+      "all_finite": true,
+      "nonzero_lora_B": 252,
+      "rank": 16,
+      "lora_alpha": 32
+    },
+    "candidate": {
+      "sha256": "00daeb1d26417713334b88580735c944108c1a4d8fa4b5dd3cc3145dfa42533f",
+      "bytes": 132187888,
+      "parameters": 33030144,
+      "tensors": 504,
+      "all_finite": true,
+      "nonzero_lora_B": 252,
+      "rank": 16,
+      "lora_alpha": 32
+    }
+  },
+  "delta_vs_previous40": {
+    "changed_tensors": 504,
+    "changed_parameters": 33030131,
+    "l2_norm": 3.287912712696902,
+    "maximum_absolute_change": 0.00765615189447999
+  },
+  "development_selection_independently_recomputed": true,
+  "selected_development_source_guard_passed": true,
+  "generated_grades": {
+    "base": {
+      "correct": 23,
+      "total": 84,
+      "accuracy": 0.27380952380952384,
+      "valid_json": 79,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "COURSE.HUMP": {
+          "correct": 4,
+          "total": 12
+        },
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 3,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 6,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 4,
+          "total": 12
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ],
+        "NTD.AC": [
+          "signal_ready"
+        ],
+        "COURSE.AO5345": [
+          "momentum"
+        ]
+      }
+    },
+    "initial416": {
+      "correct": 29,
+      "total": 84,
+      "accuracy": 0.34523809523809523,
+      "valid_json": 84,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "COURSE.HUMP": {
+          "correct": 6,
+          "total": 12
+        },
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 5,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 6,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 6,
+          "total": 12
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ],
+        "NTD.AC": [
+          "signal_ready"
+        ],
+        "COURSE.W4.ZERO": [
+          "minimum_w4_met"
+        ],
+        "COURSE.AO5345": [
+          "momentum"
+        ]
+      }
+    },
+    "previous40": {
+      "correct": 49,
+      "total": 84,
+      "accuracy": 0.5833333333333334,
+      "valid_json": 84,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "COURSE.HUMP": {
+          "correct": 6,
+          "total": 12
+        },
+        "TC1.PSY.PLAN": {
+          "correct": 3,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 7,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 5,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 10,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 12,
+          "total": 12
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {
+        "COURSE.HUMP": [
+          "hump_valid"
+        ],
+        "COURSE.W4.ZERO": [
+          "minimum_w4_met"
+        ]
+      }
+    },
+    "candidate": {
+      "correct": 69,
+      "total": 84,
+      "accuracy": 0.8214285714285714,
+      "valid_json": 84,
+      "timeouts": 0,
+      "incomplete_thinking": 0,
+      "per_rule": {
+        "COURSE.HUMP": {
+          "correct": 6,
+          "total": 12
+        },
+        "TC1.PSY.PLAN": {
+          "correct": 8,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 7,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 12,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 12,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 12,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 12,
+          "total": 12
+        }
+      },
+      "constant_fields_despite_varied_expected_values": {}
+    }
+  },
+  "text_gates": {
+    "final_source_validation_gate": {
+      "accepted": false,
+      "relative_improvement": 0.007655664258875993,
+      "regressed_books": []
+    },
+    "final_practice_validation_gate": {
+      "accepted": false,
+      "relative_improvement": 0.4195713354008391,
+      "regressed_books": [
+        "NTD"
+      ]
+    },
+    "reference416_source_gate": {
+      "accepted": true,
+      "relative_improvement": 0.01735421860213662,
+      "regressed_books": []
+    },
+    "reference416_practice_gate": {
+      "accepted": true,
+      "relative_improvement": 0.7085160200191969,
+      "regressed_books": []
+    }
+  },
+  "transfer_gate_accepted": false,
+  "all_research_gates_accepted": false,
+  "execution_allowed": false,
+  "trading_qualification": false,
+  "scope": "New 84 synthetic numeric rule conditions; no chart recognition or trading qualification. Raw test results never selected the checkpoint."
+}

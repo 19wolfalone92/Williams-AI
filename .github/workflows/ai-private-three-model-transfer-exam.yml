@@ -1,0 +1,31 @@
+name: Williams AI generated answers exam of base, first private and source-corrected Qwen
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['.github/workflows/ai-private-three-model-transfer-exam.yml']
+permissions: {contents: read}
+jobs:
+  sealed-generative-exam-after-both-fits:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 190
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Check numerical grader, prompt/key separation and repeated-answer detection
+        run: python -m unittest discover -s tests -p 'test_williams_ai_structured_transfer_exam.py' -v
+      - name: Wait for both fits, then obtain actual generated answers without answer keys
+        run: python scripts/ai_private_three_model_transfer_exam.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_Qwen3_4B_THREE_MODEL_GENERATED_TRANSFER_EXAM
+          path: ${{ runner.temp }}/private_three_model_transfer_results/
+          if-no-files-found: warn
+          retention-days: 14
