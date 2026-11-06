@@ -22,11 +22,12 @@ def report(proof,receipt):
         f"Фактически выполнено обновлений: **{proof['actual_updates']}**; выбран {proof['selected_checkpoint']} "
         f"(реальных обновлений в выбранной точке: {proof['selected_actual_updates']}).",
         f"Попыток оптимизатора: {receipt['optimizer_attempted_steps']}; AMP-пропусков: {receipt['amp_skipped_steps']}.", "",
-        "Новые веса сохранены и проверены. Доля эпохи: "+str(receipt['actual_epoch'])+".", "",
+        "Новые веса сохранены и проверены. Доля эпохи всего запуска: "+str(receipt['actual_epoch'])+". "
+        "Экспортированный кандидат содержит веса выбранной контрольной точки, а не последнего шага.", "",
         "## Одинаковый финальный протокол", "",
         "| Модель | Новые числовые условия | Новые пограничные условия | Историческая регрессия |",
         "|---|---:|---:|---:|"]
-    stages=list(proof['grades']['numeric'])
+    stages=[s for s in ('base','previous40','focused69','historical93','candidate') if s in proof['grades']['numeric']]
     for stage in stages:
         cells=[]
         for group in ('numeric','boundary','historical'):
@@ -36,6 +37,8 @@ def report(proof,receipt):
     lines += ["", "Исторические вопросы раскрывались ранее: это регрессионная проверка. "
         "Новые числовые/пограничные условия являются авторскими вычислительными задачами, "
         "а не экспертным экзаменом графиков, волн или доходности.", "",
+        "Qwen3-4B в этом цикле — текстовая модель: график представлен закрытыми OHLCV и числовыми "
+        "индикаторами. Обучение распознаванию изображений и экспертной разметке волн не выполнялось.", "",
         "## Правила нового кандидата", "", "| Группа | Правило | Верно |", "|---|---|---:|"]
     for group,scores in proof['grades'].items():
         if group not in {'numeric','boundary','historical'}:continue
@@ -43,10 +46,17 @@ def report(proof,receipt):
             lines.append(f"| {group} | {rule} | {value['correct']}/{value['total']} |")
     lines += ["", "## Сохранение материала книг", "",
         "| Проверка | Допуск |", "|---|---|"]
+    reasons={'INSUFFICIENT_VALIDATION_IMPROVEMENT':'нет требуемого улучшения',
+             'BOOK_VALIDATION_REGRESSION':'ухудшилась одна из книжных проверок'}
     for name,gate in proof['text_gates'].items():
-        lines.append('| '+name+' | '+('Пройден' if gate['accepted'] else 'Отклонён: '+', '.join(gate['reasons']))+' |')
+        lines.append('| '+name+' | '+('Пройден' if gate['accepted'] else 'Отклонён: '+', '.join(reasons.get(x,x) for x in gate['reasons']))+' |')
     lines += ["", "Это прежние development-страницы и упражнения четырёх книг; "
-        "новым закрытым экзаменом книг они не являются.", "",
+        "новым закрытым экзаменом книг они не являются. source означает исходный текст, practice — упражнения.", "",
+        "## Перенос правил", "", "| Набор | Допуск |", "|---|---|"]
+    for name,accepted in proof['transfer_gates'].items():
+        lines.append('| '+name+' | '+('Пройден' if accepted else 'Не пройден')+' |')
+    lines += ["", "Пороги: не менее 80% всего, 75% каждого правила и +5 процентных пунктов к каждому контролю. "
+        "Текстовые проверки дополнительно требуют улучшения не менее 1% с регрессией каждой книги не более 2%.", "",
         "Совокупный исследовательский допуск: **"+('пройден' if proof['pilot_research_gates_passed'] else 'не пройден')+"**.",
         "Квалификация автономного трейдера не установлена; веса в торговле не активированы.", "",
         "## Происхождение", "", f"GPU-код: `{proof['source_commit']}`.",
@@ -54,6 +64,14 @@ def report(proof,receipt):
         f"Исходный архив: `{proof['archive_sha256']}`.", "",
         "Williams Bot 2.1 не изменён. Базовые веса Qwen, приватные тексты книг, "
         "транспортные конверты и учётные ключи в этот комплект не включены.", ""]
+    audit=receipt.get('source_audit',{})
+    counts=audit.get('source_page_counts',{})
+    if counts:
+        lines += ['## Охват источников','',
+            'Страниц оригиналов: train '+str(sum(counts['train'].values()))+', validation '+str(sum(counts['validation'].values()))+
+            ', отдельно исключены '+str(sum(counts['test'].values()))+' исходных test-страниц. Последние не оценивались в этом цикле.','']
+    if audit.get('course_partial_and_ocr_unreviewed'):
+        lines += ['Корпус Course частичный, его OCR не проверен полностью. Полнота понимания всех четырёх книг не установлена.','']
     return '\n'.join(lines).encode()
 
 
@@ -99,6 +117,9 @@ def export(archive,audit_file,destination,report_file):
         'базу через Transformers и подключите PeftModel.from_pretrained(base, "adapters/candidate").\n'
         'Токенизатор и chat_template берутся из того же каталога. База должна быть той же\n'
         'ревизии; используйте безопасный safetensors, без произвольного remote code.\n\n'
+        'GPU-метрики получены с NF4 double quant и вычислениями FP16. Инициализация\n'
+        'для воспроизведения находится в williams_ai/joint_rule_gpu.py исходного коммита\n'
+        'из GPU_RESULT_RU.md; иная точность базы может изменить ответы.\n\n'
         'Рабочие версии GPU-стека: transformers 4.57.1, peft 0.17.1, accelerate 1.10.1,\n'
         'bitsandbytes 0.48.1, safetensors 0.6.2 и CUDA-совместимый PyTorch.\n'
         'Перед загрузкой сверьте каждый файл с EXPORT_MANIFEST.json.\n'

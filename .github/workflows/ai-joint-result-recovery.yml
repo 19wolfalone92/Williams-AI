@@ -1,4 +1,5 @@
 name: Williams AI independent audit of existing corrective GPU run
+# Exact fsum audit of completed weights; no retraining or score repair.
 on:
   push:
     branches: [research/private-four-book-deep-training-20261027]

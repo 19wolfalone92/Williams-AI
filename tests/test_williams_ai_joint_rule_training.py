@@ -103,6 +103,18 @@ class JointCorrectiveTrainingTests(unittest.TestCase):
         self.assertLess(selection(broken,before,before,refs)['score'],good['score'])
         with self.assertRaises(ValueError):selection(grades,{**before,'NTD':float('nan')},before,refs)
 
+    def test_actual_checkpoint_macro_is_stable_across_python_sum_algorithms(self):
+        from math import fsum
+        # Actual step-2048 fractions. A Python 3.11 left fold in canonical
+        # JSON order differs from the saved Python 3.12 GPU value by one ULP.
+        values=[55/72,52/72,94/112]
+        folded=0.
+        for value in values:folded+=value
+        saved=.775132275132275
+        self.assertNotEqual(folded/3,saved)
+        self.assertEqual(fsum(values)/3,saved)
+        self.assertEqual(fsum(reversed(values))/3,saved)
+
     def test_worker_contains_no_keys_and_pins_dual_gpu_training_entry(self):
         files={name:{'url':'https://example.invalid/own-adapter','sha256':'a'*64} for name in ('adapter_config.json','adapter_model.safetensors')}
         worker=worker_source('a'*40,b'PRIVATE_TRAIN_SOURCE',b'NO_EXAM_KEYS',b'PROMPTS_ONLY',files,files,{})
