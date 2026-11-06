@@ -1,4 +1,5 @@
 name: Williams AI read only historical training progress
+# Read-only quota and previous-run preflight for the 2026-11-06 training request.
 on:
   push:
     branches: [research/private-four-book-deep-training-20261027]
