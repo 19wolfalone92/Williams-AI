@@ -35,6 +35,20 @@ class JointCorrectiveTrainingTests(unittest.TestCase):
         api.kernels_list.side_effect=PermissionError('403')
         with self.assertRaises(PermissionError):require_new_kernel(api,'owner')
 
+    def test_progress_observer_exposes_only_bounded_numeric_development_fields(self):
+        from scripts.ai_observe_own_training import numerical_progress
+        point={'step':512,'correct':{'historical':50,'numeric':80,'boundary':53},'score':.1,
+               'minimum_rule_accuracy':0.,'macro_accuracy':.7,'collapsed_rules':0,
+               'max_any_reference_book_regression':.01,'preserved_within_two_percent':True}
+        self.assertEqual(numerical_progress('JOINT_DEVELOPMENT '+json.dumps(point)),
+                         [{'joint_generated_development':True,**point}])
+        for bad in ({**point,'private_answer':'secret'},{**point,'score':float('nan')},
+                    {**point,'correct':{'historical':'private text','numeric':80,'boundary':53}}):
+            self.assertEqual(numerical_progress('JOINT_DEVELOPMENT '+json.dumps(bad)),[])
+        self.assertEqual(numerical_progress('JOINT_TEST_STAGE_COMPLETED {"stage":"candidate","cohorts":3}'),
+                         [{'joint_generated_test_progress':True,'stage':'candidate','cohorts':3}])
+        self.assertEqual(numerical_progress('JOINT_TEST_STAGE_COMPLETED {"stage":"private text","cohorts":3}'),[])
+
     def test_ac_contains_both_sides_both_signs_ready_not_ready_flat_and_zero(self):
         rows = [r for r in boundary_cases('train') if r['rule_id']=='NTD.AC']
         strata = {(r['operands']['side'], json.loads(r['answer'])['required_bars'], json.loads(r['answer'])['signal_ready']) for r in rows}

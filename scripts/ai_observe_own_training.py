@@ -14,6 +14,27 @@ import time
 def numerical_progress(text:str)->list[dict]:
     rows=[]
     for line in text.splitlines():
+        if "JOINT_DEVELOPMENT " in line:
+            try:
+                obj=json.loads(line.split("JOINT_DEVELOPMENT ",1)[1])
+                numbers={"score","minimum_rule_accuracy","macro_accuracy","max_any_reference_book_regression"}
+                expected=numbers|{"step","correct","collapsed_rules","preserved_within_two_percent"}
+                if (set(obj)==expected and type(obj["step"]) is int and 0<obj["step"]<=2048
+                    and type(obj["collapsed_rules"]) is int and 0<=obj["collapsed_rules"]<=25
+                    and type(obj["preserved_within_two_percent"]) is bool
+                    and all(type(obj[k]) in (int,float) and math.isfinite(obj[k]) for k in numbers)
+                    and isinstance(obj["correct"],dict) and set(obj["correct"])=={"historical","numeric","boundary"}
+                    and all(type(obj["correct"][k]) is int and 0<=obj["correct"][k]<=n
+                            for k,n in (("historical",72),("numeric",112),("boundary",72)))):
+                    rows.append({"joint_generated_development":True,**obj})
+            except (ValueError,TypeError,KeyError):pass
+        if "JOINT_TEST_STAGE_COMPLETED " in line:
+            try:
+                obj=json.loads(line.split("JOINT_TEST_STAGE_COMPLETED ",1)[1])
+                if (set(obj)=={"stage","cohorts"} and obj["stage"] in {"base","focused69","historical93","candidate"}
+                    and type(obj["cohorts"]) is int and obj["cohorts"]==3):
+                    rows.append({"joint_generated_test_progress":True,**obj})
+            except (ValueError,TypeError):pass
         common={"accuracy","max_source_regression","selection_score","optimizer_step"}
         markers=(("CONTRASTIVE_DEV_SELECTION ",common,"generated_dev"),
                  ("FOCUSED_DEV_SELECTION ",common|{"minimum_rule_accuracy","collapsed_rules"},"generated_dev"),

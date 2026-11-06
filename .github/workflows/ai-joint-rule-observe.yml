@@ -1,4 +1,5 @@
 name: Williams AI observe current private corrective training
+# Include bounded per-cohort development counts and completed exam stages.
 on:
   push:
     branches: [research/private-four-book-deep-training-20261027]
