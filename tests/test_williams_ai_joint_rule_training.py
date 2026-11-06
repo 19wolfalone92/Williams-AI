@@ -77,6 +77,12 @@ class JointCorrectiveTrainingTests(unittest.TestCase):
         before=dict.fromkeys(('TC1','NTD','TC2','COURSE','ALL'),1.)
         refs={name:before for name in ('focused69_source','previous40_source','focused69_practice','previous40_practice')}
         good=selection(grades,before,before,refs)
+        self.assertEqual(selection(dict(reversed(list(grades.items()))),before,before,refs),good)
+        varied=deepcopy(grades)
+        for name,accuracy in (("boundary",.1),("historical",.2),("numeric",.3)):
+            varied[name]["accuracy"]=accuracy
+        self.assertEqual(selection(varied,before,before,refs),
+                         selection(dict(reversed(list(varied.items()))),before,before,refs))
         self.assertGreater(good['score'],1)
         self.assertLess(selection(grades,{**before,'TC2':1.021},before,refs)['score'],-3)
         broken=deepcopy(grades);broken['numeric']['per_rule']['TC1.PSY.PLAN']['correct']=0

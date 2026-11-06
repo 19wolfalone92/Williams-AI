@@ -119,7 +119,9 @@ def verify_archive(path, dest, *, revision, design, groups):
                 (point["source_loss"],refs["focused69_source"]), (point["source_loss"],refs["previous40_source"]),
                 (point["practice_loss"],refs["focused69_practice"]), (point["practice_loss"],refs["previous40_practice"])) for e in EDITIONS)
             minimum = min(x["correct"]/x["total"] for g in grades.values() for x in g["per_rule"].values())
-            macro = sum(g["accuracy"] for g in grades.values())/len(grades)
+            # The private training payload is canonical JSON: boundary,
+            # historical, numeric. Preserve that summation order exactly.
+            macro = sum(grades[name]["accuracy"] for name in sorted(grades))/len(grades)
             collapsed = sum(len(g["constant_fields_despite_varied_expected_values"]) for g in grades.values())
             value = -3-regression if regression>.02 else minimum+.2*macro-.05*collapsed
             expected = {"score":value,"minimum_rule_accuracy":minimum,"macro_accuracy":macro,"collapsed_rules":collapsed,

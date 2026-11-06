@@ -204,7 +204,7 @@ def selection(grades, source, practice, references):
             ratios.append(a/b-1)
     regression = max(ratios)
     accuracies = [v["correct"]/v["total"] for g in grades.values() for v in g["per_rule"].values()]
-    macro = sum(g["accuracy"] for g in grades.values())/len(grades)
+    macro = sum(grades[name]["accuracy"] for name in sorted(grades))/len(grades)
     collapsed = sum(len(g["constant_fields_despite_varied_expected_values"]) for g in grades.values())
     value = min(accuracies) + .2*macro - .05*collapsed
     if regression > .02: value = -3-regression
