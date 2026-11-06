@@ -64,6 +64,21 @@ def outputs(api, owner, slug):
     return result
 
 
+def require_new_kernel(api, owner):
+    """Status of a nonexistent private kernel can return 403, so list our own.
+
+    Never reinterpret an authorization error as proof that a run is absent.
+    """
+    for page in range(1, 21):
+        rows = api.kernels_list(mine=True, search=RUN_SLUG, page=page, page_size=100)
+        if not isinstance(rows, list) or any(not isinstance(getattr(row, "ref", None), str) for row in rows):
+            raise ValueError("EXPLICIT_OWN_KERNEL_INVENTORY_REQUIRED")
+        if any(row.ref.casefold()==(owner+"/"+RUN_SLUG).casefold() for row in rows):
+            raise RuntimeError("JOINT_KERNEL_ALREADY_EXISTS_NO_AUTOMATIC_DUPLICATE")
+        if len(rows)<100:return
+    raise ValueError("COMPLETE_OWN_KERNEL_INVENTORY_REQUIRED")
+
+
 def main():
     from kaggle.api.kaggle_api_extended import KaggleApi
     from kagglehub.auth import get_username
@@ -83,12 +98,7 @@ def main():
     with urlopen(CONTROL_URL+"?preflight="+str(int(time.time())),timeout=20) as response:control=json.load(response)
     if control!={"run_slug":RUN_SLUG,"stop":False}:raise RuntimeError("USER_STOP_NO_JOINT_GPU_SUBMISSION")
     # Re-running an existing pending kernel would lose its checkpoint state.
-    try: state=str(api.kernels_status(owner+"/"+RUN_SLUG).status).upper()
-    except Exception as error:
-        status=getattr(error,"status",None) or getattr(getattr(error,"response",None),"status_code",None)
-        if status!=404:raise
-    else:
-        raise RuntimeError("JOINT_KERNEL_ALREADY_EXISTS_NO_AUTOMATIC_DUPLICATE")
+    require_new_kernel(api, owner)
     prior=outputs(api,owner,"williams-ai-historical-books-20261029")
     focused=outputs(api,owner,"williams-ai-focused-2t4-20261027")
     raw_reference=urlopen(focused["focused_qwen4b/research_receipt.json"].url,timeout=60).read()

@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from scripts.ai_run_joint_rule_kaggle import groups_and_design, worker_source
+from scripts.ai_run_joint_rule_kaggle import groups_and_design, worker_source, require_new_kernel
 from scripts.ai_verify_joint_rules import independent_boundary_key, audit_groups
 from williams_ai.joint_rule_curriculum import boundary_cases, selection, PROTOCOL
 from williams_ai.historical_rule_curriculum import score
@@ -23,6 +23,17 @@ class JointCorrectiveTrainingTests(unittest.TestCase):
         for row in self.groups['test']['boundary']:
             altered = {**row, 'answer':'{"fabricated":true}', 'teaching_explanation':'wrong'}
             self.assertEqual(independent_boundary_key(altered), json.loads(row['answer']))
+
+    def test_own_kernel_inventory_refuses_duplicates_and_preserves_auth_errors(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        api=Mock();api.kernels_list.return_value=[]
+        require_new_kernel(api,'owner')
+        api.kernels_status.assert_not_called()
+        api.kernels_list.return_value=[SimpleNamespace(ref='owner/williams-ai-joint-rules-20261106')]
+        with self.assertRaises(RuntimeError):require_new_kernel(api,'owner')
+        api.kernels_list.side_effect=PermissionError('403')
+        with self.assertRaises(PermissionError):require_new_kernel(api,'owner')
 
     def test_ac_contains_both_sides_both_signs_ready_not_ready_flat_and_zero(self):
         rows = [r for r in boundary_cases('train') if r['rule_id']=='NTD.AC']
