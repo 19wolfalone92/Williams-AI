@@ -1,12 +1,12 @@
 # Williams AI — multi-chat single-model training protocol v1.0
 
-Status: DESIGN / NOT TRAINING. Research branch only. Does not change the trading Williams Bot.
+Status: COORDINATION DESIGN; genuine historical Qwen3-4B LoRA GPU training already exists (merged PR #53 and draft research PR #55), but **no new challenger in #55 has passed admission**. This protocol does not itself train weights. Does not change Williams Bot.
 
 ## Goal
-Ten independent ChatGPT conversations produce **reviewed training examples, unit tests, and research artifacts** for **one** Williams AI model line. All training updates are serialized through a single trainer and gate. Chat messages are not gradients, and research memory / RAG is not weight training. Never call an untrained GGUF "trained".
+Ten scoped research roles (manually separate chats or five scheduled groups under the observed ChatGPT limit) produce **reviewed training examples, unit tests, and research artifacts** for **one** Williams AI model line. All training updates are serialized through a single trainer and gate. Chat messages are not gradients, and research memory / RAG is not weight training. Never call an untrained GGUF "trained".
 
 ## Current baseline / unknowns
-Existing README and docs/AI_SELF_STUDY_RU.md document local book retrieval / GGUF inference, source memory and a paper estimator, **not** a running coordinated QLoRA training pipeline. A previous Qwen3-4B experiment is not proof a reproducible checkpoint exists in this repository. Verify authorized storage, hashes, and compatible tokenizer before training. Keep private copyrighted source files and account credentials out of this public GitHub repo.
+The main repository includes an actual verified Qwen3-4B rank8 / 32-step LoRA experiment from merged PR #53 (public-rule loss only), **not merely retrieval**. Existing DRAFT PR #55 contains verified rank16 dual-T4 GPU work, archived checkpoint hashes and independent audits; the latest reported 7-Nov research exam is 72/280 versus 14/280 parent and 4/280 base, but **all four admission gates fail**, including missing 15 required protective stops, exceeding risk in 12/32 sizing cases and NTD loss regression +10.82%. Do not start a new training implementation from zero; integrate and independently audit these existing artifacts before designing a next corrective curriculum. No challenger is qualified for automatic trading. Check archived artifacts/hashes, compatible tokenizer, licensed source custody and independent score reproduction before any further training. Keep private copyrighted source files and account credentials out of this public GitHub repo.
 
 ## Standard agent instructions (copy into each chat)
 - Repository: 19wolfalone92/Williams-AI. Never modify 19wolfalone92/Williams.
@@ -34,7 +34,7 @@ Existing README and docs/AI_SELF_STUDY_RU.md document local book retrieval / GGU
 | 10 | Coordinator: trainer and manifests, single writer, checkpoints, gates, status dashboard |
 
 ## Central integration contract
-Workers publish proposals under `research/chat-NN/` and tests under isolated names. Agent 09 verifies reference integrity, deduplication, split boundaries, and no-lookahead; Agent 10 only then creates an immutable `dataset-vN` manifest. The sole trainer starts from one approved base + adapter lineage and records `base_model_sha`, `tokenizer_sha`, `dataset_sha`, `code_commit`, `seed`, `hyperparameters`, `resource`, `checkpoint_sha` and metrics. Do NOT train on holdout or merge adapters blindly.
+Per repository AGENTS.md only one author of code may be active at a time. Research workers may work independently on proposals in their respective issue threads; code writing and PR integration are sequential and exclusively coordinated. Proposals go under `research/chat-NN/` once the coordinator has a writer slot; tests have isolated names. Agent 09 verifies reference integrity, deduplication, split boundaries, and no-lookahead; Agent 10 only then creates an immutable `dataset-vN` manifest. The sole trainer starts from one approved base + adapter lineage and records `base_model_sha`, `tokenizer_sha`, `dataset_sha`, `code_commit`, `seed`, `hyperparameters`, `resource`, `checkpoint_sha` and metrics. Do NOT train on holdout or merge adapters blindly.
 
 ## Milestones with stop/go gates
 1. **Infrastructure**: accessible model and adapter manifest, dataset schema, training/evaluation CLI, stable artifact storage, smoke-test and synthetic training resume test.
@@ -48,11 +48,15 @@ Workers publish proposals under `research/chat-NN/` and tests under isolated nam
 - No job may overwrite champion. Trainer serializes by lock / concurrency, uses immutable versioned outputs and checkpointing; GPU absence triggers CPU data preparation/evaluation, never pretend fine-tuning occurred.
 - GitHub Actions cron isn't guaranteed to execute (may delay/skip; 60-day inactivity in public repo may disable); add separate heartbeat/status check. Scheduled actions are **not** ten autonomous ChatGPT chat sessions.
 - CPU workflows perform schema lint, synthetic no-lookahead tests and dataset assembly only; external GPU jobs need explicit approved quota and known accessible storage. No paid resources without user approval.
-- First deliverable is usable CPU-only infrastructure, not a claim of 100% understanding. Maintain single champion and rollback.
+- First deliverable is an independent targeted evaluator for failed risk/STOP/NTD admission in existing PR #55, not a claim of 100% understanding. Maintain single champion and rollback.
 - Track statuses: TODO, IN_PROGRESS, BLOCKED, REVIEW, VERIFIED, TRAINING_READY, TRAINED, REGRESSION, PROMOTED. Status alone does not imply model-weight update.
 
 ## Definition of done
-An issue closes only with artifacts and reproducible checks. Overall initiative completes when the entire reproducible end-to-end pipeline (source-grounded examples -> validated dataset -> LoRA training -> checkpoint -> evaluation -> promotion/rollback -> Android inference conversion) is demonstrated. First-pass target is **one verified end-to-end pilot**, not ten indefinite training loops.
+An issue closes only with artifacts and reproducible checks. Overall initiative completes when the entire reproducible end-to-end pipeline (source-grounded examples -> validated dataset -> LoRA training -> checkpoint -> evaluation -> promotion/rollback -> Android inference conversion) is demonstrated. First-pass target is **one independently verified improvement that passes the precommitted critical admission gates** relative to existing real GPU pilots, not ten indefinite training loops.
 
 ## Schedule / automation
 ChatGPT automations may check GitHub status and report failures, but do not replace GPU jobs or automatically synchronize state between ten chats. Actual unattended execution belongs in approved workflows/runners and must honor costs, licenses and platform quotas.
+
+## Operational schedule and single writer
+
+Five active ChatGPT scheduled tasks cover ten GitHub issue roles: research pairs (#58/#59, #60/#61, #62/#63, #64/#65), then a central QA/trainer coordinator (#66/#67). Research scheduled tasks are **issue-comment only**, with no code writes. This adheres to existing AGENTS.md, which forbids simultaneous code writers. See [autonomous runbook](WILLIAMS_AI_AUTONOMOUS_RUNBOOK_RU.md) for observed task limits, times, actual GPU run evidence and critical blockers.
