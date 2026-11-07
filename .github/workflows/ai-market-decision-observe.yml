@@ -11,12 +11,12 @@ jobs:
     timeout-minutes: 5
     env:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-      WILLIAMS_OBSERVE_SLUG: williams-ai-closed-chart-transfer-20261107
+      WILLIAMS_OBSERVE_SLUG: williams-ai-closed-chart-transfer-20261107-r2
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'six>=1.16,<2'
-      - name: Read existing kernel numerical progress only
+      - name: Read existing retry numerical progress only
         run: python scripts/ai_observe_own_training.py
