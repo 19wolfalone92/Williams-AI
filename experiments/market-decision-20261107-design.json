@@ -1,0 +1,352 @@
+{
+  "curriculum": {
+    "execution_allowed": false,
+    "expert_gold": false,
+    "future_outcomes_in_tasks": false,
+    "market_history": {
+      "test": {
+        "APTUSDT": {
+          "bars": 4416,
+          "canonical_sha256": "b13c5015cf1834aa6cefd2c9b9c647d073c7ece2eff049c4d824141e8bc25063",
+          "first_close": "2026-05-01T00:59:59.999Z",
+          "last_close": "2026-10-31T23:59:59.999Z"
+        },
+        "BTCUSDT": {
+          "bars": 4416,
+          "canonical_sha256": "fec5eedaccf30c6d40a6d503cc5720f4c45fc5b46df932a8b1855731a063d877",
+          "first_close": "2026-05-01T00:59:59.999Z",
+          "last_close": "2026-10-31T23:59:59.999Z"
+        },
+        "ETHUSDT": {
+          "bars": 4416,
+          "canonical_sha256": "0b276fcbc8b3e18d27c5bc3b17caf9c518bfe54aecd9e0701f8caacc81344844",
+          "first_close": "2026-05-01T00:59:59.999Z",
+          "last_close": "2026-10-31T23:59:59.999Z"
+        },
+        "NEARUSDT": {
+          "bars": 4416,
+          "canonical_sha256": "8adf6345c5a5ffc320190c2de413557d95c2800c5dea1dfe003e606476da33e1",
+          "first_close": "2026-05-01T00:59:59.999Z",
+          "last_close": "2026-10-31T23:59:59.999Z"
+        },
+        "OPUSDT": {
+          "bars": 4416,
+          "canonical_sha256": "10ad2880d2b8c72c4aa83293e9e4e6f261ab938aa30f196704d5051e237a9f1d",
+          "first_close": "2026-05-01T00:59:59.999Z",
+          "last_close": "2026-10-31T23:59:59.999Z"
+        },
+        "SUIUSDT": {
+          "bars": 4416,
+          "canonical_sha256": "7830170e5db354ea703ee94aad13148d935878012efb81d8900c26db41e59f53",
+          "first_close": "2026-05-01T00:59:59.999Z",
+          "last_close": "2026-10-31T23:59:59.999Z"
+        }
+      },
+      "train": {
+        "ADAUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "f1cab53c16e6fc1040cd18c98cfacc0b2c18f86a6938d51343984c1a0a94cb70",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "BNBUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "4402149b2c468a5976343f64e946c4ff6834b446a0b3032a5ec310469b71631c",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "BTCUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "9fc07a6aa9eb34739f0a9809db1d301a1651e2f6e2f7f30bddae4c767c83acc9",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "DOGEUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "ca37b210b689ee07106a0311d58c8d06f264178bcaa59f6ec638b5d6920e074c",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "ETHUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "520463bb1b6b083db8f3715ee9bd3ea776f084f92a580a466dc9cbc350f155d5",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "LINKUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "8cbad64079d16dfb4e943a69fab49082fdd1bf8f36a6d91e19606778501bbe31",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "SOLUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "6030bc087bd56174420d5ba9509415652225a7fb4d7565a1bc53ea7c66f82621",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        },
+        "XRPUSDT": {
+          "bars": 3624,
+          "canonical_sha256": "22c20aa6e9ad8a7c68770826f9f8faa475a5a12365fb936b930524e3930705e1",
+          "first_close": "2023-01-01T00:59:59.999Z",
+          "last_close": "2023-05-31T23:59:59.999Z"
+        }
+      },
+      "validation": {
+        "BTCUSDT": {
+          "bars": 3672,
+          "canonical_sha256": "97b7ea9648fb68c79053e2af5f250986f0adf3969c993b3a3ea36abb56e51697",
+          "first_close": "2024-06-01T00:59:59.999Z",
+          "last_close": "2024-10-31T23:59:59.999Z"
+        },
+        "ETHUSDT": {
+          "bars": 3672,
+          "canonical_sha256": "12988dde1dd7ddce206eed1e4491034c06e94ab23f56c2616f6fbcef1dac460e",
+          "first_close": "2024-06-01T00:59:59.999Z",
+          "last_close": "2024-10-31T23:59:59.999Z"
+        },
+        "LINKUSDT": {
+          "bars": 3672,
+          "canonical_sha256": "50b0625d128b70c98428a727e2ae4f8070b4f8862f84e79486df201e3aa7f0be",
+          "first_close": "2024-06-01T00:59:59.999Z",
+          "last_close": "2024-10-31T23:59:59.999Z"
+        }
+      }
+    },
+    "observable_setup_strata": true,
+    "splits": {
+      "test": {
+        "campaign": {
+          "answer_sha256": "53f690fd4436fa700b1e7b5b1684ac300c8653b592a5ffb106402b6b0c5f4a8b",
+          "prompt_sha256": "e43b1a5df915fe29e1570dd80950918841a0b65ea08b502041a37812862f0b8f",
+          "questions": 72
+        },
+        "context": {
+          "answer_sha256": "b89f287d0f802365efc00a44963999b1330c65b35f80cb212d75fc13df4626cf",
+          "prompt_sha256": "68eacc7d785d238e48d5df33b253cef515691652ffcc9fe2a8dc3fa2e194a0c0",
+          "questions": 72
+        },
+        "precision": {
+          "answer_sha256": "88f74c5d84ae470bd8e3e7f772840d6f637d06fb3c427871159445f1a3874789",
+          "prompt_sha256": "8b948929b9ce8812e96036ca497cddf64fa375f3c8451a6c359a4c3619a3c383",
+          "questions": 64
+        },
+        "waves": {
+          "answer_sha256": "9e2ea1e7ea57bd830e460accbd5af6e4080e0aef78c0b4b6dbb9be7e6cdaafac",
+          "prompt_sha256": "295531c8b1c5075218ff7bf34f104650a94f77f5392811401fd7d28496547aa4",
+          "questions": 72
+        }
+      },
+      "train": {
+        "campaign": {
+          "answer_sha256": "37bf1e21d4a477625928b2665b3bd5fd0455c75f048a32e44c3f08302d565356",
+          "prompt_sha256": "7913dbf6fd5be182d75ea1780986379cc946e8278ac41fdfda83ad000d5b13be",
+          "questions": 288
+        },
+        "context": {
+          "answer_sha256": "6991770c14ceeed98acf515c14b7c5b0816f248e672a251d6e6945c9183441e9",
+          "prompt_sha256": "2642f632f0ebd30c4af6e75173cc6136ed93b44ad92393b2672388f5dbcb84c8",
+          "questions": 288
+        },
+        "precision": {
+          "answer_sha256": "ef52db9a16236f462c0420ab7680b1de551676a6186a93899d3cf62f6d8e40a1",
+          "prompt_sha256": "434b3f8a0b809df0426724b4f50415c042e2e40aca88fd79e74c825679c7cbb7",
+          "questions": 768
+        },
+        "waves": {
+          "answer_sha256": "5ebd212cdac243fb43a47b86bbb8d55b653be3694a7d838b9f182c19940bf2c6",
+          "prompt_sha256": "922c1fbbebef71732fa94bde8652c1828c4ab95c1da1ca0a512712070b73bdcd",
+          "questions": 288
+        }
+      },
+      "validation": {
+        "campaign": {
+          "answer_sha256": "25d0e0a797e68584b8d206429194dadf73883e392a34de18ae4024941a1208ac",
+          "prompt_sha256": "f583764a811aedffb912584d9a7d945ae982c60bdba3617e0f4847ab15fc72c6",
+          "questions": 24
+        },
+        "context": {
+          "answer_sha256": "a9282fbc32c10edbc9b7512cf8d19182fece00630fb6576cccc969d204221d01",
+          "prompt_sha256": "46f403364cdf9c607074e39923bba4c6c9249e670c1d528f4da43ba1f5f61cac",
+          "questions": 24
+        },
+        "precision": {
+          "answer_sha256": "819505af7883109a3b07a7545e05620877b77aa34d79327e4c908c5c08e0a213",
+          "prompt_sha256": "1d40be7385d73577ac709646e1dfe075a05c6c34062969398140f9dfd4731489",
+          "questions": 48
+        },
+        "waves": {
+          "answer_sha256": "37d9fdfb2f4c91e308fa3a2a6b84e4368d3337c04e0e5229cd75b81e369d1916",
+          "prompt_sha256": "9d9665ace89e89e868576ceb7a1151e7f31a9c1645cb841acc864c3f5c790966",
+          "questions": 24
+        }
+      }
+    }
+  },
+  "exam_cohorts_by_gpu_rank": [
+    [
+      "context",
+      "precision"
+    ],
+    [
+      "waves",
+      "campaign"
+    ]
+  ],
+  "execution_allowed": false,
+  "limits": {
+    "evaluation_steps": 512,
+    "learning_rate": 7e-06,
+    "maximum_kernel_seconds": 13200,
+    "minimum_free_gpu_seconds": 16200,
+    "optimizer_attempts": 1024,
+    "training_seconds": 5400
+  },
+  "mode": "CLOSED_CHART_DECISION_TRANSFER_20261107_V1",
+  "model_parent_sha256": "d961d7e7406d255e699da3959a3c67606330fee191807627b15de35ac4508ca7",
+  "pack_sha256": {
+    "test": "e5ca64b2b5862ba35a325588233f3e038cd1510255a02f5e2222a938fdf0e179",
+    "train": "e5f0c8369bb5fe3f9ed23c762a636f58a9011e921c291c88d9b291720f5072c5",
+    "validation": "ed3be564bfa4566182732fdbc028500ad2db15671b14340d367e2a29e6c4976d"
+  },
+  "protocol": {
+    "do_sample": false,
+    "max_new_tokens": 192,
+    "mode": "direct",
+    "seconds": 25
+  },
+  "provenance": {
+    "test": {
+      "APTUSDT": {
+        "2026-05": null,
+        "2026-06": null,
+        "2026-07": null,
+        "2026-08": null,
+        "2026-09": null,
+        "2026-10": null
+      },
+      "BTCUSDT": {
+        "2026-05": null,
+        "2026-06": null,
+        "2026-07": null,
+        "2026-08": null,
+        "2026-09": null,
+        "2026-10": null
+      },
+      "ETHUSDT": {
+        "2026-05": null,
+        "2026-06": null,
+        "2026-07": null,
+        "2026-08": null,
+        "2026-09": null,
+        "2026-10": null
+      },
+      "NEARUSDT": {
+        "2026-05": null,
+        "2026-06": null,
+        "2026-07": null,
+        "2026-08": null,
+        "2026-09": null,
+        "2026-10": null
+      },
+      "OPUSDT": {
+        "2026-05": null,
+        "2026-06": null,
+        "2026-07": null,
+        "2026-08": null,
+        "2026-09": null,
+        "2026-10": null
+      },
+      "SUIUSDT": {
+        "2026-05": null,
+        "2026-06": null,
+        "2026-07": null,
+        "2026-08": null,
+        "2026-09": null,
+        "2026-10": null
+      }
+    },
+    "train": {
+      "ADAUSDT": {
+        "2023-01": "413096563032c354c157cf6a6000d4e8f9c76b4e7d03c03d645265624570901b",
+        "2023-02": "b8505ef2db9205c496f47b5ae475189ed88a520612704ac108f48423f3d5a32c",
+        "2023-03": "df0239e12fa89d7660fdd225be2f41406f26480d54653360449dc9149280cc8d",
+        "2023-04": "aaf14f6edaee67331da5467ddcfa462b7be9b819145435ee44408e31e38f7c9c",
+        "2023-05": "bc66f0491d252fb8f0d36b8138a6fada55bec3cebe616f7a37ecc8c844db99ae"
+      },
+      "BNBUSDT": {
+        "2023-01": "62f431a6864dc70689b292338ddf31992a471700eb1d161fb7714cd4c92823be",
+        "2023-02": "3eeaf3efe5469ccbd2e2512fe7302b6dc73389580f92d77bfb2c3a11b314ecbd",
+        "2023-03": "1e902bc2f554af0cd7324eae8efbec4b3f4ea49835547a730469e809c00213bf",
+        "2023-04": "1832e32de57de030b4e1115ebcbefa613e3554395f1a7cad2353a707fd9a00b9",
+        "2023-05": "76447addcbb30ec2a4ad641cebd32a233c9309ff2aeaf118edb8aa33fe6efbef"
+      },
+      "BTCUSDT": {
+        "2023-01": "b9ac60cc3ffc1e16db96ca2314120ff7531988108ebef1733ee54234f4fedf7f",
+        "2023-02": "1ace9802f4da961db025a7b76a6171ef2c516c5307e5dee24267182f059110e0",
+        "2023-03": "35f0068cc41887ea11960c4bb10e251a404fef5ad4cb4c88699cc2419b6bc38b",
+        "2023-04": "ed6f0a84d1b2ed8f73fbdd4df10703e2ab49864fc4d657b0d8a9464a49dd4a29",
+        "2023-05": "2f278ad3ea09cc42e577ad7185de74391a1eb09b9d9836d375e2c540aef1667f"
+      },
+      "DOGEUSDT": {
+        "2023-01": "51a0cc4fca1e099633e8c3767bf85afe59b87757115f7a42de920caa0a54f4cf",
+        "2023-02": "309de0cbef565d301fd67863cd27214d0cb744c2dd32b29c94d59bce3871020d",
+        "2023-03": "b58511d3e39ea5f14e2df2a2518352fcf81c31968a57ecbaeb569c702cdcad00",
+        "2023-04": "a004b7e057367815fa62e704a6ca7ad6bd572021ff39b0c2016d5a590cd19b8a",
+        "2023-05": "7ce4eacd1e2b780c3a18c08316b3ab71e7885d971587befa3d26de7b55b758b2"
+      },
+      "ETHUSDT": {
+        "2023-01": "247b85e0a8806e139f263831445e1d7bb91f9f56e6ab32e1f285038cdd1ceff4",
+        "2023-02": "f01571f2420b9eb6486e69b884fe1572abfa59bc226c4003c9d78735c559acc5",
+        "2023-03": "4d5266f12a8a3394ee23516de99fc380e928dbdb79cbf083fd3ddc3242073790",
+        "2023-04": "4ac96035c3867e0bfeff4f2f526812ee4b73a0b87b3962bb40934e2614917395",
+        "2023-05": "a47a9fc2936bcadc99aadfe48858e7d3e31093a9321d9bc083b886b72924f568"
+      },
+      "LINKUSDT": {
+        "2023-01": "1a95478e4b7c0fc967af0babc7703ebb3d669bdf04eaebcc675a10e156ff80a0",
+        "2023-02": "ba265342b90b1b267e964802e61fbea9db1659192fc89c488f003a35466ca936",
+        "2023-03": "6b3f928f8b59585f933757c5db8ffb2a4e2d41a351307e259ffddfabb7b6958d",
+        "2023-04": "9f1947fb0eab6409431d2b15bc779577cd36f77e0d3827007765eb6c46c28e61",
+        "2023-05": "29c81c5c4628b01336cb1bbcf64363e0b6b00a019efa30d80167fdb9d954485a"
+      },
+      "SOLUSDT": {
+        "2023-01": "0d7bc47dc3b49cbadd29274b63c02af8f23af40fe241412d357903ae945aa79d",
+        "2023-02": "1dc1a4ad1c82935fbe8b4c218f22087470b3a20cc2c1a394574ad1587ba5a828",
+        "2023-03": "c41bd78088a2bb8547f1b3bf5c89fcadd7606397d2a74f0961c47cf6754f8f8a",
+        "2023-04": "34aca0062513dbb81e99b4b6e2e0e2dd29b453e33c629c8cea1beeff9faf7543",
+        "2023-05": "4c5b1305d4395bb122f85b60520db8995c810357a2c189158b2beae2d116b1bc"
+      },
+      "XRPUSDT": {
+        "2023-01": "8b4af2275e237f351656b4c93066fde1dec8fc56a91cf52fceb4b5764c0c5f48",
+        "2023-02": "9fc59722b16eac5910cc4f95d061863013dd5ebd63d5f7b86211252d03ddaf89",
+        "2023-03": "b792f6f78d3d68528d78410d8643549b717cd4c59d2699955ac30cdb632d56fd",
+        "2023-04": "b81cced30e6e0dbea2a92de014c0e2ff7adac5c200ea905eb3b4b691724352d4",
+        "2023-05": "bf6df6b988e40b518b49ed47261ed4e353a9aa70acb3f382ab1c838a1d17658f"
+      }
+    },
+    "validation": {
+      "BTCUSDT": {
+        "2024-06": "7dba8642e56641fca2c7f3f363050ae88bf0d6c87d28e14b747fbd3267d4d3a8",
+        "2024-07": "920aacb84b2745ee8f31806a753cdc5b2d672e6814d9c50c0bf524ad45eb5611",
+        "2024-08": "8d8465eb4c8a4fd05ebc0126e4c14a217edb2039441546bf095229e975268de6",
+        "2024-09": "0a8118b3601f18ddad04a8afcf887fdc01661f66824a0ce49e0419be1f97f907",
+        "2024-10": "e3dcb9fe9d70fea19dfbdc5294044da69b9061c6f7411e99468825fac1ce8d61"
+      },
+      "ETHUSDT": {
+        "2024-06": "479dced4a591035987e084dc8a5e5f3f1f2593704c0aeecdebc20c89b35c1d98",
+        "2024-07": "8cc8d8b6ef13fa0393f53690e5d569afb8a50488e4d7852e20ac22d7bcf17cf5",
+        "2024-08": "00eddbb3297515be14426119f07468846cd04dc527dbc19834dd45294740a67c",
+        "2024-09": "37bea2dbe4281fbcaa45a849b6eed4393713b7236c5cb35cff63876e96df5677",
+        "2024-10": "b4cda93568426a315e1de2fc7ca0ffb56586495680b233ffd7ce6bec11d18713"
+      },
+      "LINKUSDT": {
+        "2024-06": "8a05ec52167f931b1cf3fddea3c44d5b80977b07ccdeef5d647a6d937bcf484b",
+        "2024-07": "b0f2f09d5a37dc59e7aafb34e8f8c0e561560e55cd162554f0fa50c12eee0747",
+        "2024-08": "ca361b3a0ba9cb0a3fa86ce829670332caf68fa1a975a4b14fcbdb80c25b2660",
+        "2024-09": "086a233724da625f1c0dc78ba146450a5a35df3af725dae59cf5f92da5cb47f4",
+        "2024-10": "1f1c02e319c04a8ba3fd0d62760567f6868b781de2e9661d49f5d8da1236d01f"
+      }
+    }
+  },
+  "test_price_provider": "Binance USD-M public klines connector"
+}

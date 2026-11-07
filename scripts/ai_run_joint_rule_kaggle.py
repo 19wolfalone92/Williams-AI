@@ -64,16 +64,16 @@ def outputs(api, owner, slug):
     return result
 
 
-def require_new_kernel(api, owner):
+def require_new_kernel(api, owner, slug=RUN_SLUG):
     """Status of a nonexistent private kernel can return 403, so list our own.
 
     Never reinterpret an authorization error as proof that a run is absent.
     """
     for page in range(1, 21):
-        rows = api.kernels_list(mine=True, search=RUN_SLUG, page=page, page_size=100)
+        rows = api.kernels_list(mine=True, search=slug, page=page, page_size=100)
         if not isinstance(rows, list) or any(not isinstance(getattr(row, "ref", None), str) for row in rows):
             raise ValueError("EXPLICIT_OWN_KERNEL_INVENTORY_REQUIRED")
-        if any(row.ref.casefold()==(owner+"/"+RUN_SLUG).casefold() for row in rows):
+        if any(row.ref.casefold()==(owner+"/"+slug).casefold() for row in rows):
             raise RuntimeError("JOINT_KERNEL_ALREADY_EXISTS_NO_AUTOMATIC_DUPLICATE")
         if len(rows)<100:return
     raise ValueError("COMPLETE_OWN_KERNEL_INVENTORY_REQUIRED")

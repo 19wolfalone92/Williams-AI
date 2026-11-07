@@ -31,10 +31,14 @@ def num(value):
     return format(Decimal(str(value)), "f")
 
 
-def boundary_cases(split):
+def boundary_cases(split, *, seed_override=None, case_namespace="joint"):
     if split not in SEEDS:
         raise ValueError("FROZEN_JOINT_SPLIT_REQUIRED")
-    rng = random.Random(SEEDS[split])
+    if seed_override is not None and (type(seed_override) is not int or not 0 <= seed_override < 2**63):
+        raise ValueError("BOUNDED_BOUNDARY_SEED_REQUIRED")
+    if not case_namespace or not all(c in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in case_namespace):
+        raise ValueError("EXPLICIT_BOUNDARY_NAMESPACE_REQUIRED")
+    rng = random.Random(SEEDS[split] if seed_override is None else seed_override)
     count = {"train": 128, "validation": 8, "test": 16}[split]
     rows = []
 
@@ -46,7 +50,7 @@ def boundary_cases(split):
         question = (prefix + ". " + question + "\nИсходные величины: " + canonical(operands).decode()
                     + "\nВерни только JSON с полями " + ",".join(answer)
                     + ",execution_allowed. execution_allowed=false; без других полей.")
-        rows.append({"case_id": f"joint-{split}-{i}-{rule}", "rule_id": rule,
+        rows.append({"case_id": f"{case_namespace}-{split}-{i}-{rule}", "rule_id": rule,
                      "edition": edition, "pdf_page": page, "question": question,
                      "answer": canonical({**answer, "execution_allowed": False}).decode(),
                      "teaching_explanation": explanation, "operands": operands,
@@ -193,10 +197,8 @@ def selection(grades, source, practice, references):
         raise ValueError("THREE_DEVELOPMENT_COHORTS_REQUIRED")
     from .deep_book_research import EDITIONS
     ratios = []
-    for after, before in ((source, references["focused69_source"]),
-                          (source, references["previous40_source"]),
-                          (practice, references["focused69_practice"]),
-                          (practice, references["previous40_practice"])):
+    for name, before in references.items():
+        after = source if name.endswith("source") else practice
         for edition in EDITIONS:
             a, b = after[edition], before[edition]
             if type(a) not in (int,float) or type(b) not in (int,float) or not math.isfinite(a) or not math.isfinite(b) or min(a,b)<=0:

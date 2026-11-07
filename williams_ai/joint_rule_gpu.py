@@ -1,6 +1,7 @@
 """Joint corrective QLoRA run; three development cohorts, no expert chart gold."""
 from __future__ import annotations
 from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import timedelta
 from hashlib import sha256
 import json
@@ -27,8 +28,28 @@ CONTROL_URL = "https://raw.githubusercontent.com/19wolfalone92/Williams-AI/resea
 STAGES = ("base", "focused69", "historical93", "candidate")
 
 
+@dataclass(frozen=True)
+class JointRun:
+    mode: str
+    slug: str
+    control_url: str
+    initial_sha: str
+    cohorts: tuple[str, ...]
+    stages: tuple[str, ...]
+    limits: dict
+    protocol: dict
+    seed: int
+    source_repetitions: int = 2
+    rank_cohorts: tuple[tuple[str, ...], ...] = ()
+
+
+DEFAULT_RUN = JointRun(MODE, RUN_SLUG, CONTROL_URL, INITIAL_SHA,
+                       ("historical", "numeric", "boundary"), STAGES, LIMITS, PROTOCOL, 20261106)
+
+
 class StopWatcher:
-    def __init__(self):
+    def __init__(self, run=DEFAULT_RUN):
+        self.run = run
         self.requested = threading.Event(); self.finished = threading.Event()
 
     def start(self):
@@ -36,9 +57,9 @@ class StopWatcher:
             failed_since = None
             while not self.finished.is_set():
                 try:
-                    with urlopen(Request(CONTROL_URL + "?t=" + str(int(time.time())//20), headers={"Cache-Control": "no-cache"}), timeout=8) as response:
+                    with urlopen(Request(self.run.control_url + "?t=" + str(int(time.time())//20), headers={"Cache-Control": "no-cache"}), timeout=8) as response:
                         obj = json.load(response)
-                    if set(obj) != {"run_slug", "stop"} or obj["run_slug"] != RUN_SLUG or type(obj["stop"]) is not bool:
+                    if set(obj) != {"run_slug", "stop"} or obj["run_slug"] != self.run.slug or type(obj["stop"]) is not bool:
                         raise ValueError("EXPLICIT_HISTORICAL_STOP_CONTROL_REQUIRED")
                     if obj["stop"]: self.requested.set(); return
                     failed_since = None
@@ -50,7 +71,7 @@ class StopWatcher:
 
 
 def train(source_path: Path, curriculum_path: Path, questions_path: Path,
-          initial_path: Path, previous_path: Path, reference_path: Path, output: Path):
+          initial_path: Path, previous_path: Path, reference_path: Path, output: Path, *, run=DEFAULT_RUN):
     import torch
     import torch.distributed as dist
     from huggingface_hub import HfApi, snapshot_download
@@ -65,24 +86,29 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
     if world != 2 or torch.cuda.device_count() != 2: raise ValueError("TWO_REAL_CUDA_DEVICES_REQUIRED")
     torch.cuda.set_device(rank); device = torch.device("cuda", rank)
     dist.init_process_group("nccl", timeout=timedelta(minutes=20))
-    watcher = StopWatcher(); watcher.start(); set_seed(20261106)
+    watcher = StopWatcher(run); watcher.start(); set_seed(run.seed)
+    if run.rank_cohorts:
+        assigned = [cohort for lane in run.rank_cohorts for cohort in lane]
+        if len(run.rank_cohorts) != world or sorted(assigned) != sorted(run.cohorts):
+            raise ValueError("EXACT_COHORT_ASSIGNMENT_ACROSS_BOTH_GPUS_REQUIRED")
+    focused_sha = FOCUSED_SHA if "focused69" in run.stages else run.initial_sha
     source = checked_payload(json.loads(source_path.read_bytes()))
     payload = json.loads(curriculum_path.read_bytes()); reference = json.loads(reference_path.read_bytes())
-    if set(payload) != {"schema", "train", "validation", "audit"} or payload["schema"] != MODE:
+    if set(payload) != {"schema", "train", "validation", "audit"} or payload["schema"] != run.mode:
         raise ValueError("NO_TEST_ROWS_OR_HUMAN_APPROVALS_IN_TRAINING_PAYLOAD")
     if any({g: digest(prompts_only(rows)) for g, rows in payload[s].items()} != payload["audit"][s] for s in ("train", "validation")):
         raise ValueError("FROZEN_HISTORICAL_CURRICULUM_CHANGED")
     for split in ("train", "validation"):
-        if set(payload[split]) != {"historical", "numeric", "boundary"}:
+        if set(payload[split]) != set(run.cohorts):
             raise ValueError("ALL_THREE_DEVELOPMENT_DOMAINS_REQUIRED")
     train_ids = {r["case_id"] for rows in payload["train"].values() for r in rows}
     dev_ids = {r["case_id"] for rows in payload["validation"].values() for r in rows}
     if train_ids & dev_ids:
         raise ValueError("NO_TRAIN_DEVELOPMENT_ID_OVERLAP")
-    for path, expected in ((initial_path, INITIAL_SHA), (previous_path, FOCUSED_SHA)):
+    for path, expected in ((initial_path, run.initial_sha), (previous_path, focused_sha)):
         if sha256((path/"adapter_model.safetensors").read_bytes()).hexdigest() != expected:
             raise ValueError("VERIFIED_INITIAL_AND_REFERENCE_ADAPTERS_REQUIRED")
-    if reference["source_audit"] != source["audit"] or reference["candidate_adapter_sha256"] != FOCUSED_SHA:
+    if reference["source_audit"] != source["audit"] or reference["candidate_adapter_sha256"] != focused_sha:
         raise ValueError("SAME_ORIGINAL_SOURCE_SPLITS_REQUIRED")
     if rank == 0:
         output.mkdir(mode=0o700); shutil.copytree(initial_path, output/"source_adapter")
@@ -106,8 +132,8 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
     reasoned = tokenize_reasoned(reasoned_rows, tokenizer, max_tokens=1536)
     source_tokens = ordinary(tokenize_source_pages(source["train"], tokenizer, max_tokens=384))
     legacy_tokens = ordinary(_tokenized(legacy, tokenizer, max_tokens=768))
-    training = market_tokens + reasoned + source_tokens*2 + legacy_tokens
-    random.Random(20261106).shuffle(training)
+    training = market_tokens + reasoned + source_tokens * run.source_repetitions + legacy_tokens
+    random.Random(run.seed).shuffle(training)
     dev_tokens = tokenize_typed([r for rows in payload["validation"].values() for r in rows], tokenizer, max_tokens=1536)
     model = AutoModelForCausalLM.from_pretrained(base, trust_remote_code=False, local_files_only=True, use_safetensors=True,
         dtype=torch.float16, device_map={"": rank}, quantization_config=BitsAndBytesConfig(load_in_4bit=True,
@@ -122,14 +148,16 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
     initial = {n: p.detach().cpu().clone() for n, p in parameters.items()}
     references = {"focused69_source": reference["source_final_loss"], "focused69_practice": reference["practice_final_loss"],
         "previous40_source": reference["source_baseline_loss"], "previous40_practice": reference["practice_baseline_loss"]}
-    receipt = {"mode": MODE, "source_commit": os.environ["TRAINING_SOURCE_SHA"], "model_repo": MODEL, "model_revision": REVISION,
-        "official_weights_sha256": official, "source_audit": source["audit"], "initial_adapter_sha256": INITIAL_SHA,
-        "focused69_adapter_sha256": FOCUSED_SHA, "world_size": world,
+    if run.rank_cohorts:
+        references = reference["validation_references"]
+    receipt = {"mode": run.mode, "source_commit": os.environ["TRAINING_SOURCE_SHA"], "model_repo": MODEL, "model_revision": REVISION,
+        "official_weights_sha256": official, "source_audit": source["audit"], "initial_adapter_sha256": run.initial_sha,
+        "focused69_adapter_sha256": focused_sha, "world_size": world,
         "gpu_names": [torch.cuda.get_device_name(i) for i in range(2)], "trainable_parameters": 33030144,
         "training_rows": len(training), "joint_unique_direct_train_cases": len(market_tokens), "authored_reasoned_rows": len(reasoned),
         "original_source_train_windows": len(source_tokens), "legacy_train_rows": len(legacy_tokens),
-        "historical_audit": payload["audit"], "maximum_optimizer_attempts": LIMITS["optimizer_attempts"], "maximum_training_seconds": LIMITS["training_seconds"],
-        "learning_rate": LIMITS["learning_rate"], "development_generation_protocol": PROTOCOL, "checkpoints": [],
+        "historical_audit": payload["audit"], "maximum_optimizer_attempts": run.limits["optimizer_attempts"], "maximum_training_seconds": run.limits["training_seconds"],
+        "learning_rate": run.limits["learning_rate"], "development_generation_protocol": run.protocol, "checkpoints": [],
         "references": references, "expert_approved_market_training": False, "execution_allowed": False,
         "trading_qualification": False, "complete_training": False, "complete_test": False}
     def write(name, value):
@@ -144,17 +172,18 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
     class Deadline(StoppingCriteria):
         def __init__(self, when): self.when = when
         def __call__(self, input_ids, scores, **kwargs): return watcher.requested.is_set() or time.monotonic() >= self.when
-    def predict(questions, *, mode="direct", stage="candidate"):
+    def predict(questions, *, mode="direct", stage="candidate", ranks=None):
         was_training = model.training; cache = model.config.use_cache; model.eval(); model.config.use_cache = True
         local = []
         with torch.inference_mode():
             for i, row in enumerate(questions):
-                if i % world != rank: continue
+                target = ranks[row["case_id"]] if ranks is not None else i % world
+                if target != rank: continue
                 ids = tokenizer.apply_chat_template([{"role": "system", "content": SYSTEM}, {"role": "user", "content": row["prompt"]}],
                     tokenize=True, add_generation_prompt=True, enable_thinking=mode == "thinking")
                 tensor = torch.tensor([ids], device=device)
-                options = {k: v for k, v in PROTOCOL.items() if k not in {"mode", "seconds"}}
-                seconds = PROTOCOL["seconds"]
+                options = {k: v for k, v in run.protocol.items() if k not in {"mode", "seconds"}}
+                seconds = run.protocol["seconds"]
                 if mode == "thinking": options.update(max_new_tokens=1536, temperature=.6, top_p=.95); seconds = 60
                 torch.manual_seed(int(sha256((row["case_id"]+mode).encode()).hexdigest()[:8], 16))
                 until = time.monotonic()+seconds
@@ -173,6 +202,17 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
         if len(results) != len(questions): raise ValueError("NO_MISSING_MODEL_RESPONSES")
         model.config.use_cache = cache; model.train(was_training)
         return [results[q["case_id"]] for q in questions]
+    def predict_cohorts(by_cohort, stage="candidate"):
+        if not run.rank_cohorts:
+            return {g: predict(rows, stage=stage) for g, rows in by_cohort.items()}
+        assignment = {g: gpu for gpu, lane in enumerate(run.rank_cohorts) for g in lane}
+        rows = [row for g in run.cohorts for row in by_cohort[g]]
+        ranks = {row["case_id"]: assignment[g] for g in run.cohorts for row in by_cohort[g]}
+        print("PARALLEL_EXAM_LANE", json.dumps({"rank": rank, "stage": stage,
+              "cohorts": run.rank_cohorts[rank], "questions": sum(r == rank for r in ranks.values())}), flush=True)
+        answers = {row["case_id"]: row for row in predict(rows, stage=stage, ranks=ranks)}
+        return {g: [answers[q["case_id"]] for q in by_cohort[g]] for g in run.cohorts}
+
     def losses(groups, capture=None):
         was_training = model.training; model.eval(); local = []
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.float16):
@@ -189,7 +229,7 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
         model.train(was_training); return result
     save_receipt()
     def dev_grades():
-        return grade_groups(payload["validation"], {g: predict(prompts_only(rows)) for g, rows in payload["validation"].items()})
+        return grade_groups(payload["validation"], predict_cohorts({g: prompts_only(rows) for g, rows in payload["validation"].items()}))
     receipt["initial_joint_development"] = dev_grades()
     save_receipt()
     class Rows:
@@ -216,7 +256,7 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
                 self.actual += 1
                 if not bool(torch.stack([torch.isfinite(p).all() for p in parameters.values()]).all()): raise ValueError("NONFINITE_TRAINED_ADAPTER")
         def on_step_end(self, args, state, control, **kwargs):
-            flag = torch.tensor([int(time.monotonic()-started >= LIMITS["training_seconds"]), int(watcher.requested.is_set())], device=device)
+            flag = torch.tensor([int(time.monotonic()-started >= run.limits["training_seconds"]), int(watcher.requested.is_set())], device=device)
             dist.all_reduce(flag, op=dist.ReduceOp.MAX)
             if bool(flag.any()):
                 control.should_training_stop = True; control.should_save = True; control.should_evaluate = not bool(flag[1])
@@ -231,7 +271,7 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
         def evaluation_loop(self, *args, **kwargs):
             result = super().evaluation_loop(*args, **kwargs)
             if stopped(): return result._replace(metrics={**result.metrics, "eval_historical_score": -9.})
-            answers = {g: predict(prompts_only(rows)) for g, rows in payload["validation"].items()}; grade = grade_groups(payload["validation"], answers)
+            answers = predict_cohorts({g: prompts_only(rows) for g, rows in payload["validation"].items()}); grade = grade_groups(payload["validation"], answers)
             source_loss = losses(source_val, "source_windows_"+str(self.state.global_step))
             practice_loss = losses(practice_val, "practice_windows_"+str(self.state.global_step))
             chosen = selection(grade, source_loss, practice_loss, references)
@@ -241,16 +281,16 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
             write("development_"+str(self.state.global_step), answers)
             if rank == 0: print("JOINT_DEVELOPMENT", json.dumps({"step": self.state.global_step, "correct": {g:v["correct"] for g,v in grade.items()}, **chosen}), flush=True)
             return result._replace(metrics={**result.metrics, "eval_historical_score": chosen["score"]})
-    args = TrainingArguments(output_dir=str(output.parent/"private_historical_checkpoints"), max_steps=LIMITS["optimizer_attempts"],
+    args = TrainingArguments(output_dir=str(output.parent/"private_historical_checkpoints"), max_steps=run.limits["optimizer_attempts"],
         per_device_train_batch_size=1, per_device_eval_batch_size=1, gradient_accumulation_steps=1,
-        learning_rate=LIMITS["learning_rate"], warmup_ratio=.03, weight_decay=.01, lr_scheduler_type="cosine", max_grad_norm=1.,
-        optim="adamw_torch", eval_strategy="steps", eval_steps=LIMITS["evaluation_steps"], save_strategy="steps", save_steps=LIMITS["evaluation_steps"],
+        learning_rate=run.limits["learning_rate"], warmup_ratio=.03, weight_decay=.01, lr_scheduler_type="cosine", max_grad_norm=1.,
+        optim="adamw_torch", eval_strategy="steps", eval_steps=run.limits["evaluation_steps"], save_strategy="steps", save_steps=run.limits["evaluation_steps"],
         save_total_limit=2, save_safetensors=True, load_best_model_at_end=True, metric_for_best_model="historical_score",
         greater_is_better=True, prediction_loss_only=True, logging_steps=32, logging_nan_inf_filter=False,
         report_to="none", disable_tqdm=True, remove_unused_columns=False, label_names=["labels"],
         fp16=True, gradient_checkpointing=True, gradient_checkpointing_kwargs={"use_reentrant": False},
         ddp_backend="nccl", ddp_find_unused_parameters=False, ddp_broadcast_buffers=False, ddp_timeout=1200,
-        seed=20261106, data_seed=20261106)
+        seed=run.seed, data_seed=run.seed)
     updates = Updates()
     trainer = HistoricalTrainer(model=model, args=args, train_dataset=Rows(training), eval_dataset=Rows(dev_tokens), data_collator=collate, callbacks=[updates])
     trainer.model_accepts_loss_kwargs = False
@@ -274,19 +314,29 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
     receipt["text_gates"] = {name: validation_admission(before, receipt["source_final_loss"] if name.endswith("source") else receipt["practice_final_loss"]) for name, before in references.items()}
     receipt["candidate_frozen_before_test_file_read"] = True; save_receipt()
     model.gradient_checkpointing_disable(); model.eval()
-    model.load_adapter(previous_path, adapter_name="focused69", is_trainable=False, local_files_only=True)
-    model.load_adapter(initial_path, adapter_name="historical93", is_trainable=False, local_files_only=True)
+    if "focused69" in run.stages:
+        model.load_adapter(previous_path, adapter_name="focused69", is_trainable=False, local_files_only=True)
+    parent_name = "parent" if "parent" in run.stages else "historical93"
+    model.load_adapter(initial_path, adapter_name=parent_name, is_trainable=False, local_files_only=True)
     questions = json.loads(questions_path.read_bytes())
-    if set(questions) != {"historical", "numeric", "boundary", "sha256"} or any(digest(questions[k]) != questions["sha256"][k] for k in ("historical", "numeric", "boundary")):
+    if set(questions) != {*run.cohorts, "sha256"} or any(digest(questions[k]) != questions["sha256"][k] for k in run.cohorts):
         raise ValueError("FROZEN_PROMPTS_ONLY_FINAL_EXAM_REQUIRED")
     results = {"receipt": {"source_commit": receipt["source_commit"], "candidate_adapter_sha256": receipt["candidate_adapter_sha256"],
-        "protocol": PROTOCOL, "test_questions_sha256": questions["sha256"], "expected_keys_loaded_on_gpu": False},
-        "historical": {}, "numeric": {}, "boundary": {}, "thinking_diagnostic": {}}
-    for stage in STAGES:
+        "protocol": run.protocol, "test_questions_sha256": questions["sha256"], "expected_keys_loaded_on_gpu": False},
+        **{cohort: {} for cohort in run.cohorts}, "thinking_diagnostic": {}}
+    if run.rank_cohorts:
+        receipt["exam_cohorts_by_gpu_rank"] = {str(i): list(lane) for i, lane in enumerate(run.rank_cohorts)}
+    for stage in run.stages:
         model.set_adapter("default" if stage in {"base", "candidate"} else stage)
-        for cohort in ("historical", "numeric", "boundary"):
-            results[cohort][stage] = predict(questions[cohort], stage=stage); write("final_predictions", results)
-        if rank == 0: print("JOINT_TEST_STAGE_COMPLETED", json.dumps({"stage": stage, "cohorts": 3}), flush=True)
+        if run.rank_cohorts:
+            batch = predict_cohorts({g: questions[g] for g in run.cohorts}, stage=stage)
+            for cohort, answers in batch.items():
+                results[cohort][stage] = answers
+            write("final_predictions", results)
+        else:
+            for cohort in run.cohorts:
+                results[cohort][stage] = predict(questions[cohort], stage=stage); write("final_predictions", results)
+        if rank == 0: print("JOINT_TEST_STAGE_COMPLETED", json.dumps({"stage": stage, "cohorts": len(run.cohorts)}), flush=True)
     receipt["complete_test"] = True; receipt["training_seconds_through_final_exam"] = time.monotonic()-started
     save_receipt(); watcher.finished.set(); dist.barrier(); dist.destroy_process_group()
     return receipt
