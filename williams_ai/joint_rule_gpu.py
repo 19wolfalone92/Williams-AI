@@ -274,7 +274,7 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
             answers = predict_cohorts({g: prompts_only(rows) for g, rows in payload["validation"].items()}); grade = grade_groups(payload["validation"], answers)
             source_loss = losses(source_val, "source_windows_"+str(self.state.global_step))
             practice_loss = losses(practice_val, "practice_windows_"+str(self.state.global_step))
-            chosen = selection(grade, source_loss, practice_loss, references)
+            chosen = selection(grade, source_loss, practice_loss, references, cohorts=run.cohorts)
             row = {"optimizer_step": self.state.global_step, "grade": grade, "source_loss": source_loss,
                 "practice_loss": practice_loss, "selection": chosen}
             receipt["checkpoints"].append(row); save_receipt()

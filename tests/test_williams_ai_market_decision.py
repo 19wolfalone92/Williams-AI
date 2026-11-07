@@ -8,7 +8,9 @@ from scripts.ai_run_market_decision_kaggle import DATA, frozen, worker_source
 from scripts.ai_verify_market_decision import _observed_safety
 from williams_ai.causal_timeframes import aggregate_closed_h1
 from williams_ai.chart_reader import indicators, validate_closed_bars
-from williams_ai.historical_rule_curriculum import iso, number
+from williams_ai.deep_book_research import EDITIONS
+from williams_ai.historical_rule_curriculum import iso, number, score
+from williams_ai.joint_rule_curriculum import selection
 from williams_ai.market_decision_curriculum import _campaign
 from williams_ai.market_decision_gpu import RUN
 from williams_ai.wave_evidence import alternating_impulse_skeleton
@@ -102,3 +104,12 @@ class MarketDecisionTests(unittest.TestCase):
         self.assertIn("from williams_ai.market_decision_gpu import train", worker)
         self.assertIn("CLOSED_CHART_20261107.zip", worker)
         self.assertIn("is_dir()", worker)
+        dev = {cohort: score(rows, [{"case_id": row["case_id"], "response": row["answer"],
+                                    "thinking_complete": True, "response_time_limit_reached": False}
+                                   for row in rows])
+               for cohort, rows in self.groups["validation"].items()}
+        loss = {k: 1. for k in (*EDITIONS, "ALL")}
+        result = selection(dev, loss, loss, {"parent_source": loss, "parent_practice": loss},
+                           cohorts=RUN.cohorts)
+        self.assertEqual(result["macro_accuracy"], 1.)
+        self.assertTrue(result["preserved_within_two_percent"])

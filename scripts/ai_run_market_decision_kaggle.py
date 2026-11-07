@@ -181,13 +181,13 @@ def main(*, recover=False):
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         result = subprocess.run(["kaggle", "kernels", "output", kernel, "-p", td, "--file-pattern",
-                                 r".*(CLOSED_CHART_20261107[.]zip|market_decision_failure[.]json)$"],
+                                 r".*(CLOSED_CHART_20261107[.]zip|market_decision_(?:rank[01]_)?failure[.]json)$"],
                                 capture_output=True, text=True, timeout=420)
         archive = root / ARCHIVE
         if result.returncode or not archive.is_file() or "COMPLETE" not in state:
             # Only safe numeric diagnostic metadata, no partial model promoted.
-            if (root / "market_decision_failure.json").is_file():
-                (dest / "market_decision_failure.json").write_bytes((root / "market_decision_failure.json").read_bytes())
+            for failure in root.glob("market_decision_*failure.json"):
+                (dest / failure.name).write_bytes(failure.read_bytes())
             raise RuntimeError("MARKET_DECISION_GPU_INCOMPLETE_NO_TRAINING_CLAIM")
         proof = verify(archive, groups, design, revision)
         (dest / "independent_market_decision_audit.json").write_bytes(canonical(proof))

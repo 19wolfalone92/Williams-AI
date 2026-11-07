@@ -191,10 +191,10 @@ def grade_groups(groups, responses):
     return {name: score(rows, responses[name]) for name, rows in groups.items()}
 
 
-def selection(grades, source, practice, references):
+def selection(grades, source, practice, references, *, cohorts=("historical", "numeric", "boundary")):
     import math
-    if set(grades) != {"historical", "numeric", "boundary"}:
-        raise ValueError("THREE_DEVELOPMENT_COHORTS_REQUIRED")
+    if set(grades) != set(cohorts):
+        raise ValueError("EXACT_DEVELOPMENT_COHORTS_REQUIRED")
     from .deep_book_research import EDITIONS
     ratios = []
     for name, before in references.items():

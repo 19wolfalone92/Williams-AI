@@ -277,10 +277,17 @@ def score(rows, responses):
         details.append({"case_id": row["case_id"], "correct": bool(good)})
     collapsed = {}
     for family, values in keys.items():
-        for key in values[0]:
-            wanted = {canonical(v[key]) for v in values}
-            got = {canonical(v.get(key)) for v in fields[family] if v is not None}
-            if len(wanted) > 1 and len(got) == 1: collapsed.setdefault(family, []).append(key)
+        by_schema = defaultdict(list)
+        for wanted, observed in zip(values, fields[family]):
+            by_schema[tuple(sorted(wanted))].append((wanted, observed))
+        for examples in by_schema.values():
+            for key in examples[0][0]:
+                wanted = {canonical(v[key]) for v, _ in examples}
+                got = {canonical(v.get(key)) for _, v in examples if v is not None}
+                if len(wanted) > 1 and len(got) == 1:
+                    repeated = collapsed.setdefault(family, [])
+                    if key not in repeated:
+                        repeated.append(key)
     total = len(rows)
     return {"correct": sum(v["correct"] for v in counts.values()), "total": total,
         "accuracy": sum(v["correct"] for v in counts.values()) / total,

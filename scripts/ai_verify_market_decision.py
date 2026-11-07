@@ -125,7 +125,7 @@ def verify(archive, groups, design, revision):
         for point in receipt["checkpoints"]:
             raw = json.loads(z.read("development_" + str(point["optimizer_step"]) + ".json"))
             grades = {g: score(rows, raw[g]) for g, rows in groups["validation"].items()}
-            if grades != point["grade"] or selection(grades, point["source_loss"], point["practice_loss"], receipt["references"]) != point["selection"]:
+            if grades != point["grade"] or selection(grades, point["source_loss"], point["practice_loss"], receipt["references"], cohorts=RUN.cohorts) != point["selection"]:
                 raise ValueError("CHECKPOINT_SELECTION_NOT_INDEPENDENTLY_REPRODUCED")
         best = max(receipt["checkpoints"], key=lambda point: point["selection"]["score"])
         if receipt["selected_checkpoint"] != "checkpoint-" + str(best["optimizer_step"]):
