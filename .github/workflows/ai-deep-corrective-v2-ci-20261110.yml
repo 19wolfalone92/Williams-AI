@@ -1,0 +1,31 @@
+name: Williams AI second corrective QLoRA offline data and safety
+on:
+  push:
+    branches: [research/deep-corrective-v2-20261110]
+    paths:
+      - '.github/workflows/ai-deep-corrective-v2-ci-20261110.yml'
+      - 'williams_ai/deep_corrective_v2_gpu.py'
+      - 'scripts/ai_verify_deep_corrective_v2.py'
+      - 'scripts/ai_run_deep_corrective_v2_kaggle.py'
+      - 'tests/test_williams_ai_deep_corrective_v2_20261110.py'
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-2nd-deep-corrective-safety-20261110
+  cancel-in-progress: false
+jobs:
+  offline-read-only-corrective-v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Syntax-check CPU scorer and QLoRA runner
+        run: python -m py_compile scripts/ai_run_deep_corrective_v2_kaggle.py scripts/ai_verify_deep_corrective_v2.py williams_ai/deep_corrective_v2_gpu.py
+      - name: Run frozen-data split, component curriculum and trading-stop tests
+        run: python -m unittest tests.test_williams_ai_deep_corrective_v2_20261110 -v
+      - name: Rerun first corrective contract tests
+        run: python -m unittest tests.test_williams_ai_deep_corrective_20261110 -v
+      - name: Rerun original 2026 market-decision tests
+        run: python -m unittest tests.test_williams_ai_market_decision -v
