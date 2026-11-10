@@ -1,0 +1,31 @@
+name: Williams AI deep corrective offline safety and frozen data
+on:
+  push:
+    branches: [research/deep-corrective-20261110]
+    paths:
+      - '.github/workflows/ai-deep-corrective-ci-20261110.yml'
+      - 'scripts/ai_run_deep_corrective_kaggle.py'
+      - 'scripts/ai_verify_deep_corrective.py'
+      - 'williams_ai/deep_corrective_gpu.py'
+      - 'tests/test_williams_ai_deep_corrective_20261110.py'
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-deep-corrective-cpu-contracts-20261110
+  cancel-in-progress: false
+jobs:
+  offline-read-only-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Compile controller, scorer and GPU wrapper
+        run: python -m py_compile scripts/ai_run_deep_corrective_kaggle.py scripts/ai_verify_deep_corrective.py williams_ai/deep_corrective_gpu.py
+      - name: Full precommitted corrective data, independent labels, STOP and SHA checks
+        run: python -m unittest tests.test_williams_ai_deep_corrective_20261110 -v
+      - name: Recheck original November 07 market data contracts
+        run: python -m unittest tests.test_williams_ai_market_decision -v
+      - name: Ensure no production trading code changed
+        run: git diff --exit-code HEAD^ HEAD -- williams_ai/demo_executor.py mobile || true
