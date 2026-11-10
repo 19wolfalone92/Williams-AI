@@ -1,0 +1,36 @@
+name: Williams AI ACTUAL Qwen3-4B deep corrective dual-T4 QLoRA
+on:
+  push:
+    branches: [research/deep-corrective-20261110]
+    paths: ['experiments/deep-corrective-start.json']
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-deep-corrective-one-private-gpu-job-20261110
+  cancel-in-progress: false
+jobs:
+  private-qwen3-4b-dual-t4-corrective-training:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 280
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install private Kaggle controller dependencies (no paid runners)
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'numpy>=2,<3' 'safetensors==0.6.2' 'six>=1.16,<2'
+      - name: Fail-closed preflight before submitting any GPU work
+        run: python -m unittest tests.test_williams_ai_deep_corrective_20261110 -v
+      - name: Actual Qwen3-4B dual-T4 rank16 QLoRA (private, STOP and quota guarded)
+        run: python scripts/ai_run_deep_corrective_kaggle.py
+      - name: Preserve encrypted research evidence and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams_AI_Deep_Corrective_20261110_Research_Encrypted
+          path: ${{ runner.temp }}/deep_corrective_export/
+          if-no-files-found: warn
+          retention-days: 30
