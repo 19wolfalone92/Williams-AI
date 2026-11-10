@@ -194,7 +194,11 @@ def main(*, recover=False):
     dest.mkdir(mode=0o700)
     groups, design = frozen()
     (dest / "frozen_design.json").write_bytes(canonical(design))
-    config = json.loads(START.read_bytes())
+    # A no-GPU readiness check may run before the one-shot START trigger
+    # exists. The ACTUAL training path still requires that committed file.
+    config = ({"run_slug": RUN.slug, "recipient_key_mode": "KAGGLE_RUNNER_SECRET_DERIVED_X25519"}
+              if os.environ.get("WILLIAMS_GPU_DRY_RUN") == "1" and not START.exists()
+              else json.loads(START.read_bytes()))
     if (set(config) != {"run_slug", "recipient_key_mode"}
             or config["run_slug"] != RUN.slug
             or config["recipient_key_mode"] != "KAGGLE_RUNNER_SECRET_DERIVED_X25519"):
