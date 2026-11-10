@@ -77,8 +77,20 @@ def frozen():
     for split, seed in (("train", 2026111101),
                         ("validation", 2026111102),
                         ("test", 2026111103)):
-        boundary = boundary_cases(split, seed_override=seed,
-                                  case_namespace="deep-v2-boundary")
+        # Discard parameter seeds that create duplicate authored questions;
+        # this decision depends on TRAIN/TEST sample uniqueness only, never
+        # on held-out model answers or observed evaluation scores.
+        for attempt in range(32):
+            try:
+                boundary = boundary_cases(
+                    split, seed_override=seed + 1009*attempt,
+                    case_namespace="deep-v2-boundary")
+                break
+            except ValueError as exc:
+                if str(exc) != "UNIQUE_JOINT_QUESTIONS_REQUIRED":
+                    raise
+        else:
+            raise ValueError("NO_UNIQUE_PRECOMMITTED_NUMERIC_BOUNDARY_SEED")
         numerical = restorative_cases(split, seed_override=seed+970,
                                       case_namespace="deep-v2-numeric")
         rows = [r for r in boundary+numerical
