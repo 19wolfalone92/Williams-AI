@@ -42,6 +42,21 @@ def frozen():
     from williams_ai.joint_rule_curriculum import boundary_cases
     from williams_ai.restorative_book_practice import restorative_cases
     groups, design = frozen_v1()
+    # The 1,728 precision examples in the previous attempt contained
+    # heavily repeated machine-authored risk/AC templates. Draw an immutable
+    # representative sample from TRAIN only (320 per rule), preserving every
+    # validation and test case unchanged. This is *not* market-data thinning.
+    old_precision = groups["train"]["precision"]
+    selected_precision = []
+    for rule in ("TC1.PSY.PLAN", "NTD.AC"):
+        cohort_rows = sorted(
+            (r for r in old_precision if r["rule_id"] == rule),
+            key=lambda row: digest({"id": row["case_id"], "salt": "v2-compact-precision"})
+        )
+        if len(cohort_rows) < 320:
+            raise ValueError("NOT_ENOUGH_RISK_AC_SOURCE_EXAMPLES")
+        selected_precision.extend(cohort_rows[:320])
+    groups["train"]["precision"] = selected_precision
     for cohort, subsets in {
         "context": (("ac_side", "ac_required", "ntd_next"),
                     ("h1_stack", "h4_d1_agree", "course_rhythm")),
@@ -62,7 +77,7 @@ def frozen():
             originals, key=lambda row: digest(
                 {"cohort": cohort, "case_id": row["case_id"], "seed": "v2-micro-20261110"}
             )
-        )[:72]
+        )[:24]
         for row in selected:
             expected = json.loads(row["answer"])
             for index, fields in enumerate(subsets):
@@ -114,13 +129,13 @@ def frozen():
             risk = sorted(
                 (r for r in rows if r["rule_id"] == "TC1.PSY.PLAN"),
                 key=lambda r: digest(r["case_id"])
-            )[:96]
+            )[:64]
             ac = sorted(
                 (r for r in rows if r["rule_id"] == "NTD.AC"),
                 key=lambda r: digest(r["case_id"])
-            )[:96]
+            )[:64]
             rows = risk + ac
-            if len(rows) != 192:
+            if len(rows) != 128:
                 raise ValueError("V2_NUMERIC_CURRICULUM_NOT_DIVERSE_ENOUGH")
         if split == "test":
             # New machine-checked arithmetic holdout; entirely withheld keys.
