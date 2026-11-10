@@ -1,0 +1,25 @@
+name: Williams AI Kaggle private code size diagnostic (no GPU)
+on:
+  push:
+    branches: [research/deep-corrective-v2-20261110]
+    paths: ['experiments/deep-corrective-v2-dry-run.json']
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-v2-kaggle-upload-preflight
+  cancel-in-progress: false
+jobs:
+  inspect-private-upload-without-gpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      WILLIAMS_GPU_DRY_RUN: '1'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'numpy>=2,<3' 'safetensors==0.6.2' 'six>=1.16,<2'
+      - name: Privately assemble candidate and log byte counts, no submission
+        run: python scripts/ai_run_deep_corrective_v2_kaggle.py
