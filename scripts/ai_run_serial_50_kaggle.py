@@ -67,7 +67,7 @@ def frozen():
         for attempt in range(24):
             try:
                 rows = factory("test", seed_override=salt + 1009*attempt,
-                               case_namespace="serial50-fresh-holdout")
+                               case_namespace="serial50-fresh-holdout-"+factory.__name__)
                 break
             except ValueError as exc:
                 if str(exc) != "UNIQUE_JOINT_QUESTIONS_REQUIRED":
