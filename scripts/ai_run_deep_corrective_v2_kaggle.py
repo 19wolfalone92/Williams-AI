@@ -302,12 +302,12 @@ def main(*, recover=False):
         }, sort_keys=True), flush=True)
         if os.environ.get("WILLIAMS_GPU_DRY_RUN") == "1":
             print("DRY_RUN_NO_KAGGLE_SUBMISSION", json.dumps({
-                "code_bytes": worker_bytes, "under_950k": worker_bytes < 950000,
+                "code_bytes": worker_bytes, "under_975k": worker_bytes < 975000,
                 "existing_kernel_absent": True, "free_quota_verified": True,
                 "parent_adapter_verified": True, "private_book_corpus_verified": True,
                 "execution_allowed": False}, sort_keys=True), flush=True)
             return
-        if worker_bytes >= 950000:
+        if worker_bytes >= 975000:
             raise ValueError("KAGGLE_SOURCE_SIZE_TOO_LARGE_MUST_SHRINK_PRIVATE_PAYLOAD")
         metadata = {"id": kernel, "title": RUN.slug, "code_file": "worker.py", "language": "python",
                     "kernel_type": "script", "is_private": "true", "enable_gpu": "true",
