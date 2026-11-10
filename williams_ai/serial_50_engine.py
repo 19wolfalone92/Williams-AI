@@ -239,12 +239,13 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
     save_receipt()
     class Rows:
         FOCUS = ("precision", "context", "waves", "campaign", "books")
-        def __init__(self, rows):
+        def __init__(self, rows, *, focused=False):
             self.rows = rows
             self.phase = 0
-            self.micro = bool(run.limits.get("mini_rounds"))
+            # Validation must ALWAYS use original immutable rows, never
+            # draw from the train-only phase-specific sample pool.
+            self.micro = bool(focused and run.limits.get("mini_rounds"))
             if not self.micro: return
-            all_cohorts = [row["rule_id"] for row in direct_rows]
             self.pools = {}
             # Keep exact train-only numerical, wave, context and TC2 samples,
             # including authored subskills. Never import final exam answers.
@@ -340,7 +341,7 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
         ddp_backend="nccl", ddp_find_unused_parameters=False, ddp_broadcast_buffers=False, ddp_timeout=1200,
         seed=run.seed, data_seed=run.seed)
     updates = Updates()
-    trainer = HistoricalTrainer(model=model, args=args, train_dataset=Rows(training), eval_dataset=Rows(dev_tokens), data_collator=collate, callbacks=[updates])
+    trainer = HistoricalTrainer(model=model, args=args, train_dataset=Rows(training, focused=True), eval_dataset=Rows(dev_tokens), data_collator=collate, callbacks=[updates])
     trainer.model_accepts_loss_kwargs = False
     if trainer.accelerator.scaler is None: raise ValueError("REAL_FP16_SCALER_REQUIRED")
     trainer.accelerator.scaler = torch.amp.GradScaler("cuda", init_scale=1024., growth_interval=2000)
