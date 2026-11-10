@@ -250,7 +250,10 @@ def train(source_path: Path, curriculum_path: Path, questions_path: Path,
             # Keep exact train-only numerical, wave, context and TC2 samples,
             # including authored subskills. Never import final exam answers.
             starts = 0
-            for g in run.cohorts:
+            # canonical() serializes dictionary keys alphabetically; slice
+            # exactly in the same iteration order as direct_rows above.
+            # Otherwise the phase sampler silently swaps cohort labels.
+            for g in payload["train"]:
                 n = len(payload["train"][g])
                 self.pools[g] = market_tokens[starts:starts+n]
                 starts += n
