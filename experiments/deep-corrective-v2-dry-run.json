@@ -2,6 +2,6 @@
   "mode": "NO_GPU_NO_UPLOAD_DIAGNOSTIC",
   "failed_run": 42826140408,
   "submitted_by": "explicit_user_fix",
-  "attempt": 2,
-  "note": "after root-cause 1MB kernel source mitigation"
+  "attempt": 3,
+  "note": "full duplicate risk & AC train dedup; verify under 950KB"
 }
