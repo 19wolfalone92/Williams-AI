@@ -39,7 +39,7 @@ def main():
     sealed_path=Path("experiments/private-source-20261027-course-full.sealed.json")
     source = open_envelope(json.loads(sealed_path.read_bytes()), token)
     data=checked_payload(json.loads(source))
-    if data.get("execution_allowed") is not False:
+    if data["audit"].get("two_page_embargo_verified") is not True or data["audit"].get("original_test_texts_sent_to_gpu") is not False:
         raise RuntimeError("PRIVATE_SOURCE_NOT_RESEARCH_ONLY")
     print(json.dumps({"mode":"READ_ONLY_NO_GPU", "free_gpu_seconds":free_seconds,
       "parent_verified_output_inventory":True,
