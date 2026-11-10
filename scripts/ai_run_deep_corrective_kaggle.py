@@ -70,7 +70,7 @@ def frozen():
             # Never use validation/test chart labels to construct lessons.
             for original in groups[split]["campaign"]:
                 journal=original["operands"]["journal"]
-                if not journal["fills"] or not journal["stop_ack"]:
+                if not journal["fills"] or not journal["stop_ack"] or journal["stop_fill"]:
                     continue
                 row=deepcopy(original)
                 row["case_id"] += "-stop-unacknowledged"
