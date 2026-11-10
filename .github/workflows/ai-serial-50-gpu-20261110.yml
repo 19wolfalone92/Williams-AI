@@ -1,0 +1,35 @@
+name: Williams AI ACTUAL 50 consecutive Qwen3-4B focused QLoRA mini-cycles
+on:
+  push:
+    branches: [research/fifty-serial-mini-cycles-20261110]
+    paths: ['experiments/serial-50-start.json']
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-serial-50-single-free-dual-t4-kaggle-job
+  cancel-in-progress: false
+jobs:
+  dual-t4-fifty-consecutive-optimizations:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 320
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'numpy>=2,<3' 'safetensors==0.6.2' 'six>=1.16,<2'
+      - name: Fail closed if 50-round dataset or held-out tests changed
+        run: python -m unittest tests.test_williams_ai_serial_50 -v
+      - name: Actual fifty sequential training phases with one dual-T4 adapter
+        run: python scripts/ai_run_serial_50_kaggle.py
+      - name: Preserve encrypted adapter, 50-round receipts and CPU final exam
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams_AI_Serial_50_QLoRA_20261110_Research_Encrypted
+          path: ${{ runner.temp }}/serial_50_export/
+          if-no-files-found: warn
+          retention-days: 30
