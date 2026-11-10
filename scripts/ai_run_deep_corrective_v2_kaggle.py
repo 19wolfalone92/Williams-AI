@@ -52,7 +52,18 @@ def frozen():
     }.items():
         lessons = []
         # Only TRAIN rows. Source chart windows retain original as-of cutoff.
-        for row in tuple(groups["train"][cohort]):
+        # Sample a deterministic, stratified-by-cohort subset instead of
+        # embedding duplicate component prompts for every historical case.
+        # Kaggle limits a kernel source to <1 MB. Previously 1,079,099 bytes
+        # triggered HTTP 400 before GPU ever started. We preserve every
+        # original training row and all test/validation questions unchanged.
+        originals = tuple(groups["train"][cohort])
+        selected = sorted(
+            originals, key=lambda row: digest(
+                {"cohort": cohort, "case_id": row["case_id"], "seed": "v2-micro-20261110"}
+            )
+        )[:72]
+        for row in selected:
             expected = json.loads(row["answer"])
             for index, fields in enumerate(subsets):
                 if not set(fields) <= set(expected):
@@ -95,6 +106,22 @@ def frozen():
                                       case_namespace="deep-v2-numeric")
         rows = [r for r in boundary+numerical
                 if r["rule_id"] in ("TC1.PSY.PLAN", "NTD.AC")]
+        if split == "train":
+            # The previous 2304 precision train samples already include
+            # large amounts of machine-generated risk/AC arithmetic.
+            # Retain 192 diverse new V2 lessons, avoiding duplicate-heavy
+            # supervised overfitting and the Kaggle source upload cap.
+            risk = sorted(
+                (r for r in rows if r["rule_id"] == "TC1.PSY.PLAN"),
+                key=lambda r: digest(r["case_id"])
+            )[:96]
+            ac = sorted(
+                (r for r in rows if r["rule_id"] == "NTD.AC"),
+                key=lambda r: digest(r["case_id"])
+            )[:96]
+            rows = risk + ac
+            if len(rows) != 192:
+                raise ValueError("V2_NUMERIC_CURRICULUM_NOT_DIVERSE_ENOUGH")
         if split == "test":
             # New machine-checked arithmetic holdout; entirely withheld keys.
             risk = [r for r in rows if r["rule_id"] == "TC1.PSY.PLAN"][:16]
