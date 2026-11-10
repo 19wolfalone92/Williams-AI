@@ -29,7 +29,8 @@ class SecondDeepCorrectiveContracts(unittest.TestCase):
         for cohort in cohorts:
             originals=[x for x in self.groups["train"][cohort] if "-v2-components-" not in x["case_id"]]
             micro=[x for x in self.groups["train"][cohort] if "-v2-components-" in x["case_id"]]
-            self.assertEqual(len(micro), 2*len(originals))
+            self.assertEqual(len(micro), 2*min(72,len(originals)))
+            self.assertGreater(len(originals), 72)
             for row in micro:
                 self.assertEqual(row["label_origin"],"TRAIN_ONLY_MACHINE_CALCULATED_COMPONENTS_NOT_EXPERT_TRADING_LABEL")
                 self.assertFalse(json.loads(row["answer"])["execution_allowed"])
@@ -39,6 +40,10 @@ class SecondDeepCorrectiveContracts(unittest.TestCase):
     def test_new_holdout_is_distinct_from_prev_revealed_test(self):
         new=[x for x in self.groups["test"]["precision"] if x["case_id"].startswith("deep-v2-")]
         self.assertEqual(len(new),32)
+        fresh_train=[r for r in self.groups["train"]["precision"] if r["case_id"].startswith("deep-v2-")]
+        self.assertEqual(len(fresh_train),192)
+        self.assertEqual(sum(r["rule_id"]=="TC1.PSY.PLAN" for r in fresh_train),96)
+        self.assertEqual(sum(r["rule_id"]=="NTD.AC" for r in fresh_train),96)
         self.assertEqual(sum(x["rule_id"]=="NTD.AC" for x in new),16)
         self.assertEqual(sum(x["rule_id"]=="TC1.PSY.PLAN" for x in new),16)
         all_ids=[r["case_id"] for s in ("train","validation","test")
