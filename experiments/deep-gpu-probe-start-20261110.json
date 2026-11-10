@@ -1,0 +1,8 @@
+{
+  "mode": "READ_ONLY_NO_GPU_SUBMISSION",
+  "requested_on": "2026-11-10",
+  "source_parent": "williams-ai-joint-rules-20261106",
+  "new_run_slug": "williams-ai-deep-corrective-20261110-r1",
+  "authorized_paid_spend": false,
+  "execution_allowed": false
+}
