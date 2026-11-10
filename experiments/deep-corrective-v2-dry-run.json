@@ -2,6 +2,6 @@
   "mode": "NO_GPU_NO_UPLOAD_DIAGNOSTIC",
   "failed_run": 42826140408,
   "submitted_by": "explicit_user_fix",
-  "attempt": 3,
-  "note": "full duplicate risk & AC train dedup; verify under 950KB"
+  "attempt": 4,
+  "note": "final no-GPU rehearsal before resubmission: assert <975000 bytes"
 }
