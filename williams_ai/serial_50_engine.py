@@ -1,0 +1,402 @@
+"""Fifty consecutive 20-step curriculum micro-trainings; one shared LoRA model, no live trading.
+
+True GPU optimizer steps continue across 50 sequentially focused mini-cycles.
+Unlike 50 independent 1024-step Kaggle kernels, this is one bounded GPU session.
+The final blind test is loaded only after training and checkpoint selection.
+"""
+from __future__ import annotations
+from contextlib import nullcontext
+from dataclasses import dataclass
+from datetime import timedelta
+from hashlib import sha256
+import json
+import math
+import os
+from pathlib import Path
+import random
+import shutil
+import threading
+import time
+from urllib.request import Request, urlopen
+
+from .historical_rule_curriculum import SYSTEM, canonical, digest, prompts_only
+from .deep_book_research import MODEL, REVISION, EDITIONS, checked_payload
+from .restorative_book_practice import tokenize_reasoned
+from .contrastive_book_practice import tokenize_typed, weighted_causal_loss
+from .lora_integrity import validation_admission
+
+from .joint_rule_curriculum import (MODE, RUN_SLUG, INITIAL_SHA, PROTOCOL, LIMITS,
+    grade_groups, selection)
+from .restorative_book_practice import INITIAL_SHA as FOCUSED_SHA
+
+CONTROL_URL = "https://raw.githubusercontent.com/19wolfalone92/Williams-AI/research/private-four-book-deep-training-20261027/experiments/joint-rule-training-control.json"
+STAGES = ("base", "focused69", "historical93", "candidate")
+
+
+@dataclass(frozen=True)
+class JointRun:
+    mode: str
+    slug: str
+    control_url: str
+    initial_sha: str
+    cohorts: tuple[str, ...]
+    stages: tuple[str, ...]
+    limits: dict
+    protocol: dict
+    seed: int
+    source_repetitions: int = 2
+    rank_cohorts: tuple[tuple[str, ...], ...] = ()
+
+
+DEFAULT_RUN = JointRun(MODE, RUN_SLUG, CONTROL_URL, INITIAL_SHA,
+                       ("historical", "numeric", "boundary"), STAGES, LIMITS, PROTOCOL, 20261106)
+
+
+class StopWatcher:
+    def __init__(self, run=DEFAULT_RUN):
+        self.run = run
+        self.requested = threading.Event(); self.finished = threading.Event()
+
+    def start(self):
+        def watch():
+            failed_since = None
+            while not self.finished.is_set():
+                try:
+                    with urlopen(Request(self.run.control_url + "?t=" + str(int(time.time())//20), headers={"Cache-Control": "no-cache"}), timeout=8) as response:
+                        obj = json.load(response)
+                    if set(obj) != {"run_slug", "stop"} or obj["run_slug"] != self.run.slug or type(obj["stop"]) is not bool:
+                        raise ValueError("EXPLICIT_HISTORICAL_STOP_CONTROL_REQUIRED")
+                    if obj["stop"]: self.requested.set(); return
+                    failed_since = None
+                except Exception:
+                    failed_since = failed_since or time.monotonic()
+                    if time.monotonic() - failed_since > 300: self.requested.set(); return
+                self.finished.wait(20)
+        threading.Thread(target=watch, daemon=True).start()
+
+
+def train(source_path: Path, curriculum_path: Path, questions_path: Path,
+          initial_path: Path, previous_path: Path, reference_path: Path, output: Path, *, run=DEFAULT_RUN):
+    import torch
+    import torch.distributed as dist
+    from huggingface_hub import HfApi, snapshot_download
+    from peft import PeftModel, prepare_model_for_kbit_training
+    from transformers import (AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig,
+        Trainer, TrainerCallback, TrainingArguments, StoppingCriteria, StoppingCriteriaList, set_seed)
+    from .private_book_source import tokenize_source_pages
+    from .private_lora import _tokenized
+    from .structured_rule_practice import balanced_recovery_curriculum
+
+    started = time.monotonic(); rank = int(os.environ["LOCAL_RANK"]); world = int(os.environ["WORLD_SIZE"])
+    if world != 2 or torch.cuda.device_count() != 2: raise ValueError("TWO_REAL_CUDA_DEVICES_REQUIRED")
+    torch.cuda.set_device(rank); device = torch.device("cuda", rank)
+    dist.init_process_group("nccl", timeout=timedelta(minutes=20))
+    watcher = StopWatcher(run); watcher.start(); set_seed(run.seed)
+    if run.rank_cohorts:
+        assigned = [cohort for lane in run.rank_cohorts for cohort in lane]
+        if len(run.rank_cohorts) != world or sorted(assigned) != sorted(run.cohorts):
+            raise ValueError("EXACT_COHORT_ASSIGNMENT_ACROSS_BOTH_GPUS_REQUIRED")
+    focused_sha = FOCUSED_SHA if "focused69" in run.stages else run.initial_sha
+    source = checked_payload(json.loads(source_path.read_bytes()))
+    payload = json.loads(curriculum_path.read_bytes()); reference = json.loads(reference_path.read_bytes())
+    if set(payload) != {"schema", "train", "validation", "audit"} or payload["schema"] != run.mode:
+        raise ValueError("NO_TEST_ROWS_OR_HUMAN_APPROVALS_IN_TRAINING_PAYLOAD")
+    if any({g: digest(prompts_only(rows)) for g, rows in payload[s].items()} != payload["audit"][s] for s in ("train", "validation")):
+        raise ValueError("FROZEN_HISTORICAL_CURRICULUM_CHANGED")
+    for split in ("train", "validation"):
+        if set(payload[split]) != set(run.cohorts):
+            raise ValueError("ALL_THREE_DEVELOPMENT_DOMAINS_REQUIRED")
+    train_ids = {r["case_id"] for rows in payload["train"].values() for r in rows}
+    dev_ids = {r["case_id"] for rows in payload["validation"].values() for r in rows}
+    if train_ids & dev_ids:
+        raise ValueError("NO_TRAIN_DEVELOPMENT_ID_OVERLAP")
+    for path, expected in ((initial_path, run.initial_sha), (previous_path, focused_sha)):
+        if sha256((path/"adapter_model.safetensors").read_bytes()).hexdigest() != expected:
+            raise ValueError("VERIFIED_INITIAL_AND_REFERENCE_ADAPTERS_REQUIRED")
+    if reference["source_audit"] != source["audit"] or reference["candidate_adapter_sha256"] != focused_sha:
+        raise ValueError("SAME_ORIGINAL_SOURCE_SPLITS_REQUIRED")
+    if rank == 0:
+        output.mkdir(mode=0o700); shutil.copytree(initial_path, output/"source_adapter")
+    info = HfApi().model_info(MODEL, revision=REVISION, files_metadata=True)
+    if info.sha != REVISION: raise ValueError("PINNED_QWEN3_4B_REQUIRED")
+    official = {f.rfilename: f.lfs.sha256 for f in info.siblings if f.rfilename.endswith(".safetensors") and f.lfs}
+    if rank == 0:
+        base = Path(snapshot_download(MODEL, revision=REVISION, allow_patterns=["*.json", "*.safetensors", "*.txt", "*.jinja"]))
+        for name, expected in official.items():
+            if sha256((base/name).read_bytes()).hexdigest() != expected: raise ValueError("OFFICIAL_BASE_SHA_FAILED")
+    dist.barrier(); base = Path(snapshot_download(MODEL, revision=REVISION, local_files_only=True))
+    tokenizer = AutoTokenizer.from_pretrained(base, local_files_only=True, trust_remote_code=False)
+    if tokenizer.pad_token is None: tokenizer.pad_token = tokenizer.eos_token
+    legacy, validation, _ = balanced_recovery_curriculum()
+    source_val = {e: tokenize_source_pages([r for r in source["validation"] if r["edition"] == e], tokenizer, max_tokens=384) for e in EDITIONS}
+    practice_val = {e: _tokenized(validation[e], tokenizer, max_tokens=768) for e in EDITIONS}
+    def ordinary(rows): return [{**r, "loss_weights": [float(t != -100) for t in r["labels"]]} for r in rows]
+    direct_rows = [r for rows in payload["train"].values() for r in rows]
+    market_tokens = tokenize_typed(direct_rows, tokenizer, max_tokens=1536)
+    reasoned_rows = [r for r in direct_rows if r["rule_id"] in {"TC1.PSY.PLAN", "NTD.AC"}]
+    reasoned = tokenize_reasoned(reasoned_rows, tokenizer, max_tokens=1536)
+    source_tokens = ordinary(tokenize_source_pages(source["train"], tokenizer, max_tokens=384))
+    legacy_tokens = ordinary(_tokenized(legacy, tokenizer, max_tokens=768))
+    training = market_tokens + reasoned + source_tokens * run.source_repetitions + legacy_tokens
+    random.Random(run.seed).shuffle(training)
+    dev_tokens = tokenize_typed([r for rows in payload["validation"].values() for r in rows], tokenizer, max_tokens=1536)
+    model = AutoModelForCausalLM.from_pretrained(base, trust_remote_code=False, local_files_only=True, use_safetensors=True,
+        dtype=torch.float16, device_map={"": rank}, quantization_config=BitsAndBytesConfig(load_in_4bit=True,
+        bnb_4bit_quant_type="nf4", bnb_4bit_use_double_quant=True, bnb_4bit_compute_dtype=torch.float16))
+    if (model.config.model_type != "qwen3" or model.config.hidden_size != 2560 or model.config.num_hidden_layers != 36):
+        raise ValueError("EXACT_4B_ARCHITECTURE_REQUIRED")
+    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True, gradient_checkpointing_kwargs={"use_reentrant": False})
+    model = PeftModel.from_pretrained(model, initial_path, is_trainable=True, local_files_only=True)
+    parameters = {n: p for n, p in model.named_parameters() if p.requires_grad}
+    if sum(p.numel() for p in parameters.values()) != 33030144 or any(".lora_" not in n for n in parameters):
+        raise ValueError("ONLY_KNOWN_RANK16_LORA_MATRICES_TRAINABLE")
+    initial = {n: p.detach().cpu().clone() for n, p in parameters.items()}
+    references = {"focused69_source": reference["source_final_loss"], "focused69_practice": reference["practice_final_loss"],
+        "previous40_source": reference["source_baseline_loss"], "previous40_practice": reference["practice_baseline_loss"]}
+    if run.rank_cohorts:
+        references = reference["validation_references"]
+    receipt = {"mode": run.mode, "source_commit": os.environ["TRAINING_SOURCE_SHA"], "model_repo": MODEL, "model_revision": REVISION,
+        "official_weights_sha256": official, "source_audit": source["audit"], "initial_adapter_sha256": run.initial_sha,
+        "focused69_adapter_sha256": focused_sha, "world_size": world,
+        "gpu_names": [torch.cuda.get_device_name(i) for i in range(2)], "trainable_parameters": 33030144,
+        "training_rows": len(training), "joint_unique_direct_train_cases": len(market_tokens), "authored_reasoned_rows": len(reasoned),
+        "original_source_train_windows": len(source_tokens), "legacy_train_rows": len(legacy_tokens),
+        "historical_audit": payload["audit"], "maximum_optimizer_attempts": run.limits["optimizer_attempts"], "maximum_training_seconds": run.limits["training_seconds"],
+        "learning_rate": run.limits["learning_rate"], "development_generation_protocol": run.protocol, "checkpoints": [],
+        "references": references, "expert_approved_market_training": False, "execution_allowed": False,
+        "trading_qualification": False, "complete_training": False, "complete_test": False}
+    def write(name, value):
+        if rank == 0: (output/(name+".json")).write_bytes(canonical(value))
+    def save_receipt(): write("research_receipt", receipt)
+    def gather(local):
+        parts = [None]*world; dist.all_gather_object(parts, local)
+        return [r for part in parts for r in part]
+    def stopped():
+        flag = torch.tensor(int(watcher.requested.is_set()), device=device); dist.all_reduce(flag, op=dist.ReduceOp.MAX)
+        return bool(flag.item())
+    class Deadline(StoppingCriteria):
+        def __init__(self, when): self.when = when
+        def __call__(self, input_ids, scores, **kwargs): return watcher.requested.is_set() or time.monotonic() >= self.when
+    def predict(questions, *, mode="direct", stage="candidate", ranks=None):
+        was_training = model.training; cache = model.config.use_cache; model.eval(); model.config.use_cache = True
+        local = []
+        with torch.inference_mode():
+            for i, row in enumerate(questions):
+                target = ranks[row["case_id"]] if ranks is not None else i % world
+                if target != rank: continue
+                ids = tokenizer.apply_chat_template([{"role": "system", "content": SYSTEM}, {"role": "user", "content": row["prompt"]}],
+                    tokenize=True, add_generation_prompt=True, enable_thinking=mode == "thinking")
+                tensor = torch.tensor([ids], device=device)
+                options = {k: v for k, v in run.protocol.items() if k not in {"mode", "seconds"}}
+                seconds = run.protocol["seconds"]
+                if mode == "thinking": options.update(max_new_tokens=1536, temperature=.6, top_p=.95); seconds = 60
+                torch.manual_seed(int(sha256((row["case_id"]+mode).encode()).hexdigest()[:8], 16))
+                until = time.monotonic()+seconds
+                with (model.disable_adapter() if stage == "base" else nullcontext()):
+                    generated = model.generate(input_ids=tensor, attention_mask=torch.ones_like(tensor),
+                        pad_token_id=tokenizer.eos_token_id, stopping_criteria=StoppingCriteriaList([Deadline(until)]), **options)[0, len(ids):].tolist()
+                timed_out = time.monotonic() >= until
+                complete = bool(generated and generated[-1] == tokenizer.eos_token_id)
+                if mode == "thinking":
+                    end_think = tokenizer.convert_tokens_to_ids("</think>")
+                    if end_think not in generated: complete = False; generated = []
+                    else: generated = generated[len(generated)-generated[::-1].index(end_think):]
+                local.append({"case_id": row["case_id"], "response": tokenizer.decode(generated, skip_special_tokens=True).strip(),
+                    "thinking_complete": complete, "response_time_limit_reached": timed_out})
+        results = {r["case_id"]: r for r in gather(local)}
+        if len(results) != len(questions): raise ValueError("NO_MISSING_MODEL_RESPONSES")
+        model.config.use_cache = cache; model.train(was_training)
+        return [results[q["case_id"]] for q in questions]
+    def predict_cohorts(by_cohort, stage="candidate"):
+        if not run.rank_cohorts:
+            return {g: predict(rows, stage=stage) for g, rows in by_cohort.items()}
+        assignment = {g: gpu for gpu, lane in enumerate(run.rank_cohorts) for g in lane}
+        rows = [row for g in run.cohorts for row in by_cohort[g]]
+        ranks = {row["case_id"]: assignment[g] for g in run.cohorts for row in by_cohort[g]}
+        print("PARALLEL_EXAM_LANE", json.dumps({"rank": rank, "stage": stage,
+              "cohorts": run.rank_cohorts[rank], "questions": sum(r == rank for r in ranks.values())}), flush=True)
+        answers = {row["case_id"]: row for row in predict(rows, stage=stage, ranks=ranks)}
+        return {g: [answers[q["case_id"]] for q in by_cohort[g]] for g in run.cohorts}
+
+    def losses(groups, capture=None):
+        was_training = model.training; model.eval(); local = []
+        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.float16):
+            for edition, rows in groups.items():
+                for i, row in enumerate(rows):
+                    if i % world != rank: continue
+                    batch = {k: torch.tensor([row[k]], device=device) for k in ("input_ids", "attention_mask", "labels")}
+                    value = float(model(**batch, use_cache=False).loss)
+                    if not math.isfinite(value): raise ValueError("FINITE_BOOK_WINDOW_LOSS_REQUIRED")
+                    local.append([edition, i, value])
+        values = gather(local); result = {e: sum(v for ed, _, v in values if ed == e)/len(groups[e]) for e in EDITIONS}
+        result["ALL"] = sum(v[2] for v in values)/len(values)
+        if capture: write(capture, {"window_counts": {e: len(groups[e]) for e in EDITIONS}, "window_losses": values})
+        model.train(was_training); return result
+    save_receipt()
+    def dev_grades():
+        return grade_groups(payload["validation"], predict_cohorts({g: prompts_only(rows) for g, rows in payload["validation"].items()}))
+    receipt["initial_joint_development"] = dev_grades()
+    save_receipt()
+    class Rows:
+        FOCUS = ("precision", "context", "waves", "campaign", "books")
+        def __init__(self, rows):
+            self.rows = rows
+            self.phase = 0
+            self.micro = bool(run.limits.get("mini_rounds"))
+            if not self.micro: return
+            all_cohorts = [row["rule_id"] for row in direct_rows]
+            self.pools = {}
+            # Keep exact train-only numerical, wave, context and TC2 samples,
+            # including authored subskills. Never import final exam answers.
+            starts = 0
+            for g in run.cohorts:
+                n = len(payload["train"][g])
+                self.pools[g] = market_tokens[starts:starts+n]
+                starts += n
+            if starts != len(market_tokens):
+                raise ValueError("FOCUSED_MARKET_TOKEN_ALIGNMENT_REQUIRED")
+            self.pools["precision"] = self.pools["precision"] + reasoned
+            self.pools["books"] = source_tokens + legacy_tokens
+            if any(not self.pools.get(g) for g in self.FOCUS):
+                raise ValueError("FIVE_REAL_FOCUSED_TRAINING_POOLS_REQUIRED")
+        def __len__(self): return len(self.rows)
+        def __getitem__(self, i):
+            if not self.micro: return self.rows[i]
+            phase = self.phase
+            focus = self.FOCUS[phase % len(self.FOCUS)]
+            # Never train exclusively on one skill: periodic book retention
+            # and risk/AC practice accompany each micro-cycle.
+            pool = self.pools["books"] if (i + phase) % 4 == 0 else (
+                self.pools["precision"] if (i + phase) % 9 == 0 else self.pools[focus])
+            seed = sha256(f"{run.seed}:{phase}:{i}".encode()).digest()
+            return pool[int.from_bytes(seed[:8], "big") % len(pool)]
+    def collate(rows):
+        width = max(len(r["input_ids"]) for r in rows)
+        return {k: torch.tensor([r[k]+[fill]*(width-len(r[k])) for r in rows], dtype=torch.float32 if k == "loss_weights" else torch.long)
+            for k, fill in (("input_ids", tokenizer.pad_token_id), ("attention_mask", 0), ("labels", -100), ("loss_weights", 0.))}
+    class Updates(TrainerCallback):
+        def __init__(self):
+            self.actual = 0; self.skipped = 0; self.nonfinite = False
+            self.saved = {}; self.micro_history = []
+        def on_pre_optimizer_step(self, args, state, control, **kwargs):
+            gradients = [p.grad for p in parameters.values() if p.grad is not None]
+            if not gradients: raise ValueError("REAL_LORA_GRADIENTS_REQUIRED")
+            self.nonfinite = not bool(torch.stack([torch.isfinite(g).all() for g in gradients]).all())
+        def on_optimizer_step(self, args, state, control, **kwargs):
+            skipped = bool(trainer.accelerator.optimizer_step_was_skipped)
+            flags = torch.tensor([int(skipped), int(skipped)], device=device)
+            dist.all_reduce(flags[:1], op=dist.ReduceOp.MIN); dist.all_reduce(flags[1:], op=dist.ReduceOp.MAX)
+            if flags[0] != flags[1] or (self.nonfinite and not skipped): raise ValueError("BOTH_RANKS_MUST_SKIP_NONFINITE_UPDATES")
+            if skipped: self.skipped += 1
+            else:
+                self.actual += 1
+                if not bool(torch.stack([torch.isfinite(p).all() for p in parameters.values()]).all()): raise ValueError("NONFINITE_TRAINED_ADAPTER")
+        def on_step_end(self, args, state, control, **kwargs):
+            if run.limits.get("mini_rounds"):
+                each = run.limits["updates_per_mini_round"]
+                if state.global_step % each == 0:
+                    number = state.global_step // each
+                    trainer.train_dataset.phase = number
+                    self.micro_history.append({"round": number,
+                        "focus": Rows.FOCUS[(number - 1) % len(Rows.FOCUS)],
+                        "optimizer_attempts": state.global_step,
+                        "real_updates": self.actual})
+                    if rank == 0:
+                        print("REAL_SERIAL_MICRO_TRAINING_FINISHED",
+                              json.dumps(self.micro_history[-1]), flush=True)
+            flag = torch.tensor([int(time.monotonic()-started >= run.limits["training_seconds"]), int(watcher.requested.is_set())], device=device)
+            dist.all_reduce(flag, op=dist.ReduceOp.MAX)
+            if bool(flag.any()):
+                control.should_training_stop = True; control.should_save = True; control.should_evaluate = not bool(flag[1])
+                if flag[1]: args.load_best_model_at_end = False
+        def on_save(self, args, state, control, **kwargs): self.saved[state.global_step] = self.actual
+    class HistoricalTrainer(Trainer):
+        def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+            inputs = dict(inputs); labels = inputs.pop("labels"); weights = inputs.pop("loss_weights")
+            result = model(**inputs, use_cache=False); loss = weighted_causal_loss(result.logits, labels, weights)
+            if not bool(torch.isfinite(loss)): raise ValueError("FINITE_WEIGHTED_LOSS_REQUIRED")
+            return (loss, result) if return_outputs else loss
+        def evaluation_loop(self, *args, **kwargs):
+            result = super().evaluation_loop(*args, **kwargs)
+            if stopped(): return result._replace(metrics={**result.metrics, "eval_historical_score": -9.})
+            answers = predict_cohorts({g: prompts_only(rows) for g, rows in payload["validation"].items()}); grade = grade_groups(payload["validation"], answers)
+            source_loss = losses(source_val, "source_windows_"+str(self.state.global_step))
+            practice_loss = losses(practice_val, "practice_windows_"+str(self.state.global_step))
+            chosen = selection(grade, source_loss, practice_loss, references, cohorts=run.cohorts)
+            row = {"optimizer_step": self.state.global_step, "grade": grade, "source_loss": source_loss,
+                "practice_loss": practice_loss, "selection": chosen}
+            receipt["checkpoints"].append(row); save_receipt()
+            write("development_"+str(self.state.global_step), answers)
+            if rank == 0: print("JOINT_DEVELOPMENT", json.dumps({"step": self.state.global_step, "correct": {g:v["correct"] for g,v in grade.items()}, **chosen}), flush=True)
+            return result._replace(metrics={**result.metrics, "eval_historical_score": chosen["score"]})
+    args = TrainingArguments(output_dir=str(output.parent/"private_historical_checkpoints"), max_steps=run.limits["optimizer_attempts"],
+        per_device_train_batch_size=1, per_device_eval_batch_size=1, gradient_accumulation_steps=1,
+        learning_rate=run.limits["learning_rate"], warmup_ratio=.03, weight_decay=.01, lr_scheduler_type="cosine", max_grad_norm=1.,
+        optim="adamw_torch", eval_strategy="steps", eval_steps=run.limits["evaluation_steps"], save_strategy="steps", save_steps=run.limits["evaluation_steps"],
+        save_total_limit=2, save_safetensors=True, load_best_model_at_end=True, metric_for_best_model="historical_score",
+        greater_is_better=True, prediction_loss_only=True, logging_steps=32, logging_nan_inf_filter=False,
+        report_to="none", disable_tqdm=True, remove_unused_columns=False, label_names=["labels"],
+        fp16=True, gradient_checkpointing=True, gradient_checkpointing_kwargs={"use_reentrant": False},
+        ddp_backend="nccl", ddp_find_unused_parameters=False, ddp_broadcast_buffers=False, ddp_timeout=1200,
+        seed=run.seed, data_seed=run.seed)
+    updates = Updates()
+    trainer = HistoricalTrainer(model=model, args=args, train_dataset=Rows(training), eval_dataset=Rows(dev_tokens), data_collator=collate, callbacks=[updates])
+    trainer.model_accepts_loss_kwargs = False
+    if trainer.accelerator.scaler is None: raise ValueError("REAL_FP16_SCALER_REQUIRED")
+    trainer.accelerator.scaler = torch.amp.GradScaler("cuda", init_scale=1024., growth_interval=2000)
+    if not stopped(): trainer.train()
+    receipt.update(actual_updates=updates.actual, optimizer_attempted_steps=trainer.state.global_step, amp_skipped_steps=updates.skipped,
+        actual_epoch=trainer.state.epoch, serial_micro_rounds_planned=run.limits.get("mini_rounds", 0),
+        serial_micro_rounds_completed=len(updates.micro_history),
+        serial_micro_round_history=updates.micro_history, selected_checkpoint=Path(trainer.state.best_model_checkpoint).name if trainer.state.best_model_checkpoint else None,
+        selected_metric=trainer.state.best_metric, selected_actual_updates=updates.saved.get(int(Path(trainer.state.best_model_checkpoint).name.split("-")[-1])) if trainer.state.best_model_checkpoint else None)
+    receipt["stopped_by_user_or_control_unavailable"] = stopped()
+    receipt["adapter_weights_changed"] = any(not torch.equal(p.detach().cpu(), initial[n]) for n, p in parameters.items())
+    if rank == 0:
+        model.save_pretrained(output/"candidate_adapter", safe_serialization=True); tokenizer.save_pretrained(output/"candidate_adapter")
+    dist.barrier(); receipt["candidate_adapter_sha256"] = sha256((output/"candidate_adapter/adapter_model.safetensors").read_bytes()).hexdigest()
+    receipt["complete_training"] = receipt["adapter_weights_changed"] and not receipt["stopped_by_user_or_control_unavailable"]
+    if run.limits.get("mini_rounds"):
+        count = run.limits["mini_rounds"]
+        each = run.limits["updates_per_mini_round"]
+        history = receipt["serial_micro_round_history"]
+        if (len(history) != count or trainer.state.global_step != count * each
+                or any(row["round"] != i or row["optimizer_attempts"] != i * each
+                       or row["real_updates"] <= (history[i-2]["real_updates"] if i > 1 else 0)
+                       for i, row in enumerate(history, start=1))):
+            receipt["complete_training"] = False
+            receipt["serial_micro_contract_failure"] = True
+    save_receipt()
+    if not receipt["complete_training"]:
+        watcher.finished.set(); dist.destroy_process_group(); return receipt
+    receipt["source_final_loss"] = losses(source_val, "source_validation_window_losses")
+    receipt["practice_final_loss"] = losses(practice_val, "practice_validation_window_losses")
+    receipt["text_gates"] = {name: validation_admission(before, receipt["source_final_loss"] if name.endswith("source") else receipt["practice_final_loss"]) for name, before in references.items()}
+    receipt["candidate_frozen_before_test_file_read"] = True; save_receipt()
+    model.gradient_checkpointing_disable(); model.eval()
+    if "focused69" in run.stages:
+        model.load_adapter(previous_path, adapter_name="focused69", is_trainable=False, local_files_only=True)
+    parent_name = "parent" if "parent" in run.stages else "historical93"
+    model.load_adapter(initial_path, adapter_name=parent_name, is_trainable=False, local_files_only=True)
+    questions = json.loads(questions_path.read_bytes())
+    if set(questions) != {*run.cohorts, "sha256"} or any(digest(questions[k]) != questions["sha256"][k] for k in run.cohorts):
+        raise ValueError("FROZEN_PROMPTS_ONLY_FINAL_EXAM_REQUIRED")
+    results = {"receipt": {"source_commit": receipt["source_commit"], "candidate_adapter_sha256": receipt["candidate_adapter_sha256"],
+        "protocol": run.protocol, "test_questions_sha256": questions["sha256"], "expected_keys_loaded_on_gpu": False},
+        **{cohort: {} for cohort in run.cohorts}, "thinking_diagnostic": {}}
+    if run.rank_cohorts:
+        receipt["exam_cohorts_by_gpu_rank"] = {str(i): list(lane) for i, lane in enumerate(run.rank_cohorts)}
+    for stage in run.stages:
+        model.set_adapter("default" if stage in {"base", "candidate"} else stage)
+        if run.rank_cohorts:
+            batch = predict_cohorts({g: questions[g] for g in run.cohorts}, stage=stage)
+            for cohort, answers in batch.items():
+                results[cohort][stage] = answers
+            write("final_predictions", results)
+        else:
+            for cohort in run.cohorts:
+                results[cohort][stage] = predict(questions[cohort], stage=stage); write("final_predictions", results)
+        if rank == 0: print("JOINT_TEST_STAGE_COMPLETED", json.dumps({"stage": stage, "cohorts": len(run.cohorts)}), flush=True)
+    receipt["complete_test"] = True; receipt["training_seconds_through_final_exam"] = time.monotonic()-started
+    save_receipt(); watcher.finished.set(); dist.barrier(); dist.destroy_process_group()
+    return receipt
