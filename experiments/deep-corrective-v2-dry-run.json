@@ -2,5 +2,6 @@
   "mode": "NO_GPU_NO_UPLOAD_DIAGNOSTIC",
   "failed_run": 42826140408,
   "submitted_by": "explicit_user_fix",
-  "attempt": 1
+  "attempt": 2,
+  "note": "after root-cause 1MB kernel source mitigation"
 }
