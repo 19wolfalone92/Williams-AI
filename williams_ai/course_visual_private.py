@@ -171,3 +171,48 @@ def combine_with_existing_private_books(existing_database: str | Path,
         except Exception:
             target.unlink(missing_ok=True)
             raise
+
+
+def search_course_visual_descriptions(database: str | Path, question: str,
+                                      *, limit: int = 2) -> list[dict[str, Any]]:
+    """Find even OCR-empty illustrated pages (e.g. diagram-only PDF page 56).
+
+    Descriptions are visually aligned annotations, NOT literal PDF text or
+    independently verified technical truth. Search is local and read-only.
+    """
+    import re
+    if (not isinstance(question,str) or not 1<=len(question)<=1200
+            or type(limit) is not int or not 1<=limit<=3):
+        raise ValueError("BOUNDED_PRIVATE_FIGURE_SEARCH_REQUIRED")
+    tokens={t for t in re.findall(r"[a-z0-9]{4,}",question.casefold())}
+    if not tokens:
+        return []
+    path=_private_database(database)
+    with sqlite3.connect(f"file:{path}?mode=ro",uri=True) as db:
+        tables={r[0] for r in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        if "course_visuals" not in tables:
+            return []
+        records=db.execute("SELECT pdf_page,description FROM course_visuals").fetchall()
+    ranked=[]
+    for page,description in records:
+        words=set(re.findall(r"[a-z0-9]{4,}",description.casefold()))
+        score=len(tokens & words)
+        if score:
+            ranked.append((-score,page,description))
+    ranked.sort()
+    found=[]
+    for _,page,description in ranked[:limit]:
+        refs=course_visual_refs(path,page)
+        if not refs:
+            continue
+        found.append({
+            "source":f"COURSE: PDF {page}",
+            "excerpt":"[UNVERIFIED VISUAL DESCRIPTION, NOT OCR TEXT] "+description[:500],
+            "pdf_page":page,
+            "chunk_sha256":hashlib.sha256(description.encode("utf-8")).hexdigest(),
+            "status":"PRIVATE_VISUAL_DESCRIPTION_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW",
+            "visual_refs":refs,
+            "visual_meaning_not_authoritatively_checked":True,
+        })
+    return found
