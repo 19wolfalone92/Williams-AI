@@ -419,6 +419,12 @@ class HypothesisMemory:
                 invalidation TEXT NOT NULL,
                 PRIMARY KEY (run_id, model_id, case_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS research_hypothesis_sources_v2 (
+                run_id TEXT NOT NULL, model_id TEXT NOT NULL,
+                case_id TEXT NOT NULL, edition TEXT NOT NULL,
+                rule_id TEXT NOT NULL, book_sha256 TEXT NOT NULL,
+                PRIMARY KEY (run_id, model_id, case_id)
+            )""")
             db.execute("""CREATE TABLE IF NOT EXISTS research_hypothesis_reviews_v2 (
                 run_id TEXT NOT NULL, model_id TEXT NOT NULL,
                 case_id TEXT NOT NULL,
@@ -431,7 +437,8 @@ class HypothesisMemory:
             )""")
 
     def append(self, *, case_id, symbol, cutoff, available_at, snapshot_sha256,
-               hypothesis, alternative, evidence, counterevidence, invalidation):
+               hypothesis, alternative, evidence, counterevidence, invalidation,
+               edition=None, rule_id=None, book_sha256=None):
         if utc(available_at) < utc(cutoff):
             raise ValueError("MEMORY_CANNOT_PREDATE_OBSERVATION")
         if any(not isinstance(v, str) or not v for v in
@@ -442,12 +449,28 @@ class HypothesisMemory:
             raise ValueError("SNAPSHOT_DIGEST_REQUIRED")
         if not isinstance(evidence, list) or not isinstance(counterevidence, list):
             raise ValueError("EVIDENCE_LIST_REQUIRED")
+        source_available = any(x is not None for x in (edition, rule_id, book_sha256))
+        if source_available:
+            from .book_rules import registry
+            records = registry()
+            books = {b["id"]: b["sha256"] for b in records["books"]}
+            rules = {r["id"]: r for r in records["rule_cards"]}
+            rule = rules.get(rule_id)
+            if (edition not in books or rule is None or
+                    rule["source"] != edition or
+                    rule["status"] != "REVIEWED_PAGES" or
+                    book_sha256 != books[edition]):
+                raise ValueError("REVIEWED_BOOK_RULE_SOURCE_REQUIRED")
         with sqlite3.connect(self.path) as db:
             db.execute("""INSERT INTO research_hypotheses_v2 VALUES
                        (?,?,?,?,?,?,?,?,?,?,?,?)""",
                        (self.run_id, self.model_id, case_id, symbol, cutoff,
                         available_at, snapshot_sha256, hypothesis, alternative,
                         canonical(evidence), canonical(counterevidence), invalidation))
+            if source_available:
+                db.execute("""INSERT INTO research_hypothesis_sources_v2
+                              VALUES(?,?,?,?,?,?)""",
+                           (self.run_id,self.model_id,case_id,edition,rule_id,book_sha256))
 
     def review(self, *, case_id, reviewer_a, reviewer_b,
                reviewed_at, verdict, rationale):
@@ -474,17 +497,21 @@ class HypothesisMemory:
                        (self.run_id, self.model_id, case_id, reviewer_a,
                         reviewer_b, reviewed_at, verdict, rationale))
 
-    def as_of(self, *, symbol, timestamp, strict_before=False):
+    def as_of(self, *, symbol, timestamp, strict_before=False, edition=None):
         cutoff = utc(timestamp)
         with sqlite3.connect(self.path) as db:
             rows = db.execute("""SELECT h.case_id,h.cutoff,h.available_at,
                              h.hypothesis,h.alternative,h.evidence_json,
                              h.counter_json,h.invalidation,r.reviewed_at,
-                             r.verdict,r.rationale
+                             r.verdict,r.rationale, s.edition,s.rule_id,
+                             s.book_sha256
                              FROM research_hypotheses_v2 AS h
                              LEFT JOIN research_hypothesis_reviews_v2 AS r
                              ON r.run_id=h.run_id AND r.model_id=h.model_id
                                 AND r.case_id=h.case_id
+                             LEFT JOIN research_hypothesis_sources_v2 AS s
+                             ON s.run_id=h.run_id AND s.model_id=h.model_id
+                                AND s.case_id=h.case_id
                              WHERE h.run_id=? AND h.model_id=? AND h.symbol=?
                              ORDER BY h.cutoff,h.case_id""",
                              (self.run_id, self.model_id, symbol)).fetchall()
@@ -494,13 +521,29 @@ class HypothesisMemory:
                  "hypothesis": row[3], "alternative": row[4],
                  "evidence": json.loads(row[5]), "counterevidence": json.loads(row[6]),
                  "invalidation": row[7],
+                 "edition": row[11], "rule_id": row[12],
+                 "book_sha256": row[13],
                  "status": ("HUMAN_REVIEW_" + row[9]
                             if row[8] is not None and visible(row[8])
                             else "UNVERIFIED_MODEL_HYPOTHESIS"),
                  "review_rationale": (row[10]
                             if row[8] is not None and visible(row[8])
                             else None)}
-                for row in rows if visible(row[1]) and visible(row[2])]
+                for row in rows if visible(row[1]) and visible(row[2])
+                and (edition is None or row[11] == edition)]
+
+    def reviewed_rejections_as_of(self, *, symbol, edition, timestamp, limit=5):
+        """Trusted-as-of *review declarations*, not guaranteed expert truth.
+
+        Never retrospectively imports exam gold: only independently recorded
+        reviews with reviewed_at < current decision may appear.
+        """
+        if type(limit) is not int or not 1 <= limit <= 20:
+            raise ValueError("BOUNDED_REVIEWED_ERROR_RECALL_REQUIRED")
+        history = self.as_of(symbol=symbol, edition=edition,
+                             timestamp=timestamp, strict_before=True)
+        return [row for row in reversed(history)
+                if row["status"] == "HUMAN_REVIEW_REJECTED"][:limit]
 
 
 def prediction_commitment(response):
