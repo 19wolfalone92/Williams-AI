@@ -42,7 +42,9 @@ class SourceProvenanceV4Tests(unittest.TestCase):
             source=root/"private_original_books.sqlite3"
             course=next(x for x in registry()["books"] if x["id"]=="COURSE")
             pages=[""]*course["pages"]
-            pages[52]="Hump correction structure and its uncertain wave count. "*4
+            # COURSE.HUMP is anchored in this exact PDF page by the manual
+            # rule registry; an unrelated word match is not evidence.
+            pages[71]="Hump correction structure and its uncertain wave count. "*4
             index_pages(source,"COURSE",course["sha256"],pages,
                         declared_pages=course["pages"],
                         source_type="PDF_TEXT_WITH_UNREVIEWED_OCR")
