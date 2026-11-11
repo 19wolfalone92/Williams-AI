@@ -1,0 +1,53 @@
+name: Williams AI cognitive v4 main compatibility
+on:
+  push:
+    branches: [integration/cognitive-v4-main-20261111]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'williams_ai/cognitive_memory_v4.py'
+      - 'williams_ai/cognitive_engine_v4.py'
+      - 'williams_ai/unified_memory.py'
+      - 'williams_ai/unified_ai.py'
+      - 'williams_ai/adaptive_coach.py'
+      - 'williams_ai/study.py'
+      - 'williams_ai/reasoning_trial.py'
+      - 'tests/test_williams_ai_cognitive_v4.py'
+      - 'tests/test_williams_ai_cognitive_root_causality_v4.py'
+      - '.github/workflows/ai-cognitive-v4-main-compat.yml'
+permissions:
+  contents: read
+concurrency:
+  group: williams-cognitive-v4-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  cognitive-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Static syntax and import contract
+        run: |
+          python -m py_compile williams_ai/cognitive_memory_v4.py williams_ai/cognitive_engine_v4.py williams_ai/unified_memory.py williams_ai/unified_ai.py williams_ai/adaptive_coach.py williams_ai/study.py williams_ai/reasoning_trial.py
+          python -m williams_ai.unified_ai --help
+      - name: Deep causal and semantic recall tests
+        run: python -m unittest tests.test_williams_ai_cognitive_v4 tests.test_williams_ai_cognitive_root_causality_v4 tests.test_williams_ai_unified_runtime tests.test_williams_ai_adaptive_coach -v
+      - name: Full pre-existing Williams AI contract regression
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: No licensed books or trade execution in integration diff
+        run: |
+          python - <<'PY'
+          import subprocess
+          paths=subprocess.check_output(['git','diff','--name-only',
+              '${{ github.event.pull_request.base.sha || github.event.before }}',
+              'HEAD'],text=True).splitlines()
+          forbidden=('.pdf','.zip','.sqlite','.sqlite3','.gguf','.safetensors','.key')
+          bad=[x for x in paths if x.lower().endswith(forbidden)]
+          if bad: raise SystemExit('PRIVATE_USER_ASSET_IN_PUBLIC_BRANCH:'+str(bad))
+          print('NO_PRIVATE_BOOK_OR_MODEL_BLOBS_IN_COGNITIVE_V4_COMMIT')
+          PY
