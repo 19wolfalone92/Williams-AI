@@ -43,6 +43,92 @@ class ToyTokenizer:
         return [len(x) for x in re.findall(r"<[^>]+>|\w+|[^\s]",raw)]
 
 class BlockerFixes(unittest.TestCase):
+    def test_market_silver_candidates_both_classes_never_expert_gold(self):
+        from williams_ai.market_review_candidates_v3 import mine_review_candidates
+        row=full_case()
+        row["bars"][-1]["volume"]=130.0
+        data=mine_review_candidates(
+            row["bars"],symbol="BTCUSDT",cutoff=row["cutoff"],limit=32)
+        self.assertGreater(data["positive_candidate_count"],0)
+        self.assertGreater(data["negative_candidate_count"],0)
+        self.assertFalse(data["eligible_for_qlora_gold"])
+        self.assertTrue(all(x["wave_confirmed"] is None and
+                            x["squat_verified"] is None and
+                            x["execution_allowed"] is False
+                            for x in data["candidates"]))
+        bad=deepcopy(row["bars"])
+        bad[-1]["closed"]=False
+        with self.assertRaisesRegex(ValueError,"finalized"):
+            mine_review_candidates(bad,symbol="BTCUSDT",cutoff=row["cutoff"])
+
+    def test_original_private_book_text_required_before_gpu(self):
+        from williams_ai.source_provenance_gate_v3 import check_private_expert_source_cases
+        from williams_ai.book_index import index_pages
+        from williams_ai.book_rules import registry
+        case=full_case()
+        with tempfile.TemporaryDirectory() as directory:
+            index=Path(directory)/"private_books.sqlite"
+            pages=[""]*224
+            pages[123]=case["book_evidence"]["excerpt"]
+            index_pages(index,"TC2",case["source_sha256"],pages,
+                        declared_pages=224,source_type="PDF_TEXT")
+            result=check_private_expert_source_cases([case],index)
+            self.assertEqual(result["verified_case_count"],1)
+            self.assertFalse(result["human_review_identity_cryptographically_authenticated"])
+            fake=deepcopy(case)
+            fake["book_evidence"]["excerpt"]="Invented quotation not on the original scanned document page."
+            reseal(fake)
+            with self.assertRaisesRegex(ValueError,"SOURCE_EXCERPT_NOT_PRESENT"):
+                check_private_expert_source_cases([fake],index)
+            source=next(x for x in registry()["books"] if x["id"]=="COURSE")
+            rule=next(x for x in registry()["rule_cards"]
+                      if x["source"]=="COURSE" and x["status"]=="REVIEWED_PAGES")
+            course=deepcopy(case)
+            course["edition"]="COURSE";course["source_sha256"]=source["sha256"]
+            course["rule_id"]=rule["id"];course["pdf_page"]=rule["pdf_pages"][0]
+            course["book_evidence"].update({
+                "edition":"COURSE","source_sha256":source["sha256"],
+                "pdf_page":course["pdf_page"]})
+            reseal(course)
+            course_pages=[""]*122
+            course_pages[course["pdf_page"]-1]=course["book_evidence"]["excerpt"]
+            index_pages(index,"COURSE",source["sha256"],course_pages,
+                        declared_pages=122,source_type="PDF_TEXT_WITH_UNREVIEWED_OCR")
+            with self.assertRaisesRegex(ValueError,"NO_INDEPENDENTLY_REVIEWED"):
+                check_private_expert_source_cases([course],index)
+
+    def test_adaptive_reviewed_errors_change_actual_training_exposure(self):
+        from williams_ai.adaptive_training_v3 import adaptive_training_cases
+        from williams_ai.reasoning_feedback_v2 import ReviewedFailureJournal
+        from williams_ai.book_rules import registry
+        with tempfile.TemporaryDirectory() as directory:
+            journal=ReviewedFailureJournal(Path(directory)/"mistakes.sqlite",
+                  run_id="study-run-adapter-v3",model_id="qwen-adapter-model-v3")
+            ntd=next(x for x in registry()["books"] if x["id"]=="NTD")
+            journal.append_validation_failure(
+                 case_id="validation-ac-001",rule_id="NTD.AC",
+                 edition="NTD",source_sha256=ntd["sha256"],
+                 prediction_sha256="a"*64,
+                 decision_cutoff="2026-11-01T01:00:00Z",
+                 reviewed_at="2026-11-04T01:00:00Z",
+                 error_code="MISUNDERSTOOD_AC",
+                 reviewer_a="expert-alpha",reviewer_b="expert-bravo")
+            seedcase=full_case()
+            train=[]
+            for i in range(8):
+                row=deepcopy(seedcase)
+                row["case_id"]=f"training-case-{i:03d}"
+                reseal(row)
+                train.append(row)
+            now=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()
+            expanded,report=adaptive_training_cases(
+                train,journal,as_of=now,rounds=2)
+            self.assertEqual(len(expanded),10)
+            self.assertEqual(report["extra_reviewed_train_exposures"],2)
+            self.assertTrue(report["training_gradient_exposure_changed"])
+            self.assertFalse(report["test_gold_in_train"])
+            self.assertEqual(expanded[:8],train)
+
     def test_full_digest_covers_gold_question_and_reviews(self):
         a=full_case();b=deepcopy(a);b["question"]+=" Supplement.";reseal(b)
         self.assertNotEqual(check_corpus([a])["source_sha256"],
