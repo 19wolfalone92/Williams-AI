@@ -1,6 +1,6 @@
 """Synthetic-only regression probes; never expert trading gold."""
 from copy import deepcopy
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,timezone
 from pathlib import Path
 import tempfile
 import unittest
@@ -138,13 +138,13 @@ class BlockerFixes(unittest.TestCase):
                 timestamp="2026-11-03T00:00:00Z"),[])
             past=mem.reviewed_rejections_as_of(
                 symbol="BTCUSDT",edition="TC2",
-                timestamp="2026-11-05T00:00:00Z")
+                timestamp=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat())
             self.assertEqual(len(past),1)
             self.assertEqual(past[0]["rule_id"],"TC2.WM1.ANG")
             self.assertEqual(past[0]["book_sha256"],book["sha256"])
             self.assertEqual(mem.reviewed_rejections_as_of(
                 symbol="BTCUSDT",edition="NTD",
-                timestamp="2026-11-05T00:00:00Z"),[])
+                timestamp=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()),[])
 
     def test_past_reviewer_errors_drive_adaptation_but_never_test_gold(self):
         from williams_ai.reasoning_feedback_v2 import ReviewedFailureJournal
@@ -167,19 +167,19 @@ class BlockerFixes(unittest.TestCase):
             journal.append_validation_failure(**evidence)
             self.assertEqual(journal.validation_error_metadata_as_of(
                 timestamp="2026-11-03T00:00:00Z"),[])
-            memory=journal.validation_error_metadata_as_of(
-                timestamp="2026-11-05T00:00:00Z")
+            now_ready=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()
+            memory=journal.validation_error_metadata_as_of(timestamp=now_ready)
             self.assertEqual(len(memory),1)
             self.assertEqual(set(memory[0]),{"case_id","split","rule_id","error_code"})
             plan=journal.schedule_from_previous_errors(
-                [full_case()],timestamp="2026-11-05T00:00:00Z",rounds=3)
+                [full_case()],timestamp=now_ready,rounds=3)
             self.assertGreater(plan["previously_reviewed_failure_count"],0)
             self.assertTrue(any(x["focus_skill"]=="MOMENTUM"
                                 for x in plan["schedule"]))
             other=ReviewedFailureJournal(db,run_id="study-run-001",
                                          model_id="adapter-other-001")
             self.assertEqual(other.validation_error_metadata_as_of(
-                timestamp="2026-11-05T00:00:00Z"),[])
+                timestamp=now_ready),[])
 
     def test_isolated_models_can_write_same_case_in_one_db(self):
         with tempfile.TemporaryDirectory() as root:
