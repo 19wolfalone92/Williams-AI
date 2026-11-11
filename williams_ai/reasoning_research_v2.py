@@ -119,6 +119,18 @@ def verify_case(row):
         ids.add(name)
         if utc(review["approved_at"]) < cutoff or review["answer_sha256"] != digest(row["answer"]):
             raise ValueError("REVIEW_MUST_APPROVE_EXACT_ANSWER_AFTER_CUTOFF")
+    # Cryptographic binding to the local four-book rule registry. A claimed
+    # reviewer identity is still not proof of actual reviewer expertise.
+    from .book_rules import registry
+    sources = registry()
+    books = {entry["id"]: entry for entry in sources["books"]}
+    rules = {entry["id"]: entry for entry in sources["rule_cards"]}
+    rule = rules.get(row["rule_id"])
+    if (rule is None or rule["source"] != row["edition"]
+            or rule["status"] != "REVIEWED_PAGES"
+            or row["pdf_page"] not in rule["pdf_pages"]
+            or row["source_sha256"] != books[row["edition"]]["sha256"]):
+        raise ValueError("UNVERIFIED_OR_MISMATCHED_BOOK_RULE_REFERENCE")
     return row
 
 
