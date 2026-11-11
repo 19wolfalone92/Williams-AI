@@ -1,0 +1,39 @@
+name: Williams AI 2.0 evidence and training audit
+on:
+  push:
+    branches: [research/learning-audit-remediation-20261111]
+  pull_request:
+    paths:
+      - 'williams_ai/reasoning_research_v2.py'
+      - 'scripts/ai_audit_training_v2.py'
+      - 'tests/test_williams_ai_reasoning_research_v2.py'
+      - '.github/workflows/ai-reasoning-audit-v2.yml'
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-reasoning-v2-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  evidence-gates-and-dataset-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Static syntax
+        run: |
+          python -m py_compile williams_ai/reasoning_research_v2.py scripts/ai_audit_training_v2.py tests/test_williams_ai_reasoning_research_v2.py
+      - name: Expert gates, memory and blind replay regression tests
+        run: python -m unittest tests.test_williams_ai_reasoning_research_v2 -v
+      - name: Real frozen training-data audit (no GPU, no private data upload)
+        run: python scripts/ai_audit_training_v2.py --out audit_output/frozen_training_audit.json --strict-duplicates
+      - name: Existing QLoRA contract and synthetic market tests
+        run: python -m unittest tests.test_williams_ai_serial_50 tests.test_williams_ai_market_decision -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams-AI-2.0-training-audit
+          path: audit_output/
+          if-no-files-found: ignore
+          retention-days: 14
