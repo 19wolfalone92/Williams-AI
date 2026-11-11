@@ -152,8 +152,8 @@ def combine_with_existing_private_books(existing_database: str | Path,
                             "SELECT name FROM scanned.sqlite_master WHERE type='table'")}:
                             raise ValueError("MISSING_PRIVATE_VISUAL_TABLE")
                         # Compound copy only, not a destructive mutation of originals.
-                        result.execute(f"DROP TABLE IF EXISTS {name}")
-                        result.execute(f"CREATE TABLE {name} AS "
+                        result.execute(f"DROP TABLE IF EXISTS main.{name}")
+                        result.execute(f"CREATE TABLE main.{name} AS "
                                        f"SELECT * FROM scanned.{name}")
                 result.execute("DETACH DATABASE scanned")
                 if result.execute("PRAGMA quick_check").fetchone()[0]!="ok":
