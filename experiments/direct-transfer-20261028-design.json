@@ -1,0 +1,18 @@
+{
+  "mode": "DEVELOPMENT_MODE_SELECTION_THEN_FRESH_DIRECT_PARAMETER_TEST",
+  "cases": 112,
+  "questions_sha256": "9be175c1972a1d3138094217ddf0b412fc6da18434624ba38194304d6eb15af4",
+  "development_questions_sha256": "3acc5a8c4acfefd733d513f88af94e62d60b85ea255ebd47c6ca363ce454c3d7",
+  "original_thinking_test_retained": true,
+  "new_numeric_parameters": true,
+  "new_phrasing_templates_claimed": false,
+  "inference_mode": "direct",
+  "maximum_new_tokens": 128,
+  "seconds_per_response": 10,
+  "minimum_overall_accuracy": 0.8,
+  "minimum_each_rule_accuracy": 0.75,
+  "minimum_gain_over_all_references": 0.05,
+  "checkpoint_selected_on_this_test": false,
+  "expected_test_keys_sent_to_gpu": false,
+  "execution_allowed": false
+}

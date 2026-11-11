@@ -1,0 +1,21 @@
+name: Williams AI diagnose existing private chart trainer
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['.github/workflows/ai-market-decision-diagnose.yml']
+permissions: {contents: read}
+jobs:
+  diagnose-existing-run-only:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      WILLIAMS_OBSERVE_SLUG: williams-ai-closed-chart-transfer-20261107
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'six>=1.16,<2'
+      - run: python -m scripts.ai_diagnose_market_gpu

@@ -1,0 +1,29 @@
+name: Williams AI recover existing private original-book GPU result without retraining
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['.github/workflows/ai-private-deep-recover-result.yml']
+permissions: {contents: read}
+jobs:
+  recover-own-existing-adapters-only:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Recover existing job outputs; never push another Kaggle GPU kernel
+        run: python scripts/ai_recover_private_deep_result.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_Qwen3_4B_PRIVATE_ORIGINALS_RECOVERED_NO_RETRAIN
+          path: ${{ runner.temp }}/private_first_recovered_results/
+          if-no-files-found: warn
+          retention-days: 14

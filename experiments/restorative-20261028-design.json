@@ -1,0 +1,55 @@
+{
+  "mode": "RESTORATIVE_REASONED_AND_DIRECT_REPLAY_V1",
+  "initial_adapter_sha256": "00daeb1d26417713334b88580735c944108c1a4d8fa4b5dd3cc3145dfa42533f",
+  "previous_receipt_sha256": "73f1bc1926a6df26c9361486dfaa13eaed1549190de19df7e5283ee66a07c19a",
+  "new_unique_cases": {
+    "train": 1152,
+    "validation": 112,
+    "test": 112
+  },
+  "cases_per_rule": {
+    "train": {
+      "COURSE.HUMP": 128,
+      "TC1.PSY.PLAN": 128,
+      "NTD.AC": 384,
+      "TC2.WM1.TRIGGER": 128,
+      "COURSE.W4.ZERO": 128,
+      "COURSE.AO5345": 128,
+      "TC2.WM3": 128
+    },
+    "validation": {
+      "COURSE.HUMP": 16,
+      "TC1.PSY.PLAN": 16,
+      "NTD.AC": 16,
+      "TC2.WM1.TRIGGER": 16,
+      "COURSE.W4.ZERO": 16,
+      "COURSE.AO5345": 16,
+      "TC2.WM3": 16
+    },
+    "test": {
+      "COURSE.HUMP": 16,
+      "TC1.PSY.PLAN": 16,
+      "NTD.AC": 16,
+      "TC2.WM1.TRIGGER": 16,
+      "COURSE.W4.ZERO": 16,
+      "COURSE.AO5345": 16,
+      "TC2.WM3": 16
+    }
+  },
+  "questions_sha256": {
+    "train": "6b0bd4804234f60e196af4044b00c0f7d00da9ddb2976506fab8d945fc37a747",
+    "validation": "3acc5a8c4acfefd733d513f88af94e62d60b85ea255ebd47c6ca363ce454c3d7",
+    "test": "c315d1a5c67e516c34e2f7fd3034881cd241a2df94aba18378970fe2742571ba"
+  },
+  "old56_and_old84_are_revealed_development": true,
+  "inference_mode_precommitted": "thinking",
+  "selected_on_test": false,
+  "all_122_practice_and_178_source_windows_guard_checkpoints": true,
+  "maximum_regression_any_book": 0.02,
+  "training_answer_modes": [
+    "direct",
+    "short_authored_reasoning"
+  ],
+  "expert_market_chart_exam": false,
+  "execution_allowed": false
+}

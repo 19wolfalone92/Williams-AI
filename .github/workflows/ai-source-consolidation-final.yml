@@ -1,0 +1,36 @@
+name: Williams AI source consolidation frozen five model final exam
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['experiments/source-consolidation-final-start.json']
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-source-consolidation-final-20261028
+  cancel-in-progress: false
+jobs:
+  five-frozen-models-no-orders:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 135
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1'
+      - name: Verify five comparable models and strict outputs
+        run: |
+          python -m unittest discover -s tests -p 'test_williams_ai_source_consolidation_final.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_spread_market.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_frozen_source_test.py' -v
+      - name: Frozen final inference after independent candidate verification
+        run: python scripts/ai_run_source_consolidation_final_kaggle.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_FINAL_FIVE_MODEL_DIRECT_MARKET_SOURCE_EXAM
+          path: ${{ runner.temp }}/source_consolidation_final_results/
+          if-no-files-found: warn
+          retention-days: 14

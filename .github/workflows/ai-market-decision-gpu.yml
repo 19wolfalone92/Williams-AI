@@ -1,0 +1,47 @@
+name: Williams AI closed-chart decision transfer on dual T4
+on:
+  push:
+    branches: [research/private-four-book-deep-training-20261027]
+    paths: ['experiments/market-decision-start.json']
+permissions:
+  contents: read
+concurrency:
+  group: williams-ai-private-market-decision-20261107
+  cancel-in-progress: false
+jobs:
+  check-frozen-cohorts:
+    strategy:
+      fail-fast: false
+      matrix:
+        cohort: [context, waves, campaign, precision]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m unittest tests.test_williams_ai_market_decision.MarketDecisionTests.test_${{ matrix.cohort }}
+  train-actual-qwen-and-examine-in-parallel:
+    needs: [check-frozen-cohorts]
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 255
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle>=1.7.0,<2' 'kagglehub>=0.3.0,<1' 'numpy>=2,<3' 'safetensors==0.6.2' 'six>=1.16,<2'
+      - name: Train private Qwen3-4B and independently verify four cohorts
+        run: python scripts/ai_run_market_decision_kaggle.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Williams_AI_Closed_Chart_20261107_Research
+          path: ${{ runner.temp }}/market_decision_export/
+          if-no-files-found: warn
+          retention-days: 14

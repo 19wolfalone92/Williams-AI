@@ -1,0 +1,1 @@
+{"start_private_free_gpu_training":true,"submission_attempt":2,"run_slug":"williams-ai-joint-rules-20261106","maximum_optimizer_attempts":2048,"maximum_training_seconds":7200,"fresh_synthetic_final_cases":256,"historical_revealed_regression_cases":144,"expert_labels_claimed":false,"execution_allowed":false}

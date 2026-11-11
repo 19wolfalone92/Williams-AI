@@ -1,0 +1,26 @@
+{
+  "manifest_sha256": "300b2acf1519ea76c0a377abd64f0f1490a971ef7413f4d3b980d53b6c75994b",
+  "test_file_sha256": "c9014a9dcb8d63673107a1235e07591e2409965640d81029eeaf75655fdf77c8",
+  "test_pages": {
+    "TC1": 19,
+    "NTD": 22,
+    "TC2": 33,
+    "COURSE": 22
+  },
+  "total_pages": 96,
+  "test_text_was_excluded_from_training": true,
+  "evaluation_only_after_candidate_frozen": true,
+  "training_performed_here": false,
+  "ocr_and_figures_not_expert_approved": true,
+  "execution_allowed": false,
+  "payload_sha256": "97cbb7155940ed54902ae3d3f1c106eaaac584c0256b9d50da52be2904b7e07c",
+  "format": "PRIVATE_FROZEN_96_SOURCE_TEST_ONLY_NO_TRAINING_V1",
+  "loss_windows_max_tokens": 384,
+  "minimum_relative_loss_improvement": 0.01,
+  "maximum_book_loss_regression": 0.02,
+  "reference_models_for_gate": [
+    "previous40",
+    "focused69"
+  ],
+  "after_first_evaluation_this_source_test_is_revealed": true
+}

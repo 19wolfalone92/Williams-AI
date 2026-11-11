@@ -1,0 +1,151 @@
+{
+  "verified_on": "2026-10-28",
+  "archive_sha256": "edf5603694f8b349ad6781a68e1b2afecc09c41384b62628771fb769fad28665",
+  "candidate_sha256": "00daeb1d26417713334b88580735c944108c1a4d8fa4b5dd3cc3145dfa42533f",
+  "receipt_sha256": "73f1bc1926a6df26c9361486dfaa13eaed1549190de19df7e5283ee66a07c19a",
+  "matrices": 504,
+  "parameters": 33030144,
+  "all_finite": true,
+  "all_float32": true,
+  "changed_matrices": 504,
+  "changed_values": 33030131,
+  "recomputed_old_exam": {
+    "base": {
+      "correct": 23,
+      "total": 84,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 12
+        },
+        "COURSE.HUMP": {
+          "correct": 4,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 6,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 3,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 4,
+          "total": 12
+        }
+      }
+    },
+    "initial416": {
+      "correct": 29,
+      "total": 84,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 0,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 0,
+          "total": 12
+        },
+        "COURSE.HUMP": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 6,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 5,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 6,
+          "total": 12
+        }
+      }
+    },
+    "previous40": {
+      "correct": 49,
+      "total": 84,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 3,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 5,
+          "total": 12
+        },
+        "COURSE.HUMP": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 10,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 7,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 12,
+          "total": 12
+        }
+      }
+    },
+    "candidate": {
+      "correct": 69,
+      "total": 84,
+      "per_rule": {
+        "TC1.PSY.PLAN": {
+          "correct": 8,
+          "total": 12
+        },
+        "TC2.WM1.TRIGGER": {
+          "correct": 12,
+          "total": 12
+        },
+        "COURSE.HUMP": {
+          "correct": 6,
+          "total": 12
+        },
+        "COURSE.W4.ZERO": {
+          "correct": 12,
+          "total": 12
+        },
+        "COURSE.AO5345": {
+          "correct": 12,
+          "total": 12
+        },
+        "NTD.AC": {
+          "correct": 7,
+          "total": 12
+        },
+        "TC2.WM3": {
+          "correct": 12,
+          "total": 12
+        }
+      }
+    }
+  },
+  "execution_allowed": false
+}

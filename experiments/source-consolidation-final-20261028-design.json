@@ -1,0 +1,24 @@
+{
+  "mode": "FROZEN_FIVE_MODEL_SOURCE_CONSOLIDATION_FINAL",
+  "models": [
+    "base",
+    "previous40",
+    "focused69",
+    "restorative768",
+    "candidate"
+  ],
+  "training_source_commit": "29ef792c258d1faf5891106e114f322bdb7acc11",
+  "fresh_questions_sha256": "2d9fb4f7d11b6ea15a3ac703890cbc495342cf0a6f0885e89b29d69003c8bc5d",
+  "source_test_payload_sha256": "97cbb7155940ed54902ae3d3f1c106eaaac584c0256b9d50da52be2904b7e07c",
+  "direct_max_new_tokens": 128,
+  "direct_seconds_per_response": 10,
+  "minimum_overall_accuracy": 0.8,
+  "minimum_each_rule_accuracy": 0.75,
+  "minimum_gain_over_every_control": 0.05,
+  "minimum_source_loss_improvement_each_reference": 0.01,
+  "maximum_source_book_regression": 0.02,
+  "mode_precommitted": "direct",
+  "candidate_selected_on_final_source_or_market_scores": false,
+  "execution_allowed": false,
+  "trading_qualification": false
+}

@@ -1,0 +1,116 @@
+{
+  "mode": "FROZEN_30_NUMERIC_H1_CASES_TWENTY_DATES_RESEARCH_ONLY",
+  "pairs": 15,
+  "cases": 30,
+  "cuts": null,
+  "lookback_closed_bars": 240,
+  "cuts_by_symbol": {
+    "ADAUSDT": [
+      300,
+      612
+    ],
+    "AVAXUSDT": [
+      348,
+      660
+    ],
+    "BCHUSDT": [
+      396,
+      708
+    ],
+    "BNBUSDT": [
+      444,
+      756
+    ],
+    "BTCUSDT": [
+      492,
+      804
+    ],
+    "DOGEUSDT": [
+      540,
+      852
+    ],
+    "DOTUSDT": [
+      588,
+      900
+    ],
+    "ETHUSDT": [
+      636,
+      948
+    ],
+    "LINKUSDT": [
+      684,
+      996
+    ],
+    "LTCUSDT": [
+      732,
+      1044
+    ],
+    "NEARUSDT": [
+      300,
+      612
+    ],
+    "SOLUSDT": [
+      348,
+      660
+    ],
+    "SUIUSDT": [
+      396,
+      708
+    ],
+    "TRXUSDT": [
+      444,
+      756
+    ],
+    "XRPUSDT": [
+      492,
+      804
+    ]
+  },
+  "future_horizon_bars": 24,
+  "future_market_bars_in_inference_prompt": false,
+  "market_context_sha256": "723f145e911985a8567fdcb7f3efaddf5b922426843985da6dd2346fabd316b0",
+  "result_keys_sha256": "32690a08b76b7be1e79fd809b79bf57846e53f41a83e3e8b9d9fe9182592b6f4",
+  "human_expert_wave_labels": 0,
+  "qwen_before_after_evaluated": false,
+  "market_structure_and_trading_quality_proven": false,
+  "execution_allowed": false,
+  "archive_sha256": "d5dfe1fc49df84c8b8ea7b3e095f676b462ae455fe204c3f8dd43eaea41759f7",
+  "questions_file_sha256": "6cc6f7c3e548496540160c83da061e7aaa8879dac2ef930a69a643091680fc3e",
+  "utc_dates": [
+    "2026-07-27",
+    "2026-07-29",
+    "2026-07-31",
+    "2026-08-02",
+    "2026-08-04",
+    "2026-08-06",
+    "2026-08-08",
+    "2026-08-09",
+    "2026-08-10",
+    "2026-08-11",
+    "2026-08-12",
+    "2026-08-13",
+    "2026-08-14",
+    "2026-08-15",
+    "2026-08-17",
+    "2026-08-19",
+    "2026-08-21",
+    "2026-08-23",
+    "2026-08-25",
+    "2026-08-27"
+  ],
+  "previous_two_cut_cohort_reused": false,
+  "archive_previously_available_to_developers": true,
+  "forecast_cases_not_statistically_independent": true,
+  "expert_wave_labels": false,
+  "class_score_method": "normalized_full_label_plus_eos_likelihood",
+  "free_generation_protocol": {
+    "mode": "greedy_non_thinking",
+    "maximum_new_tokens": 64,
+    "seconds_per_response": 15,
+    "strict_one_word_class": true
+  },
+  "precommitted_fee_per_side_scenario": 0.0004,
+  "precommitted_slippage_per_side_scenario": 0.0002,
+  "fees_are_assumptions_not_verified_exchange_rates": true,
+  "candidate_selection_on_this_exam": false
+}
