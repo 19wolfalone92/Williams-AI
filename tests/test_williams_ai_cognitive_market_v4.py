@@ -69,10 +69,16 @@ class CognitiveMarketBridgeV4Tests(unittest.TestCase):
             brain=WilliamsAI(local_model=base,memory=root/"cognitive.sqlite3",
                              public_rules_only=True)
             as_of,hist=history_fixture()
+            class ClosedFrameFakeQwen(FakeQwen):
+                def __call__(self,stage,packet):
+                    response=super().__call__(stage,packet)
+                    if stage=="hypothesis":
+                        response["counterevidence_ids"]=["H4_AO"]
+                    return response
             thought=brain.cognitive_from_closed_bars(
                 "фрактал",edition="TC2",as_of=as_of,
                 historical_bars=hist,run_id="cognitive-lab-0001",
-                research_backend=FakeQwen(conflict=True),use_memory=False)
+                research_backend=ClosedFrameFakeQwen(conflict=True),use_memory=False)
             self.assertFalse(thought["execution_allowed"])
             self.assertEqual(thought["effective_stance"],"WAIT")
             self.assertTrue(thought["integration"]["facts_computed_from_closed_bars"])
