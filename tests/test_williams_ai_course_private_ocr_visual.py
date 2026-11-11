@@ -80,6 +80,44 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
         self.assertEqual(len(result[0]["visual_refs"]),1)
         self.assertTrue(result[0]["visual_meaning_not_authoritatively_checked"])
 
+    def test_ocr_course_and_figure_description_reach_local_text_only_model(self):
+        from williams_ai.local_model import LocalWilliamsModel
+        from williams_ai.causal_paper_lab import frozen_markets
+        from williams_ai.reasoning_trial import evaluate_historical_thought
+        weights=self.root/"synthetic.gguf"
+        weights.write_bytes(b"TEST-MODEL-NEVER-TRAINED")
+        class Engine:
+            def __init__(self,**kwargs):
+                self.input=None
+            def create_chat_completion(self,**kwargs):
+                self.input=kwargs
+                prompt=json.loads(kwargs["messages"][1]["content"])
+                output={"symbol":prompt["chart"]["symbol"],
+                        "as_of":prompt["chart"]["as_of"],
+                        "edition":prompt["edition"],
+                        "setup":"NO_SETUP","side":"NONE",
+                        "entry_state":"NO_SETUP","exit_basis":"NONE",
+                        "rule_ids":[],"trade_action":None,
+                        "execution_allowed":False,
+                        "reason":"No corroborated market setup or actual orders."}
+                return {"choices":[{"message":{"content":json.dumps(output)}}]}
+        model=LocalWilliamsModel(weights,loader=Engine)
+        history=frozen_markets()["ETHUSDT"]
+        result=evaluate_historical_thought("ETHUSDT",history["bars"],
+                   tick_size=history["tick_size"],bar_index=300,
+                   edition="COURSE",model=model,book_index=self.db)
+        payload=json.loads(model._model.input["messages"][1]["content"])
+        self.assertEqual(payload["edition"],"COURSE")
+        self.assertTrue(payload["primary_book_pages"])
+        source=payload["primary_book_pages"][0]
+        self.assertEqual(source["source_status"],
+                         "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
+        self.assertTrue(source["not_expert_verified"])
+        self.assertTrue(source["visual_refs"])
+        self.assertEqual(source["visual_refs"][0]["visual_status"],
+                         "UNVERIFIED_DESCRIPTIVE_ONLY")
+        self.assertFalse(result["private_book_passages_exported"])
+
     def test_merge_into_copy_does_not_erase_other_books(self):
         other=self.root/"original_three_books.sqlite3"
         tc2=next(x for x in registry()["books"] if x["id"]=="TC2")
