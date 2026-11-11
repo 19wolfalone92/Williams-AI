@@ -56,6 +56,49 @@ class RootCausalMemoryTests(unittest.TestCase):
         later=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()
         self.assertEqual(len(brain.retrieve("fractal",edition="TC2",as_of=later)),1)
 
+    def test_full_checkpoint_import_preserves_graph_and_fts_without_past_leak(self):
+        source=Path(self.temp.name)/"source.sqlite3"
+        from williams_ai.cognitive_memory_v4 import CognitiveMemory
+        origin=UnifiedMemory(source)
+        origin.retain("Фрактал подтверждён только после закрытия бара.",
+            source="user-source-legacy",title="Fractal source memo",
+            edition="TC2",available_at="2025-01-01T00:00:00Z")
+        older=origin.cognitive.put(kind="HYPOTHESIS",edition="TC2",
+            source_ref="RESEARCH:parent-old",
+            text="Candidate fractal wave setup without independent confirmation.",
+            observed_at="2026-01-01T00:00:00Z",
+            model_id=self.model_id,run_id="research-run-001")
+        recent=origin.cognitive.put(kind="HYPOTHESIS",edition="TC2",
+            source_ref="RESEARCH:parent-new",
+            text="The second closed bar contradicts the earlier wave hypothesis.",
+            observed_at="2026-01-02T00:00:00Z",
+            model_id=self.model_id,run_id="research-run-001")
+        origin.cognitive.link(older,recent,relation="CONTRADICTS",
+            justification="Two independently recorded hypotheses disagree.")
+        target=UnifiedMemory(self.db)
+        first=target.import_checkpoint(source)
+        self.assertEqual(first["imported_rows"]["cognitive_entries_v4"],2)
+        self.assertEqual(first["imported_rows"]["cognitive_edges_v4"],1)
+        self.assertEqual(first["imported_rows"]["retained_materials"],1)
+        self.assertTrue(first["cognitive_fts_rebuilt"])
+        self.assertEqual(target.cognitive.retrieve("fractal",edition="TC2",
+            as_of="2026-03-01T00:00:00Z",
+            model_id=self.model_id,run_id="research-run-001"),[])
+        self.assertEqual(target.retrieve("Фрактал",edition="TC2",
+            as_of="2026-03-01T00:00:00Z"),[])
+        future=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()
+        entries=target.cognitive.retrieve("fractal",edition="TC2",as_of=future,
+            model_id=self.model_id,run_id="research-run-001")
+        self.assertEqual(len(entries),1)
+        self.assertTrue(target.cognitive.related(older,as_of=future,
+            model_id=self.model_id,run_id="research-run-001"))
+        self.assertEqual(len(target.retrieve("Фрактал",edition="TC2",
+            as_of=future)),1)
+        second=target.import_checkpoint(source)
+        self.assertEqual(second["imported_rows"]["cognitive_entries_v4"],0)
+        self.assertEqual(target.cognitive.stats()["entries"],2)
+        self.assertFalse(first["historical_memory_ingestion_backdated"])
+
     def test_coach_correction_from_future_is_not_in_earlier_chart(self):
         with notebook(self.db) as db:
             db.execute("""INSERT INTO private_remediation VALUES (?,?,?,?,?,?,?)""",
