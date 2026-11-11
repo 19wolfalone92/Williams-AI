@@ -64,15 +64,11 @@ def check_private_expert_source_cases(rows,private_book_index):
                     raise ValueError("COURSE_PAGE_VISUAL_SEMANTICS_UNVERIFIED")
                 case_sha=digest({k:v for k,v in row.items() if k!="reviewers"})
                 reviewers={r["reviewer_id"] for r in row["reviewers"]}
-                approvals=db.execute(
-                    "SELECT reviewer_id FROM course_expert_case_reviews_v3 "
-                    "WHERE case_sha256=? AND pdf_page=? AND image_sha256=? "
-                    "AND source_sha256=? AND verdict='APPROVED'",
-                    (case_sha,row["pdf_page"],page[0],volume[0]),
-                ).fetchall()
-                observed={x[0] for x in approvals}
-                if not reviewers<=observed or len(observed)<2:
-                    raise ValueError("UNATTESTED_VISUAL_CASE_APPROVAL")
+                from .signed_visual_reviews_v3 import verify_two_ed25519_course_approvals
+                verify_two_ed25519_course_approvals(
+                    db,case_sha256=case_sha,
+                    pdf_page=row["pdf_page"],image_sha256=page[0],
+                    source_sha256=volume[0],expected_reviewers=reviewers)
             successful.append({"case_id":row["case_id"],
                                "edition":book,"pdf_page":row["pdf_page"],
                                "source_index_sha256":known["sha256"],
