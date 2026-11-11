@@ -63,11 +63,19 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
                         rel,image_hash,"[0]",
                         "PAGE_PROVENANCE_AND_OCR_LEXICAL_OVERLAP",
                         "UNVERIFIED_VISUAL_DESCRIPTION"))
+            rel="page_images/page_056.jpg"
+            image_hash=hashlib.sha256((root/rel).read_bytes()).hexdigest()
+            db.execute("INSERT INTO course_visuals VALUES(?,?,?,?,?,?,?,?)",
+                       ("COURSE:P056:PAGE_VISUAL",56,
+                        "Composite Elliott wave-count diagram with nested degrees and impulse labels.",
+                        rel,image_hash,"[]",
+                        "PAGE_PROVENANCE_AND_OCR_LEXICAL_OVERLAP",
+                        "UNVERIFIED_VISUAL_DESCRIPTION"))
 
     def test_122_page_footprint_and_visual_checksum(self):
         report=course_visual_audit(self.db)
         self.assertEqual(report["pages_with_images"],122)
-        self.assertEqual(report["illustrated_page_annotations"],1)
+        self.assertEqual(report["illustrated_page_annotations"],2)
         self.assertFalse(report["use_as_verified_training_gold"])
         ref=course_visual_refs(self.db,18)
         self.assertEqual(len(ref),1)
@@ -84,6 +92,19 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
                          "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
         self.assertEqual(len(result[0]["visual_refs"]),1)
         self.assertTrue(result[0]["visual_meaning_not_authoritatively_checked"])
+
+    def test_diagram_only_page_remains_searchable_without_fabricating_ocr(self):
+        from williams_ai.course_visual_private import search_course_visual_descriptions
+        visuals=search_course_visual_descriptions(
+            self.db,"composite Elliott diagram",limit=2)
+        self.assertTrue(any(x["pdf_page"]==56 for x in visuals))
+        self.assertEqual(visuals[0]["status"],
+              "PRIVATE_VISUAL_DESCRIPTION_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
+        found=verified_private_book_pages(self.db,"COURSE",
+                     question="composite Elliott diagram",limit=2)
+        self.assertTrue(any(x["pdf_page"]==56 and
+               x["status"]=="PRIVATE_VISUAL_DESCRIPTION_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
+               for x in found))
 
     def test_ocr_course_and_figure_description_reach_local_text_only_model(self):
         from williams_ai.local_model import LocalWilliamsModel
