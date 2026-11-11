@@ -8,6 +8,8 @@ on:
       - 'williams_ai/cognitive_engine_v4.py'
       - 'williams_ai/unified_memory.py'
       - 'williams_ai/reasoning_trial.py'
+      - 'williams_ai/deliberate_learning.py'
+      - 'tests/test_williams_ai_unified_runtime.py'
       - 'williams_ai/study.py'
       - 'williams_ai/adaptive_coach.py'
       - 'tests/test_williams_ai_cognitive_root_causality_v4.py'
@@ -58,7 +60,7 @@ jobs:
         run: python -m pip install 'cryptography>=44,<47'
       - name: Static syntax
         run: |
-          python -m py_compile williams_ai/cognitive_memory_v4.py williams_ai/cognitive_engine_v4.py williams_ai/unified_memory.py williams_ai/unified_ai.py williams_ai/reasoning_trial.py williams_ai/study.py williams_ai/adaptive_coach.py tests/test_williams_ai_cognitive_v4.py tests/test_williams_ai_cognitive_root_causality_v4.py williams_ai/reasoning_research_v2.py williams_ai/reasoning_walkforward_v2.py williams_ai/reasoning_training_readiness_v2.py williams_ai/reasoning_qlora_bridge_v2.py williams_ai/reasoning_feedback_v2.py williams_ai/course_visual_private.py williams_ai/course_page_semantics_v3.py williams_ai/visual_vision_review_v3.py scripts/ai_visual_review_course_v3.py williams_ai/source_provenance_gate_v3.py williams_ai/adaptive_training_v3.py williams_ai/market_review_candidates_v3.py williams_ai/signed_visual_reviews_v3.py scripts/ai_merge_private_course.py scripts/ai_audit_original_books_v2.py tests/test_williams_ai_reasoning_v2_blocker_fixes.py scripts/ai_audit_training_v2.py scripts/ai_audit_strategy_blockers.py scripts/ai_reasoning_v2_lab.py tests/test_williams_ai_reasoning_research_v2.py tests/test_williams_ai_reasoning_walkforward_v2.py
+          python -m py_compile williams_ai/cognitive_memory_v4.py williams_ai/cognitive_engine_v4.py williams_ai/unified_memory.py williams_ai/unified_ai.py williams_ai/reasoning_trial.py williams_ai/deliberate_learning.py williams_ai/study.py williams_ai/adaptive_coach.py tests/test_williams_ai_cognitive_v4.py tests/test_williams_ai_cognitive_root_causality_v4.py williams_ai/reasoning_research_v2.py williams_ai/reasoning_walkforward_v2.py williams_ai/reasoning_training_readiness_v2.py williams_ai/reasoning_qlora_bridge_v2.py williams_ai/reasoning_feedback_v2.py williams_ai/course_visual_private.py williams_ai/course_page_semantics_v3.py williams_ai/visual_vision_review_v3.py scripts/ai_visual_review_course_v3.py williams_ai/source_provenance_gate_v3.py williams_ai/adaptive_training_v3.py williams_ai/market_review_candidates_v3.py williams_ai/signed_visual_reviews_v3.py scripts/ai_merge_private_course.py scripts/ai_audit_original_books_v2.py tests/test_williams_ai_reasoning_v2_blocker_fixes.py scripts/ai_audit_training_v2.py scripts/ai_audit_strategy_blockers.py scripts/ai_reasoning_v2_lab.py tests/test_williams_ai_reasoning_research_v2.py tests/test_williams_ai_reasoning_walkforward_v2.py
       - name: Expert gates, memory and blind replay regression tests
         run: python -m unittest tests.test_williams_ai_reasoning_research_v2 tests.test_williams_ai_reasoning_walkforward_v2 tests.test_williams_ai_reasoning_v2_blocker_fixes tests.test_williams_ai_course_private_ocr_visual tests.test_williams_ai_visual_review_v3 tests.test_williams_ai_signed_visual_reviews_v3 -v
       - name: Cognitive v4 cross-component integration and legacy memory regression
