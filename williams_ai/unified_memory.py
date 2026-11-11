@@ -46,6 +46,17 @@ class UnifiedMemory:
                 document_sha256 TEXT PRIMARY KEY,edition TEXT NOT NULL,source TEXT NOT NULL,
                 title TEXT NOT NULL,available_at TEXT NOT NULL,text TEXT NOT NULL,
                 status TEXT NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS retained_material_ingested_v4(
+                document_sha256 TEXT PRIMARY KEY,
+                ingested_at TEXT NOT NULL
+            )""")
+            # Legacy rows have no trustworthy ingestion timestamp. Begin
+            # their causal availability at migration time, not at an
+            # arbitrarily backdated material timestamp.
+            migration_at = datetime.now(timezone.utc).isoformat()
+            db.execute("""INSERT OR IGNORE INTO retained_material_ingested_v4
+                       SELECT document_sha256,? FROM retained_materials""",
+                       (migration_at,))
             db.execute("""CREATE TABLE IF NOT EXISTS memory_import_rows(
                 row_sha256 TEXT PRIMARY KEY,table_name TEXT NOT NULL,imported_at TEXT NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS actual_run_receipts(
@@ -105,6 +116,9 @@ class UnifiedMemory:
         with self.connect() as db:
             db.execute("INSERT OR IGNORE INTO retained_materials VALUES(?,?,?,?,?,?,?)",
                 (digest, edition, source, title, known, text, "UNVERIFIED_RESEARCH_NOT_BOOK_AUTHORITY"))
+            db.execute("""INSERT OR IGNORE INTO retained_material_ingested_v4
+                       VALUES(?,?)""",
+                       (digest,datetime.now(timezone.utc).isoformat()))
         return digest
 
     def retrieve(self, question: str, *, edition: str, as_of: str,
@@ -117,9 +131,14 @@ class UnifiedMemory:
         terms = query_terms(question)
         ranked = []
         with self.connect() as db:
-            rows = db.execute("SELECT * FROM retained_materials WHERE edition IN (?,?) "
-                "AND julianday(available_at)<=julianday(?) ORDER BY available_at,document_sha256",
-                (edition, "GENERAL", as_of)).fetchall()
+            rows = db.execute("""SELECT r.* FROM retained_materials AS r
+                INNER JOIN retained_material_ingested_v4 AS ing
+                  ON ing.document_sha256=r.document_sha256
+                WHERE r.edition IN (?,?)
+                  AND julianday(r.available_at)<=julianday(?)
+                  AND julianday(ing.ingested_at)<=julianday(?)
+                ORDER BY r.available_at,r.document_sha256""",
+                (edition, "GENERAL", as_of, as_of)).fetchall()
         for digest, book, source, title, at, text, status in rows:
             known = _as_utc(at)
             if known is None or known > cutoff or status != "UNVERIFIED_RESEARCH_NOT_BOOK_AUTHORITY":
