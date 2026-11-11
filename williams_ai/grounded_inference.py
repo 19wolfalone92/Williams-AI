@@ -14,6 +14,27 @@ from .book_index import _private_database, _known_book, search_pages
 from .book_rules import lookup_rules, registry
 from .knowledge import query_terms
 
+
+def _with_private_course_visuals(item:dict[str,Any],db_path:Path,edition:str)->dict[str,Any]:
+    """Attach local image provenance and descriptive links, NEVER inferred rules.
+
+    A text-only GGUF sees only a labeled, unverified visual description.
+    The original page image stays private; full visual interpretation needs
+    a vision-capable model or human reviewer.
+    """
+    if edition=="COURSE":
+        from .course_visual_private import course_visual_refs,direct_visual_drafts
+        from .course_page_semantics_v3 import private_course_page_role
+        item["visual_refs"]=course_visual_refs(db_path,item["pdf_page"])
+        item["private_visual_drafts"]=direct_visual_drafts(
+            db_path,item["pdf_page"],limit=2)
+        item["visual_meaning_not_authoritatively_checked"]=True
+        item["page_role"]=private_course_page_role(item["pdf_page"])
+        item["blank_form_is_not_trade_rule"]=bool(
+            item["page_role"].get("blank_form_not_a_trading_rule"))
+    return item
+
+
 _TOPICS={
     "TC1":"волна Эллиотта AO фрактал дивергенция структура коррекция 4 5",
     "NTD":"Аллигатор фрактал Awesome Oscillator Acceleration Balance Line вход выход",
@@ -49,9 +70,9 @@ def verified_private_book_pages(
     conn=sqlite3.connect(f"file:{db_path}?mode=ro",uri=True)
     try:
         row=conn.execute(
-            "SELECT sha256,total_pages FROM volumes WHERE book=?",
+            "SELECT sha256,total_pages,source_type FROM volumes WHERE book=?",
             (edition,)).fetchone()
-        if row!=(known["sha256"],known["pages"]):
+        if (not row or row[:2] != (known["sha256"],known["pages"]) or row[2] not in {"PDF_TEXT", "PDF_TEXT_WITH_UNREVIEWED_OCR"}):
             raise ValueError("Private book edition/fingerprint does not match reference")
         if rule_ids:
             # A demonstrated gap must go to its actual reviewed pages,
@@ -87,9 +108,13 @@ def verified_private_book_pages(
                 if (page,text) in seen:
                     continue
                 seen.add((page,text))
-                selected.append({"source":f"{edition}: PDF {page}","excerpt":text,
-                    "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
-                    "pdf_page":page,"chunk_sha256":chunk_sha})
+                selected.append(_with_private_course_visuals(
+                    {"source":f"{edition}: PDF {page}","excerpt":text,
+                    "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
+                               if row[2] == "PDF_TEXT_WITH_UNREVIEWED_OCR"
+                               else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"),
+                    "pdf_page":page,"chunk_sha256":chunk_sha},
+                    db_path,edition))
                 if len(selected)==limit:
                     break
             return selected
@@ -111,10 +136,28 @@ def verified_private_book_pages(
         for card in cards[:2]:
             terms+=" "+card["excerpt"][:200]
     results=search_pages(db_path,terms[:1400],edition=edition,limit=limit)
-    return [{
+    pages = [_with_private_course_visuals({
         "source":result["source"],
         "excerpt":result["excerpt"][:650],
-        "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
+        "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
+                               if row[2] == "PDF_TEXT_WITH_UNREVIEWED_OCR"
+                               else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"),
         "pdf_page":result["page"],
         "chunk_sha256":result["chunk_sha256"],
-    } for result in results]
+    },db_path,edition) for result in results]
+    if edition == "COURSE":
+        from .course_visual_private import search_course_visual_descriptions
+        figures = search_course_visual_descriptions(db_path,terms,limit=2)
+        explicit_visual_query = any(word in terms.casefold() for word in (
+            "diagram","figure","chart","illustration","wave count",
+            "composite","elliott degree","диаграмм","рисунок","график"))
+        for figure in figures:
+            if figure["pdf_page"] in {page["pdf_page"] for page in pages}:
+                continue
+            if len(pages)>=limit and not explicit_visual_query:
+                break
+            if len(pages)>=limit:
+                pages.pop()
+            pages.append(figure)
+            break
+    return pages

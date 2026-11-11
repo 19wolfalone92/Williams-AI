@@ -86,7 +86,9 @@ class DeliberateLearningTests(unittest.TestCase):
         refs=[x["source"] for x in student.calls[1][1]["primary_pages"]]
         self.assertEqual(set(refs),{"TC2: PDF 161","TC2: PDF 131"})
         self.assertEqual(student.calls[1][1]["study_lessons"],[])
-        self.assertTrue(model.latest["recalled_notes"])
+        # Same historical candle must not borrow knowledge first recorded
+        # during this new live session.
+        self.assertEqual(model.latest["recalled_notes"],[])
         self.assertTrue(model.latest["unverified_self_notes_quarantined"])
         self.assertEqual(model.latest["status"],"RECONSIDERED_NOT_INDEPENDENTLY_VALIDATED")
         self.assertFalse(model.latest["model_weights_updated"])
@@ -198,7 +200,7 @@ class DeliberateLearningTests(unittest.TestCase):
         wrapper.propose_chart_reasoning(self.obs)
         self.assertEqual(resumed.passages,[])
         self.assertEqual(wrapper.latest["studied_chunks"],0)
-        self.assertTrue(wrapper.latest["recalled_notes"])
+        self.assertEqual(wrapper.latest["recalled_notes"],[])
         other=Student()
         self.wrap(other,"gguf-other").propose_chart_reasoning(self.obs)
         self.assertEqual(len(other.passages),2)
