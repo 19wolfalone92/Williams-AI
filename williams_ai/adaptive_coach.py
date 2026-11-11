@@ -84,6 +84,16 @@ def notebook(path:str|Path)->Iterator[sqlite3.Connection]:
             updated_at TEXT NOT NULL,
             PRIMARY KEY(model_id,edition,rule_id)
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS remediation_ingested_v4(
+            model_id TEXT NOT NULL, edition TEXT NOT NULL,
+            rule_id TEXT NOT NULL, ingested_at TEXT NOT NULL,
+            PRIMARY KEY(model_id,edition,rule_id)
+        )""")
+        # Legacy rows do not prove the date they were imported; they first
+        # become eligible for historical recall when observed by this schema.
+        db.execute("""INSERT OR IGNORE INTO remediation_ingested_v4
+                   SELECT model_id,edition,rule_id,? FROM private_remediation""",
+                   (datetime.now(timezone.utc).isoformat(),))
         yield db
         db.commit()
     finally:
@@ -144,8 +154,13 @@ def recall_model_corrections(
                 "SELECT rule_id,source,explanation FROM private_remediation "
                 "WHERE model_id=? AND edition=? "
                 "AND julianday(updated_at)<=julianday(?) "
+                "AND EXISTS (SELECT 1 FROM remediation_ingested_v4 AS ing "
+                "WHERE ing.model_id=private_remediation.model_id "
+                "AND ing.edition=private_remediation.edition "
+                "AND ing.rule_id=private_remediation.rule_id "
+                "AND julianday(ing.ingested_at)<=julianday(?)) "
                 "ORDER BY failures DESC,updated_at DESC",
-                (model_id,edition,as_of),
+                (model_id,edition,as_of,as_of),
             ).fetchall()
     selected=[r for r in rows if not focus_rule_ids or r[0] in focus_rule_ids]
     return [{"source":source,"excerpt":explanation}
@@ -228,6 +243,10 @@ def coach_practice(
                                   explanation=excluded.explanation,
                                   updated_at=excluded.updated_at
                 """,(model_id,case["edition"],case["rule_id"],source,explanation,now))
+                db.execute("""INSERT INTO remediation_ingested_v4 VALUES(?,?,?,?)
+                              ON CONFLICT(model_id,edition,rule_id)
+                              DO UPDATE SET ingested_at=excluded.ingested_at""",
+                           (model_id,case["edition"],case["rule_id"],now))
                 # A user interruption during the retry must not roll back
                 # the completed first attempt and its cited correction.
                 db.commit()
