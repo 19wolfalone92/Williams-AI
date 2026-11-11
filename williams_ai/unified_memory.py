@@ -19,7 +19,8 @@ from .study import memory
 
 _TABLES = ("study_notes", "study_errors", "scoped_study_errors", "research_sources",
            "practice_attempts", "private_remediation", "outcomes", "policies",
-           "decision_study_events", "actual_run_receipts")
+           "decision_study_events", "actual_run_receipts", "retained_materials",
+           "cognitive_entries_v4", "cognitive_edges_v4")
 
 
 class UnifiedMemory:
@@ -176,6 +177,10 @@ class UnifiedMemory:
         path = _private_database(original)
         if not path.is_file() or path == self.path:
             raise ValueError("DIFFERENT_PRIVATE_CHECKPOINT_REQUIRED")
+        # Install the versioned destination schema *before* atomically
+        # importing old checkpoint rows. FTS5 is rebuilt locally and never
+        # copied as a virtual-table shadow file.
+        self.cognitive
         counts = {}
         old = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
         try:
@@ -217,15 +222,42 @@ class UnifiedMemory:
                                     raise ValueError("MEMORY_IMPORT_CONFLICT_NOT_OVERWRITTEN")
                                 continue
                         marks = ",".join("?" for _ in values)
+                        if table == "cognitive_entries_v4":
+                            # The source experience did not exist in THIS
+                            # destination until import NOW. Preserve source
+                            # observed_at and content identity, but never
+                            # reuse its earlier recorded_at in backtests.
+                            values = list(values)
+                            values[8] = datetime.now(timezone.utc).isoformat()
+                        elif table == "cognitive_edges_v4":
+                            values = list(values)
+                            values[5] = datetime.now(timezone.utc).isoformat()
                         db.execute(f"INSERT INTO {table}({','.join(used_cols)}) VALUES({marks})", values)
+                        if table == "cognitive_entries_v4":
+                            db.execute("INSERT INTO cognitive_fts_v4(entry_id,text) VALUES (?,?)",
+                                       (row[0],row[6]))
                         db.execute("INSERT INTO memory_import_rows VALUES(?,?,?)",
                             (row_digest, table, datetime.now(timezone.utc).isoformat()))
                         inserted += 1
                     counts[table] = inserted
         finally:
             old.close()
+        # Backfill temporal ledgers for records inserted from an external
+        # checkpoint AFTER initial schema migration. Existing entries do not
+        # get retroactively earlier receipt timestamps.
+        from .adaptive_coach import notebook
+        with memory(self.path):
+            pass
+        with notebook(self.path):
+            pass
+        with self.connect() as db:
+            db.execute("""INSERT OR IGNORE INTO retained_material_ingested_v4
+                       SELECT document_sha256,? FROM retained_materials""",
+                       (datetime.now(timezone.utc).isoformat(),))
         return {"imported_rows": counts, "unverified_notes_promoted": False,
-                "source_checkpoints_modified": False, "execution_allowed": False}
+                "source_checkpoints_modified": False, "cognitive_fts_rebuilt": True,
+                "historical_memory_ingestion_backdated": False,
+                "execution_allowed": False}
 
     def inventory(self) -> dict[str, int]:
         with self.connect() as db:
