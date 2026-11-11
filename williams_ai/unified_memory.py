@@ -46,10 +46,53 @@ class UnifiedMemory:
                 document_sha256 TEXT PRIMARY KEY,edition TEXT NOT NULL,source TEXT NOT NULL,
                 title TEXT NOT NULL,available_at TEXT NOT NULL,text TEXT NOT NULL,
                 status TEXT NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS retained_material_ingested_v4(
+                document_sha256 TEXT PRIMARY KEY,
+                ingested_at TEXT NOT NULL
+            )""")
+            # Legacy rows have no trustworthy ingestion timestamp. Begin
+            # their causal availability at migration time, not at an
+            # arbitrarily backdated material timestamp.
+            migration_at = datetime.now(timezone.utc).isoformat()
+            db.execute("""INSERT OR IGNORE INTO retained_material_ingested_v4
+                       SELECT document_sha256,? FROM retained_materials""",
+                       (migration_at,))
             db.execute("""CREATE TABLE IF NOT EXISTS memory_import_rows(
                 row_sha256 TEXT PRIMARY KEY,table_name TEXT NOT NULL,imported_at TEXT NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS actual_run_receipts(
                 name TEXT PRIMARY KEY,payload TEXT NOT NULL,payload_sha256 TEXT NOT NULL)""")
+
+    @property
+    def cognitive(self):
+        """Lazy v4 semantic/episodic/procedural store in the SAME private DB.
+
+        Existing study/private_remediation and book-index schemas remain
+        intact. No historical labels are silently imported or promoted.
+        """
+        if not hasattr(self, "_cognitive"):
+            from .cognitive_memory_v4 import CognitiveMemory
+            self._cognitive = CognitiveMemory(self.path)
+        return self._cognitive
+
+    def remember_research(self, *, kind, edition, source_ref, text, observed_at,
+                          model_id=None, run_id=None,
+                          embedding_encoder=None, embedding_model_id=None):
+        return self.cognitive.put(
+            kind=kind, edition=edition, source_ref=source_ref, text=text,
+            observed_at=observed_at, model_id=model_id, run_id=run_id,
+            embedding_encoder=embedding_encoder,
+            embedding_model_id=embedding_model_id)
+
+    def recall_research(self, question, *, edition, as_of, model_id=None,
+                        run_id=None, limit=5, embedding_encoder=None,
+                        embedding_model_id=None):
+        return self.cognitive.retrieve(
+            question, edition=edition, as_of=as_of, model_id=model_id,
+            run_id=run_id, limit=limit, embedding_encoder=embedding_encoder,
+            embedding_model_id=embedding_model_id)
+
+    def cognitive_inventory(self):
+        return self.cognitive.stats()
 
     def connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path, timeout=15)
@@ -73,6 +116,9 @@ class UnifiedMemory:
         with self.connect() as db:
             db.execute("INSERT OR IGNORE INTO retained_materials VALUES(?,?,?,?,?,?,?)",
                 (digest, edition, source, title, known, text, "UNVERIFIED_RESEARCH_NOT_BOOK_AUTHORITY"))
+            db.execute("""INSERT OR IGNORE INTO retained_material_ingested_v4
+                       VALUES(?,?)""",
+                       (digest,datetime.now(timezone.utc).isoformat()))
         return digest
 
     def retrieve(self, question: str, *, edition: str, as_of: str,
@@ -85,9 +131,14 @@ class UnifiedMemory:
         terms = query_terms(question)
         ranked = []
         with self.connect() as db:
-            rows = db.execute("SELECT * FROM retained_materials WHERE edition IN (?,?) "
-                "AND julianday(available_at)<=julianday(?) ORDER BY available_at,document_sha256",
-                (edition, "GENERAL", as_of)).fetchall()
+            rows = db.execute("""SELECT r.* FROM retained_materials AS r
+                INNER JOIN retained_material_ingested_v4 AS ing
+                  ON ing.document_sha256=r.document_sha256
+                WHERE r.edition IN (?,?)
+                  AND julianday(r.available_at)<=julianday(?)
+                  AND julianday(ing.ingested_at)<=julianday(?)
+                ORDER BY r.available_at,r.document_sha256""",
+                (edition, "GENERAL", as_of, as_of)).fetchall()
         for digest, book, source, title, at, text, status in rows:
             known = _as_utc(at)
             if known is None or known > cutoff or status != "UNVERIFIED_RESEARCH_NOT_BOOK_AUTHORITY":
