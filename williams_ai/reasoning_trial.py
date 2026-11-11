@@ -161,14 +161,14 @@ def evaluate_historical_thought(
             x for x in related if x.startswith(edition+".")
         )))
         prior=recall_model_corrections(coach_notebook,model_id,edition,
-                                       focus_rule_ids=focus,limit=2)
+                                       focus_rule_ids=focus,limit=2,as_of=as_of)
         # If the active signals have no matching corrected rules, still
         # recall a single general lesson in the SAME edition. Otherwise a
         # model that studied TC1 wave degree but sees only TC1 fractals
         # would never receive its prior book knowledge.
         if not prior and focus:
             prior=recall_model_corrections(coach_notebook,model_id,edition,
-                                           limit=1)
+                                           limit=1,as_of=as_of)
     studied=[]
     materials=[]
     if research_memory is not None:
@@ -194,7 +194,7 @@ def evaluate_historical_thought(
         if not public_rule_learning:
             studied=recall(study_memory,vocabulary[edition]+" "+observed,
                            edition=edition,limit=2,model_id=model_id,
-                           book_index=book_index)
+                           book_index=book_index,as_of=as_of)
     if model is not None:
         args={"edition":edition}
         if book_index is not None:
