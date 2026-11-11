@@ -55,6 +55,71 @@ def run_blind_replay(test_cases, model_predict, memory: HypothesisMemory):
             "gold_not_passed_to_predictor": True, "execution_allowed": False}
 
 
+def run_prompt_only_replay(prompt_cases, model_predict, memory: HypothesisMemory):
+    """Strict inference stage with NO test answers or human review records.
+
+    Run this function in a separate worker that has ONLY test_prompts.jsonl,
+    the frozen model and its private scoped memory. Freeze its returned
+    predictions before a different process loads gold for grade_blind().
+    This function never opens the book/exam gold reference.
+    """
+    if not isinstance(prompt_cases, list) or not prompt_cases or not callable(model_predict):
+        raise ValueError("FROZEN_PROMPTS_AND_MODEL_REQUIRED")
+    if not isinstance(memory, HypothesisMemory):
+        raise ValueError("EXPLICIT_SCOPED_HYPOTHESIS_MEMORY_REQUIRED")
+    required = {
+        "case_id", "symbol", "timeframe", "cutoff",
+        "visible_prefix_sha256", "rule_id", "edition", "pdf_page",
+        "source_sha256", "question", "timeframe_observations",
+        "complete_h1_h4_d1_context", "book_evidence",
+        "human_source_expertise_not_cryptographically_proven",
+        "no_position_or_stop_acknowledgment_supplied",
+        "context_tail_bars_per_frame", "confirmed_pivots_per_frame_limit",
+    }
+    cases=sorted(prompt_cases, key=lambda p:(utc(p["cutoff"]),p["symbol"],p["case_id"]))
+    seen=set()
+    predictions=[]
+    for row in cases:
+        if not isinstance(row,dict) or set(row)!=required:
+            raise ValueError("PROMPTS_ONLY_FIXED_SCHEMA_NO_GOLD_OR_REVIEWERS")
+        if row["case_id"] in seen:
+            raise ValueError("DUPLICATE_FROZEN_TEST_PROMPT")
+        seen.add(row["case_id"])
+        if row["complete_h1_h4_d1_context"] is not True:
+            raise ValueError("INCOMPLETE_BLIND_CONTEXT")
+        frames=row["timeframe_observations"]
+        if (not isinstance(frames,dict) or
+                not {"H1","H4","D1"}<=set(frames)):
+            raise ValueError("THREE_CLOSED_TIMEFRAMES_REQUIRED")
+        for frame in frames.values():
+            if utc(frame["last_closed_at"])>utc(row["cutoff"]):
+                raise ValueError("FUTURE_BAR_IN_FROZEN_PROMPT")
+        prior=memory.as_of(symbol=row["symbol"],edition=row["edition"],
+                           timestamp=row["cutoff"],strict_before=True)
+        answer=model_predict(row,prior)
+        _valid_answer(answer)
+        memory.append(case_id=row["case_id"],symbol=row["symbol"],
+                      cutoff=row["cutoff"],available_at=row["cutoff"],
+                      snapshot_sha256=row["visible_prefix_sha256"],
+                      hypothesis=answer["hypothesis"],
+                      alternative=answer["alternative"],evidence=answer["evidence"],
+                      counterevidence=answer["counterevidence"],
+                      invalidation=answer["invalidation"],
+                      edition=row["edition"],rule_id=row["rule_id"],
+                      book_sha256=row["source_sha256"])
+        prediction={"case_id":row["case_id"],"cutoff":row["cutoff"],
+                    "visible_prefix_sha256":row["visible_prefix_sha256"],
+                    "prediction_at":row["cutoff"],"answer":answer}
+        prediction["commitment"]=prediction_commitment(prediction)
+        predictions.append(prediction)
+    return {"schema":"WILLIAMS_AI_TEST_PROMPTS_ONLY_REPLAY_V2",
+            "predictions":predictions,
+            "gold_answer_loaded_by_this_function":False,
+            "prediction_at_is_simulated_asof_not_external_timestamp":True,
+            "requires_separate_process_for_true_blindness":True,
+            "execution_allowed":False}
+
+
 def compare_frozen_predictions(test_cases, parent_predictions, candidate_predictions):
     """Same private untouched test; cannot train or select on test results."""
     before = grade_blind(test_cases, parent_predictions)
