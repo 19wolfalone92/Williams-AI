@@ -1,0 +1,13 @@
+{
+  "run_slug": "williams-ai-v5-book-sft-20261111",
+  "experiment": "QWEN3_4B_NF4_QLORA_SOURCE_PARAPHRASE_ONLY",
+  "max_optimizer_steps": 80,
+  "context_tokens": 1536,
+  "train_rows": 300,
+  "validation_rows": 48,
+  "sealed_test_rows": 84,
+  "original_books_uploaded": false,
+  "expert_market_gold": false,
+  "allowed_to_trade": false,
+  "free_gpu_only": true
+}
