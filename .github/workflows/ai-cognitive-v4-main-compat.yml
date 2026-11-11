@@ -12,6 +12,7 @@ on:
     paths:
       - 'williams_ai/cognitive_memory_v4.py'
       - 'williams_ai/cognitive_market_bridge_v4.py'
+      - 'williams_ai/cognitive_timeframe_coherence_v5.py'
       - 'tests/test_williams_ai_cognitive_market_v4.py'
       - 'tests/test_williams_ai_cognitive_source_v4.py'
       - 'williams_ai/grounded_inference.py'
@@ -46,7 +47,7 @@ jobs:
           python-version: '3.11'
       - name: Static syntax and import contract
         run: |
-          python -m py_compile tests/test_williams_ai_cognitive_source_v4.py williams_ai/grounded_inference.py williams_ai/local_model.py williams_ai/cognitive_market_bridge_v4.py tests/test_williams_ai_cognitive_market_v4.py williams_ai/cognitive_memory_v4.py williams_ai/cognitive_engine_v4.py williams_ai/unified_memory.py williams_ai/unified_ai.py williams_ai/adaptive_coach.py williams_ai/study.py williams_ai/reasoning_trial.py
+          python -m py_compile williams_ai/cognitive_timeframe_coherence_v5.py tests/test_williams_ai_cognitive_source_v4.py williams_ai/grounded_inference.py williams_ai/local_model.py williams_ai/cognitive_market_bridge_v4.py tests/test_williams_ai_cognitive_market_v4.py williams_ai/cognitive_memory_v4.py williams_ai/cognitive_engine_v4.py williams_ai/unified_memory.py williams_ai/unified_ai.py williams_ai/adaptive_coach.py williams_ai/study.py williams_ai/reasoning_trial.py
           python -m williams_ai.unified_ai --help
       - name: Deep causal and semantic recall tests
         run: python -m unittest tests.test_williams_ai_cognitive_source_v4 tests.test_williams_ai_cognitive_market_v4 tests.test_williams_ai_cognitive_v4 tests.test_williams_ai_cognitive_root_causality_v4 tests.test_williams_ai_unified_runtime tests.test_williams_ai_adaptive_coach -v
