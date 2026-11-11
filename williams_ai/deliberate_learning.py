@@ -187,7 +187,8 @@ class DeliberateBookModel:
         if not self.public_rules_only:
             try:
                 pointers = recalled_source_pages(self.book_index,self.study_memory,
-                    _STUDY_RECALL[edition],edition=edition,model_id=self.model_id)
+                    _STUDY_RECALL[edition],edition=edition,model_id=self.model_id,
+                    as_of=observation["as_of"])
                 trace["past_study_sources_reread"] = [x["source"] for x in pointers]
                 trace["private_original_pages_read"] = bool(pointers)
                 existing = initial_args.get("primary_pages") or []
@@ -312,7 +313,8 @@ class DeliberateBookModel:
             trace["studied_chunks"] = studied["studied_chunks"]
             trace["failed_study_chunks"] = studied["failed_chunks"]
             notes = recall(self.study_memory, query, edition=edition, limit=2,
-                model_id=self.model_id, book_index=self.book_index)
+                model_id=self.model_id, book_index=self.book_index,
+                as_of=observation["as_of"])
             trace["recalled_notes"] = [x["source"] for x in notes]
         else:
             trace["public_rule_references"]=[x["source"] for x in self._public_rules(edition,focused)]
