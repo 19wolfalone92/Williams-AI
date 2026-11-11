@@ -87,7 +87,7 @@ def recover(encrypted: Path, audit_json: Path, private_output: Path, secret: str
         fd=os.open(private_output/name,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
         with os.fdopen(fd,"wb") as stream:
             stream.write(data)
-    return {"status":"AUTHENTICATED_TRAINED_QWEN3_4B_LORA_RECOVERED",
+    report={"status":"AUTHENTICATED_TRAINED_QWEN3_4B_LORA_RECOVERED",
             "original_archive_sha256":archive_sha,
             "adapter_sha256":digest,
             "selected_checkpoint":"checkpoint-500",
@@ -96,6 +96,11 @@ def recover(encrypted: Path, audit_json: Path, private_output: Path, secret: str
             "model_training_proved":True,
             "actual_model_inference_performed":False,
             "execution_allowed":False}
+    fd=os.open(private_output/"recovery_receipt.json",
+               os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+    with os.fdopen(fd,"w",encoding="utf-8") as out:
+        json.dump(report,out,sort_keys=True)
+    return report
 
 
 def main():
