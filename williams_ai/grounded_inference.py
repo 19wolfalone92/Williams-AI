@@ -118,7 +118,7 @@ def verified_private_book_pages(
     return [{
         "source":result["source"],
         "excerpt":result["excerpt"][:650],
-        "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
+        "status":provenance,
         "pdf_page":result["page"],
         "chunk_sha256":result["chunk_sha256"],
     } for result in results]
