@@ -72,6 +72,14 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
                         "PAGE_PROVENANCE_AND_OCR_LEXICAL_OVERLAP",
                         "UNVERIFIED_VISUAL_DESCRIPTION"))
 
+        (root/"VISUAL_DRAFTS_7.json").write_text(json.dumps([{
+            "page":18,"source_pdf_sha256":self.sha,
+            "page_image_sha256":hashlib.sha256(
+                (root/"page_images/page_018.jpg").read_bytes()).hexdigest(),
+            "geometry_observations":["A possible directional line must not be treated as a verified fill."],
+            "independently_verified":False,"use_as_expert_gold":False
+        }]),encoding="utf-8")
+
     def test_122_page_footprint_and_visual_checksum(self):
         report=course_visual_audit(self.db)
         self.assertEqual(report["pages_with_images"],122)
@@ -92,6 +100,8 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
                          "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
         self.assertEqual(len(result[0]["visual_refs"]),1)
         self.assertTrue(result[0]["visual_meaning_not_authoritatively_checked"])
+        self.assertEqual(len(result[0]["private_visual_drafts"]),1)
+        self.assertFalse(result[0]["private_visual_drafts"][0]["use_as_expert_gold"])
 
     def test_diagram_only_page_remains_searchable_without_fabricating_ocr(self):
         from williams_ai.course_visual_private import search_course_visual_descriptions
@@ -142,6 +152,9 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
         self.assertTrue(source["visual_refs"])
         self.assertEqual(source["visual_refs"][0]["visual_status"],
                          "UNVERIFIED_DESCRIPTIVE_ONLY")
+        self.assertEqual(source["visual_draft_observations"][0]["status"],
+                         "UNVERIFIED_VISUAL_OBSERVATION")
+        self.assertFalse(source["visual_draft_observations"][0]["gold_label"])
         self.assertFalse(result["private_book_passages_exported"])
 
     def test_merge_into_copy_does_not_erase_other_books(self):
