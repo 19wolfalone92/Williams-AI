@@ -14,6 +14,21 @@ from .book_index import _private_database, _known_book, search_pages
 from .book_rules import lookup_rules, registry
 from .knowledge import query_terms
 
+
+def _with_private_course_visuals(item:dict[str,Any],db_path:Path,edition:str)->dict[str,Any]:
+    """Attach local image provenance and descriptive links, NEVER inferred rules.
+
+    A text-only GGUF sees only a labeled, unverified visual description.
+    The original page image stays private; full visual interpretation needs
+    a vision-capable model or human reviewer.
+    """
+    if edition=="COURSE":
+        from .course_visual_private import course_visual_refs
+        item["visual_refs"]=course_visual_refs(db_path,item["pdf_page"])
+        item["visual_meaning_not_authoritatively_checked"]=True
+    return item
+
+
 _TOPICS={
     "TC1":"волна Эллиотта AO фрактал дивергенция структура коррекция 4 5",
     "NTD":"Аллигатор фрактал Awesome Oscillator Acceleration Balance Line вход выход",
@@ -87,11 +102,13 @@ def verified_private_book_pages(
                 if (page,text) in seen:
                     continue
                 seen.add((page,text))
-                selected.append({"source":f"{edition}: PDF {page}","excerpt":text,
+                selected.append(_with_private_course_visuals(
+                    {"source":f"{edition}: PDF {page}","excerpt":text,
                     "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
                                if row[2] == "PDF_TEXT_WITH_UNREVIEWED_OCR"
                                else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"),
-                    "pdf_page":page,"chunk_sha256":chunk_sha})
+                    "pdf_page":page,"chunk_sha256":chunk_sha},
+                    db_path,edition))
                 if len(selected)==limit:
                     break
             return selected
@@ -113,7 +130,7 @@ def verified_private_book_pages(
         for card in cards[:2]:
             terms+=" "+card["excerpt"][:200]
     results=search_pages(db_path,terms[:1400],edition=edition,limit=limit)
-    return [{
+    return [_with_private_course_visuals({
         "source":result["source"],
         "excerpt":result["excerpt"][:650],
         "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
@@ -121,4 +138,4 @@ def verified_private_book_pages(
                                else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"),
         "pdf_page":result["page"],
         "chunk_sha256":result["chunk_sha256"],
-    } for result in results]
+    },db_path,edition) for result in results]
