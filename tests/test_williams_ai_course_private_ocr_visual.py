@@ -164,6 +164,12 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"NEW_COMBINED"):
             combine_with_existing_private_books(other,self.db,destination=output)
 
+    def test_global_audit_checks_all_122_images_not_only_annotated(self):
+        unannotated=self.root/"page_images/page_119.jpg"
+        unannotated.write_bytes(b"CORRUPTED UNANNOTATED PDF PAGE")
+        with self.assertRaisesRegex(ValueError,"COURSE_PAGE_IMAGE_HASH"):
+            course_visual_audit(self.db)
+
     def test_corrupt_image_is_rejected_without_inventing_figures(self):
         picture=self.root/"page_images/page_018.jpg"
         picture.write_bytes(b"NOT THE SAME IMAGE")
