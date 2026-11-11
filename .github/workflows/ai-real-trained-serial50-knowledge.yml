@@ -56,6 +56,9 @@ jobs:
           test -s "$RUNNER_TEMP/serial50_private_checkpoint/adapter_model.safetensors"
       - name: Install pinned official model tokenizers and gguf converter dependencies
         run: |
+          # llama.cpp's LoRA converter loads safetensors through torch on CPU.
+          python -m pip install --disable-pip-version-check --index-url \
+            https://download.pytorch.org/whl/cpu 'torch==2.6.0'
           python -m pip install --disable-pip-version-check \
             'huggingface_hub>=0.29,<2' 'transformers>=4.57,<5' \
             'gguf>=0.17' 'safetensors>=0.5' 'sentencepiece>=0.2' \
