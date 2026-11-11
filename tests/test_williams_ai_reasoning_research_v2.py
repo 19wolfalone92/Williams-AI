@@ -133,6 +133,33 @@ class EvidenceGateTests(unittest.TestCase):
             self.assertEqual(rows[0]["status"], "UNVERIFIED_MODEL_HYPOTHESIS")
             self.assertEqual(mem.path.stat().st_mode & 0o077, 0)
 
+    def test_human_review_never_retroactively_leaks_into_memory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            mem = HypothesisMemory(Path(folder) / "private.sqlite")
+            mem.append(case_id="hist-001", symbol="BTCUSDT",
+                       cutoff="2026-11-01T01:00:00Z",
+                       available_at="2026-11-01T02:00:00Z",
+                       snapshot_sha256="a"*64, hypothesis="initial unconfirmed structure",
+                       alternative="possible correction", evidence=["closed candle"],
+                       counterevidence=["degree unknown"],
+                       invalidation="break of pivot")
+            with self.assertRaisesRegex(ValueError, "REVIEW_CANNOT_PRECEDE"):
+                mem.review(case_id="hist-001", reviewer_a="expert-one",
+                           reviewer_b="expert-two",
+                           reviewed_at="2026-11-01T01:30:00Z", verdict="REJECTED",
+                           rationale="Later candles contradicted the original thesis.")
+            mem.review(case_id="hist-001", reviewer_a="expert-one",
+                       reviewer_b="expert-two",
+                       reviewed_at="2026-11-04T00:00:00Z", verdict="REJECTED",
+                       rationale="Later candles contradicted the original thesis.")
+            historical = mem.as_of(symbol="BTCUSDT",
+                                   timestamp="2026-11-03T00:00:00Z")
+            self.assertEqual(historical[0]["status"], "UNVERIFIED_MODEL_HYPOTHESIS")
+            reviewed = mem.as_of(symbol="BTCUSDT",
+                                 timestamp="2026-11-05T00:00:00Z")
+            self.assertEqual(reviewed[0]["status"], "HUMAN_REVIEW_REJECTED")
+            self.assertIn("contradicted", reviewed[0]["review_rationale"])
+
     def test_blind_prediction_is_snapshot_bound(self):
         case = example("test-1", "test", "BTCUSDT")
         p = {"case_id": "test-1", "cutoff": case["cutoff"],
