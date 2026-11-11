@@ -255,10 +255,18 @@ def direct_visual_drafts(database: str | Path,pdf_page:int,*,limit:int=3):
     if src.stat().st_size>200_000:
         raise ValueError("OVERLARGE_UNTRUSTED_PRIVATE_VISUAL_DRAFT_FILE")
     with sqlite3.connect(f"file:{path}?mode=ro",uri=True) as db:
-        row=db.execute("SELECT page_image_sha256,source_sha256 FROM course_pages "
+        row=db.execute("SELECT page_image_sha256,source_sha256,"
+                       "page_image_path FROM course_pages "
                        "WHERE pdf_page=?",(pdf_page,)).fetchone()
     if not row:
         return []
+    rel=Path(row[2])
+    image=path.parent/rel
+    if (rel.is_absolute() or ".." in rel.parts or
+            not str(rel).startswith("page_images/") or
+            not image.is_file() or image.is_symlink() or
+            hashlib.sha256(image.read_bytes()).hexdigest()!=row[0]):
+        raise ValueError("PRIVATE_VISUAL_DRAFT_IMAGE_NOT_ORIGINAL")
     books={x["id"]:x["sha256"] for x in registry()["books"]}
     if row[1]!=books["COURSE"]:
         raise ValueError("VISUAL_DRAFT_BOOK_HASH_MISMATCH")
