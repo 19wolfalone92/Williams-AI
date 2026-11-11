@@ -118,14 +118,15 @@ def verify_case(row):
     if not isinstance(reviews, list) or len(reviews) != 2:
         raise ValueError("TWO_INDEPENDENT_REVIEW_RECORDS_REQUIRED")
     ids = set()
+    case_sha = digest({k: v for k, v in row.items() if k != "reviewers"})
     for review in reviews:
-        if not isinstance(review, dict) or set(review) != {"reviewer_id", "approved_at", "answer_sha256"}:
+        if not isinstance(review, dict) or set(review) != {"reviewer_id", "approved_at", "case_sha256"}:
             raise ValueError("EXACT_REVIEW_RECORD_REQUIRED")
         name = review["reviewer_id"]
         if not isinstance(name, str) or not 5 <= len(name) <= 100 or name in ids:
             raise ValueError("TWO_DISTINCT_REVIEWER_IDENTITIES_REQUIRED")
         ids.add(name)
-        if utc(review["approved_at"]) < cutoff or review["answer_sha256"] != digest(row["answer"]):
+        if utc(review["approved_at"]) < cutoff or review["case_sha256"] != case_sha:
             raise ValueError("REVIEW_MUST_APPROVE_EXACT_ANSWER_AFTER_CUTOFF")
     # Cryptographic binding to the local four-book rule registry. A claimed
     # reviewer identity is still not proof of actual reviewer expertise.
