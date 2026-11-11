@@ -105,6 +105,42 @@ class WilliamsAI:
             "all_knowledge_verified": False, "execution_allowed": False, "trade_action": None}
         return result
 
+    def cognitive_research(self, question: str, *, edition: str, as_of: str,
+                           closed_facts: list[dict[str, Any]], run_id: str,
+                           retain_hypothesis: bool = False,
+                           use_memory: bool = True,
+                           research_backend: Callable[..., Any] | None = None,
+                           embedding_encoder=None, embedding_model_id=None) -> dict[str, Any]:
+        """Opt-in multi-pass cognition on the SAME loaded Qwen + durable memory.
+
+        Strictly read-only, never claims that source annotations, same-model
+        critic, supplied closed facts or artificial examples are expert gold.
+        Existing analyze/study/practice remain unchanged.
+        """
+        from .cognitive_engine_v4 import (
+            CognitiveResearchEngine, LocalQwenResearchBackend,
+        )
+        backend = (research_backend if research_backend is not None
+                   else LocalQwenResearchBackend(self.model))
+        engine = CognitiveResearchEngine(
+            memory=self.memory.cognitive, backend=backend,
+            model_id=self.identity["model_id"], run_id=run_id,
+            book_index=self.book_index,
+            embedding_encoder=embedding_encoder,
+            embedding_model_id=embedding_model_id)
+        result = engine.reason(question, edition=edition, as_of=as_of,
+                               closed_facts=closed_facts,
+                               retain_hypothesis=retain_hypothesis,
+                               use_memory=use_memory)
+        result["integration"] = {
+            "same_private_memory_db": True,
+            "same_loaded_qwen_runtime": research_backend is None,
+            "legacy_study_analyze_practice_unchanged": True,
+            "market_fact_provenance_asserted_by_caller_not_exchange_attested": True,
+            "weight_training_performed": False,
+            "execution_allowed": False}
+        return result
+
     def status(self) -> dict[str, Any]:
         from .study import study_report
         books = (study_report(self.book_index, self.memory.path, model_id=self.identity["model_id"])
@@ -114,6 +150,7 @@ class WilliamsAI:
             "runtime_loaded": self._model is not None,
             "source_mode": "PUBLIC_PARAPHRASES_ONLY" if self.public_rules_only else "PRIVATE_ORIGINAL_BOOK_INDEX",
             "book_study": books, "memory_counts": self.memory.inventory(),
+            "cognitive_memory": self.memory.cognitive_inventory(),
             "adapter_activation_is_not_qualification": True,
             "autonomous_trading_qualified": False, "execution_allowed": False, "trade_action": None}
 
@@ -130,6 +167,14 @@ def main() -> None:
     p.add_argument("--reasoning-budget", type=int, default=1536)
     actions = p.add_subparsers(dest="action", required=True)
     actions.add_parser("status")
+    cog = actions.add_parser("cognitive-research")
+    cog.add_argument("--question", required=True)
+    cog.add_argument("--edition", choices=["TC1","NTD","TC2","COURSE"], required=True)
+    cog.add_argument("--as-of", required=True)
+    cog.add_argument("--market-facts", type=Path, required=True)
+    cog.add_argument("--run-id", required=True)
+    cog.add_argument("--retain-hypothesis", action="store_true")
+    cog.add_argument("--no-memory", action="store_true")
     refs = actions.add_parser("references")
     refs.add_argument("--question", required=True)
     imported = actions.add_parser("import-memory")
@@ -157,6 +202,17 @@ def main() -> None:
         lora_manifest=a.lora_manifest, n_ctx=a.ctx, reasoning_budget=a.reasoning_budget)
     if a.action == "status":
         result = brain.status()
+    elif a.action == "cognitive-research":
+        from .private_lora import _private_file
+        path = _private_file(a.market_facts)
+        if path.stat().st_size > 250_000:
+            raise ValueError("BOUNDED_PRIVATE_MARKET_FACTS_REQUIRED")
+        observations = json.loads(path.read_text(encoding="utf-8"))
+        result = brain.cognitive_research(
+            a.question, edition=a.edition, as_of=a.as_of,
+            closed_facts=observations, run_id=a.run_id,
+            retain_hypothesis=a.retain_hypothesis,
+            use_memory=not a.no_memory)
     elif a.action == "references":
         result = brain.references(a.question)
     elif a.action == "import-memory":
