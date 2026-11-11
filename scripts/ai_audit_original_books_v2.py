@@ -32,7 +32,7 @@ def audit_pdf_sources(books_folder, reviewed_cases=None):
     report=[]
     page_cache={}
     for src in sources:
-        pdf=folder/src["filename"]]
+        pdf=folder/src["filename"]
         match=verify_original(src["id"],pdf)
         reader=PdfReader(str(pdf),strict=True)
         if len(reader.pages)!=src["pages"]:
