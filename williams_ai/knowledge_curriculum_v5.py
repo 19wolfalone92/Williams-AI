@@ -188,7 +188,7 @@ def build():
         "excluded_rules":omitted,
         "approved_market_labels":0,
         "independently_reviewed_diagrams":0,
-        "split_rule_ids":{part:sorted(x["rule_id"] for x in mapped
+        "split_rule_ids":{part:sorted(x["id"] for x in mapped
                     if x["split"]==part) for part in SPLITS},
         "split_rows":{part:len(checks[part]) for part in SPLITS},
         "split_prompt_sha256":{part:digest([x["prompt"] for x in checks[part]])
