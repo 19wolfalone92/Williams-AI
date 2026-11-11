@@ -2,6 +2,7 @@
 from copy import deepcopy
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -113,8 +114,11 @@ class UnifiedRuntimeTests(unittest.TestCase):
         self.assertEqual(runtime.options["lora_scale"],1.0)
         self.assertTrue(result["unified_ai"]["effective_model"]["adapter_loaded"])
         self.assertEqual(result["unified_ai"]["effective_model"]["model_id"],study["model_fingerprint_id"])
-        self.assertTrue(result["private_research_material_refs_used"])
-        self.assertEqual(result["deliberate_book_learning"]["past_study_sources_reread"],["TC2: PDF 10"])
+        # The user note was added today, AFTER the frozen chart cutoff.
+        # It must not enter historical inference, despite a backdated
+        # "available_at" field supplied by the note author.
+        self.assertFalse(result["private_research_material_refs_used"])
+        self.assertEqual(result["deliberate_book_learning"]["past_study_sources_reread"],[])
         prompt=json.loads(runtime.calls[-1]["messages"][1]["content"])
         self.assertTrue(prompt["retained_research_materials_not_authoritative_rules"])
         self.assertNotIn("Непроверенный учебный вывод",json.dumps(prompt,ensure_ascii=False))
@@ -207,10 +211,14 @@ class UnifiedRuntimeTests(unittest.TestCase):
         key=memory.retain(text,source="private-wave-guide",title="Guide",edition="TC2",
             available_at="2026-01-01T00:00:00Z")
         memory.retain("Сопровождение стоп фрактал "*3,source="future",title="Future",edition="TC2",
-            available_at="2026-10-22T00:00:00+03:00")
+            available_at="2027-10-22T00:00:00+03:00")
         memory.retain("Сопровождение стоп фрактал "*3,source="NTD",title="Another",edition="NTD",
             available_at="2026-01-01T00:00:00Z")
-        rows=memory.retrieve("сопровождение стоп фрактал",edition="TC2",as_of="2026-10-20T00:00:00Z")
+        self.assertEqual(memory.retrieve("сопровождение стоп фрактал",
+            edition="TC2",as_of="2026-10-20T00:00:00Z"),[])
+        after_actual_ingestion=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()
+        rows=memory.retrieve("сопровождение стоп фрактал",edition="TC2",
+                             as_of=after_actual_ingestion)
         self.assertEqual([x["source"] for x in rows],["MATERIAL:"+key])
         self.assertIn("Сопровождение",rows[0]["excerpt"])
         with memory.connect() as db:
@@ -231,7 +239,8 @@ class UnifiedRuntimeTests(unittest.TestCase):
         memory.retain("Фрактал стоп",source="notes",title="Guide",edition="TC2",available_at="2026-01-01T00:00:00Z")
         with memory.connect() as db:db.execute("UPDATE retained_materials SET text='Revised фрактал стоп'")
         with self.assertRaisesRegex(ValueError,"MATERIAL_CHANGED"):
-            memory.retrieve("стоп",edition="TC2",as_of="2026-02-01T00:00:00Z")
+            memory.retrieve("стоп",edition="TC2",
+                as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat())
 
     def test_checkpoint_import_is_repeatable_preserves_receipts_and_does_not_change_source(self):
         source=self.root/"legacy.sqlite3";legacy=UnifiedMemory(source)
