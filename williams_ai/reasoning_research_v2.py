@@ -281,6 +281,12 @@ class HypothesisMemory:
                 evidence_json TEXT NOT NULL, counter_json TEXT NOT NULL,
                 invalidation TEXT NOT NULL, status TEXT NOT NULL
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS hypothesis_reviews (
+                case_id TEXT PRIMARY KEY REFERENCES hypotheses(case_id),
+                reviewer_a TEXT NOT NULL, reviewer_b TEXT NOT NULL,
+                reviewed_at TEXT NOT NULL, verdict TEXT NOT NULL,
+                rationale TEXT NOT NULL
+            )""")
 
     def append(self, *, case_id, symbol, cutoff, available_at, snapshot_sha256,
                hypothesis, alternative, evidence, counterevidence, invalidation):
@@ -301,17 +307,52 @@ class HypothesisMemory:
                         canonical(counterevidence), invalidation,
                         "UNVERIFIED_MODEL_HYPOTHESIS"))
 
+    def review(self, *, case_id, reviewer_a, reviewer_b,
+               reviewed_at, verdict, rationale):
+        """A separate two-reviewer *declaration*. Not self-certification.
+
+        The independent review becomes visible ONLY at its real
+        reviewed_at timestamp; cannot rewrite older as-of model memory.
+        """
+        if (not isinstance(reviewer_a, str) or not isinstance(reviewer_b, str)
+                or reviewer_a == reviewer_b or
+                not (5 <= len(reviewer_a) <= 100 and 5 <= len(reviewer_b) <= 100)):
+            raise ValueError("TWO_DISTINCT_HUMAN_REVIEWERS_REQUIRED")
+        if verdict not in {"CONFIRMED", "REJECTED", "DISPUTED"}:
+            raise ValueError("EXPLICIT_REVIEW_VERDICT_REQUIRED")
+        if not isinstance(rationale, str) or not 20 <= len(rationale) <= 4000:
+            raise ValueError("SUBSTANTIVE_REVIEW_EVIDENCE_REQUIRED")
+        reviewed = utc(reviewed_at)
+        with sqlite3.connect(self.path) as db:
+            row = db.execute("SELECT cutoff,available_at FROM hypotheses WHERE case_id=?",
+                             (case_id,)).fetchone()
+            if row is None:
+                raise ValueError("UNKNOWN_HYPOTHESIS")
+            if reviewed < utc(row[0]) or reviewed < utc(row[1]):
+                raise ValueError("REVIEW_CANNOT_PRECEDE_CASE_OR_ITS_PUBLICATION")
+            db.execute("INSERT INTO hypothesis_reviews VALUES(?,?,?,?,?,?)",
+                       (case_id, reviewer_a, reviewer_b, reviewed_at, verdict, rationale))
+
     def as_of(self, *, symbol, timestamp):
         cutoff = utc(timestamp)
         with sqlite3.connect(self.path) as db:
-            rows = db.execute("""SELECT case_id,cutoff,available_at,hypothesis,
-                             alternative,evidence_json,counter_json,invalidation,status
-                             FROM hypotheses WHERE symbol=? ORDER BY cutoff,case_id""",
+            rows = db.execute("""SELECT h.case_id,h.cutoff,h.available_at,h.hypothesis,
+                             h.alternative,h.evidence_json,h.counter_json,h.invalidation,
+                             r.reviewed_at,r.verdict,r.rationale
+                             FROM hypotheses AS h LEFT JOIN hypothesis_reviews AS r
+                             ON r.case_id=h.case_id
+                             WHERE h.symbol=? ORDER BY h.cutoff,h.case_id""",
                              (symbol,)).fetchall()
         return [{"case_id": row[0], "cutoff": row[1], "available_at": row[2],
                  "hypothesis": row[3], "alternative": row[4],
                  "evidence": json.loads(row[5]), "counterevidence": json.loads(row[6]),
-                 "invalidation": row[7], "status": row[8]}
+                 "invalidation": row[7],
+                 "status": ("HUMAN_REVIEW_" + row[9]
+                            if row[8] is not None and utc(row[8]) <= cutoff
+                            else "UNVERIFIED_MODEL_HYPOTHESIS"),
+                 "review_rationale": (row[10]
+                            if row[8] is not None and utc(row[8]) <= cutoff
+                            else None)}
                 for row in rows if utc(row[1]) <= cutoff and utc(row[2]) <= cutoff]
 
 
