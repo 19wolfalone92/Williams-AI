@@ -206,20 +206,31 @@ class CognitiveMemory:
         match = " OR ".join('"' + x.replace('"', '""') + '"' for x in terms)
         lexical_rank = {}
         with self.connect() as db:
+            # Apply temporal and model/run isolation BEFORE limiting results.
+            # Ranking all future/foreign-model FTS hits first can starve the
+            # actual historical memories even though Python later filters them.
+            allowed = """(e.edition=? OR e.edition='GENERAL')
+                AND julianday(e.observed_at)<=julianday(?)
+                AND julianday(e.recorded_at)<=julianday(?)
+                AND ((e.model_id IS NULL AND (e.run_id IS NULL OR e.run_id=?))
+                     OR (e.model_id=? AND e.run_id=?))"""
+            scope = (edition,cutoff,cutoff,run_id,model_id,run_id)
             if match:
                 for rank, (ident,) in enumerate(db.execute(
-                    """SELECT entry_id FROM cognitive_fts_v4 WHERE cognitive_fts_v4 MATCH ?
-                       ORDER BY bm25(cognitive_fts_v4) LIMIT 512""", (match,))):
+                    """SELECT f.entry_id FROM cognitive_fts_v4 AS f
+                       JOIN cognitive_entries_v4 AS e ON e.entry_id=f.entry_id
+                       WHERE cognitive_fts_v4 MATCH ? AND """+allowed+
+                    """ ORDER BY bm25(cognitive_fts_v4) LIMIT 512""",
+                    (match,)+scope)):
                     lexical_rank[ident] = 1.0 / (1 + rank)
-            # Optional semantic retrieval scans only a bounded, causally valid
-            # model-specific shortlist. It is NOT ANN at massive scale.
-            rows = db.execute("""SELECT entry_id,kind,edition,model_id,run_id,
-                         source_ref,text,observed_at,recorded_at,evidence_status,
-                         embedding_model_id,embedding_json,content_sha256
-                         FROM cognitive_entries_v4
-                         WHERE (edition=? OR edition='GENERAL')
-                         ORDER BY recorded_at DESC,entry_id LIMIT 5000""",
-                         (edition,)).fetchall()
+            # Bounded local scan: no ANN dependency; after 5,000 eligible
+            # episodes a dedicated vector index may be needed.
+            rows = db.execute("""SELECT e.entry_id,e.kind,e.edition,e.model_id,e.run_id,
+                         e.source_ref,e.text,e.observed_at,e.recorded_at,e.evidence_status,
+                         e.embedding_model_id,e.embedding_json,e.content_sha256
+                         FROM cognitive_entries_v4 AS e WHERE """+allowed+
+                         """ ORDER BY e.recorded_at DESC,e.entry_id LIMIT 5000""",
+                         scope).fetchall()
         results = []
         for (ident, kind, book, model, run, source, passage, seen, recorded,
              status, vec_model, vec_json, stamped_hash) in rows:
@@ -304,6 +315,48 @@ class CognitiveMemory:
                 if len(output)>=limit:
                     break
         return output
+
+    def import_previous_coaching_errors(self, *, model_id, run_id, limit=150):
+        """Bring REAL model-scoped coach corrections into v4 as unverified notes.
+
+        Imported rows retain the exact source rule, but do NOT become trusted
+        gold; first v4 ingestion is recorded NOW and can never appear on an
+        older frozen candle. Reimport is idempotent by content hash.
+        """
+        if (not isinstance(model_id,str) or not 6<=len(model_id)<=128 or
+                not isinstance(run_id,str) or not 6<=len(run_id)<=128 or
+                type(limit) is not int or not 1<=limit<=500):
+            raise ValueError("SCOPED_BOUNDED_COACH_ERROR_IMPORT_REQUIRED")
+        from .book_rules import registry
+        rules={x["id"]:x for x in registry()["rule_cards"]
+               if x["status"]=="REVIEWED_PAGES"}
+        with self.connect() as db:
+            exists=db.execute("""SELECT 1 FROM sqlite_master WHERE type='table'
+                                 AND name='private_remediation'""").fetchone()
+            rows=(db.execute(
+                "SELECT edition,rule_id,source,explanation,updated_at "
+                "FROM private_remediation WHERE model_id=? "
+                "ORDER BY updated_at,edition,rule_id LIMIT ?",
+                (model_id,limit)).fetchall() if exists else [])
+        added=[]
+        skipped=0
+        for edition,rule_id,source,explanation,updated_at in rows:
+            card=rules.get(rule_id)
+            if (not card or card["source"]!=edition or
+                    not isinstance(source,str) or not source.startswith(edition+":RULE:") or
+                    not isinstance(explanation,str) or len(explanation)<12 or
+                    _as_utc(updated_at) is None or _as_utc(updated_at)>_as_utc(_now())):
+                skipped+=1
+                continue
+            entry=self.put(kind="RESEARCH_NOTE",edition=edition,
+                source_ref="COACH_REMEDIATION:"+rule_id,
+                text="Previously coached error for "+rule_id+": "+explanation,
+                observed_at=updated_at,model_id=model_id,run_id=run_id)
+            added.append(entry)
+        return {"rows_checked":len(rows),"eligible_scoped_lessons":len(added),
+                "skipped_unverified_or_invalid":skipped,
+                "entry_ids":added,"imported_as_expert_gold":False,
+                "historical_ingestion_backdated":False}
 
     def stats(self):
         with self.connect() as db:
