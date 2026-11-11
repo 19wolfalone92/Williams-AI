@@ -268,12 +268,21 @@ class CognitiveMemory:
             links = db.execute("""SELECT from_id,to_id,relation,justification,recorded_at
                      FROM cognitive_edges_v4 WHERE from_id=? OR to_id=?
                      ORDER BY recorded_at,edge_id""", (entry_id,entry_id)).fetchall()
-        known = {e["entry_id"]: e for e in self.retrieve(
-            "relevant", edition="GENERAL", as_of=as_of, model_id=model_id,
-            run_id=run_id, limit=1)}  # Never implicitly authorize a link.
-        # Fetch exact endpoints instead of relying on lexical search.
+        # Authorization must begin with the requested anchor itself; checking
+        # only the neighbouring vertex would expose links of another model.
         output = []
         with self.connect() as db:
+            anchor = db.execute(
+                "SELECT model_id,run_id,observed_at,recorded_at FROM cognitive_entries_v4 "
+                "WHERE entry_id=?", (entry_id,)).fetchone()
+            if anchor is None:
+                raise ValueError("UNKNOWN_MEMORY_GRAPH_VERTEX")
+            owner, run, first_seen, ingested = anchor
+            if (_as_utc(first_seen) > _as_utc(cutoff) or
+                _as_utc(ingested) > _as_utc(cutoff) or
+                (owner is not None and (owner != model_id or run != run_id)) or
+                (owner is None and run is not None and run != run_id)):
+                raise ValueError("MEMORY_GRAPH_ANCHOR_NOT_VISIBLE_FOR_MODEL")
             for from_id, to_id, relation, reason, recorded in links:
                 if _as_utc(recorded) > _as_utc(cutoff):
                     continue
@@ -286,7 +295,8 @@ class CognitiveMemory:
                 book,model,run,seen,ingested = r
                 if (_as_utc(seen)>_as_utc(cutoff) or
                     _as_utc(ingested)>_as_utc(cutoff) or
-                    (model is not None and (model!=model_id or run!=run_id))):
+                    (model is not None and (model!=model_id or run!=run_id)) or
+                    (model is None and run is not None and run!=run_id)):
                     continue
                 output.append({"other_id":other,"relation":relation,
                                "justification":reason,
