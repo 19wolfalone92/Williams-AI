@@ -177,8 +177,11 @@ def _validate_full_research_context(row):
             raise ValueError("HIGHER_TIMEFRAME_WARMUP_REQUIRED")
         if digest(bars) != frame["visible_prefix_sha256"]:
             raise ValueError("HIGHER_TIMEFRAME_SHA256_MISMATCH")
-        if utc(bars[-1]["close_time"]) > cutoff:
+        last_known=utc(bars[-1]["close_time"])
+        if last_known > cutoff:
             raise ValueError("HIGHER_TIMEFRAME_FUTURE_LEAKAGE")
+        if (cutoff - last_known).total_seconds() >= TF_SECONDS[timeframe]:
+            raise ValueError("HIGHER_TIMEFRAME_CONTEXT_STALE")
         candles, gaps = validate_closed_bars(
             bars, timeframe, bars[-1]["close_time"])
         seconds = TF_SECONDS[timeframe]
