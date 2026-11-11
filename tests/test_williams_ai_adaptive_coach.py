@@ -157,12 +157,12 @@ class AdaptiveBookTutorTests(unittest.TestCase):
                 bar_index=310,edition="TC1",model=model,
                 coach_notebook=path,model_id=model_id)
             self.assertIsNotNone(model.notes)
-            self.assertEqual(len(model.notes),1)
-            self.assertEqual(model.notes[0]["source"],"TC1:RULE:TC1.W3")
-            self.assertEqual(result["private_prior_mistake_lessons_used"],
-                             ["TC1:RULE:TC1.W3"])
+            # A coaching correction written now cannot exist on a frozen
+            # historical bar from before the coaching event.
+            self.assertEqual(model.notes,[])
+            self.assertEqual(result["private_prior_mistake_lessons_used"],[])
             self.assertFalse(result["private_coaching_text_exported"])
-            self.assertNotIn(model.notes[0]["excerpt"],str(result))
+            self.assertNotIn("Fractal confirmation",str(result))
             self.assertFalse(result["execution_allowed"])
 
     def test_other_model_and_source_cannot_borrow_private_learning(self):

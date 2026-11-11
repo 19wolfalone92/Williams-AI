@@ -1,0 +1,8 @@
+{
+  "mode": "NO_GPU_PREFLIGHT",
+  "expected_micro_rounds": 50,
+  "source_run": 42836438045,
+  "staged_after_ci_success": 42882026836,
+  "attempt": 2,
+  "note": "preflight with explicit no-GPU config after fixing START dependency"
+}

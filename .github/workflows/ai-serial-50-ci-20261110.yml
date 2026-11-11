@@ -1,0 +1,31 @@
+name: Williams AI 50 consecutive QLoRA phases offline safety
+on:
+  push:
+    branches: [research/fifty-serial-mini-cycles-20261110]
+    paths:
+      - '.github/workflows/ai-serial-50-ci-20261110.yml'
+      - 'williams_ai/serial_50_engine.py'
+      - 'williams_ai/serial_50_gpu.py'
+      - 'scripts/ai_run_serial_50_kaggle.py'
+      - 'scripts/ai_verify_serial_50.py'
+      - 'tests/test_williams_ai_serial_50.py'
+permissions: {contents: read}
+concurrency:
+  group: williams-ai-fifty-serial-readonly-ci
+  cancel-in-progress: false
+jobs:
+  offline-serial-training-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m py_compile williams_ai/serial_50_engine.py williams_ai/serial_50_gpu.py scripts/ai_run_serial_50_kaggle.py scripts/ai_verify_serial_50.py
+      - name: Verify 50 real phases, strict train/dev/test and precommitted holdout
+        run: python -m unittest tests.test_williams_ai_serial_50 -v
+      - name: Verify preceding V1 and V2 training contracts
+        run: python -m unittest tests.test_williams_ai_deep_corrective_v2_20261110 tests.test_williams_ai_deep_corrective_20261110 -v
+      - name: Run original market and campaign safety tests
+        run: python -m unittest tests.test_williams_ai_market_decision -v

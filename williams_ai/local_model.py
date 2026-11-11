@@ -712,11 +712,71 @@ class LocalWilliamsModel:
                     raise ValueError("Invalid page evidence")
                 source=item.get("source")
                 excerpt=item.get("excerpt")
+                evidence_status=item.get("status")
+                allowed={"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"}
+                if edition=="COURSE":
+                    allowed.update({
+                        "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW",
+                        "PRIVATE_VISUAL_DESCRIPTION_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW",
+                    })
                 if (not isinstance(source,str) or not source.startswith(edition+": PDF ")
                         or not isinstance(excerpt,str) or not 1<=len(excerpt)<=650
-                        or item.get("status")!="PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"):
+                        or evidence_status not in allowed):
                     raise ValueError("Unverified or mixed-edition source")
-                pages.append({"source":source,"excerpt":excerpt})
+                visual=item.get("visual_refs",[])
+                if (not isinstance(visual,list) or len(visual)>2
+                        or (visual and edition!="COURSE")):
+                    raise ValueError("Only bounded private Course visual references")
+                excerpts=[]
+                for figure in visual:
+                    if (not isinstance(figure,dict)
+                            or figure.get("source_status")!="COURSE_PAGE_VISUAL_AUTO_LINKED_UNVERIFIED"
+                            or figure.get("expert_figure_interpretation_verified") is not False
+                            or not isinstance(figure.get("description"),str)
+                            or not 10<=len(figure["description"])<=500
+                            or not isinstance(figure.get("figure_id"),str)
+                            or not isinstance(figure.get("image_sha256"),str)
+                            or len(figure["image_sha256"])!=64):
+                        raise ValueError("Invalid, fabricated or unlabeled figure evidence")
+                    excerpts.append({"figure_id":figure["figure_id"],
+                                     "description":figure["description"],
+                                     "visual_status":"UNVERIFIED_DESCRIPTIVE_ONLY",
+                                     "image_sha256":figure["image_sha256"],
+                                     "image_not_seen_by_text_only_model":True})
+                source_role=None
+                blank_form=False
+                if edition=="COURSE":
+                    from .course_page_semantics_v3 import private_course_page_role
+                    try:
+                        page_number=int(source.rsplit(" ",1)[1])
+                    except (ValueError,IndexError) as exc:
+                        raise ValueError("Bad Course PDF source page number") from exc
+                    source_role=private_course_page_role(page_number)
+                    blank_form=bool(source_role.get("blank_form_not_a_trading_rule"))
+                draft_items=item.get("private_visual_drafts",[])
+                if not isinstance(draft_items,list) or len(draft_items)>2:
+                    raise ValueError("Only bounded private Course visual drafts allowed")
+                drafts=[]
+                for note in draft_items:
+                    if (not isinstance(note,dict)
+                            or note.get("review_status")!="DIRECT_VISUAL_DRAFT_UNVERIFIED_BY_SECOND_REVIEWER"
+                            or note.get("use_as_expert_gold") is not False
+                            or not isinstance(note.get("statement"),str)
+                            or not 1<=len(note["statement"])<=500
+                            or not isinstance(note.get("source_page_sha256"),str)
+                            or len(note["source_page_sha256"])!=64):
+                        raise ValueError("Invalid or expert-impersonating visual draft")
+                    drafts.append({"statement":note["statement"],
+                                   "status":"UNVERIFIED_VISUAL_OBSERVATION",
+                                   "source_page_sha256":note["source_page_sha256"],
+                                   "gold_label":False})
+                pages.append({"source":source,"excerpt":excerpt,
+                              "source_status":evidence_status,
+                              "visual_refs":excerpts,
+                              "visual_draft_observations":drafts,
+                              "source_page_role":source_role,
+                              "blank_form_is_not_trading_rule":blank_form,
+                              "not_expert_verified":True})
         corrections=[]
         if prior_lessons is not None:
             if not isinstance(prior_lessons,list) or len(prior_lessons)>3:
