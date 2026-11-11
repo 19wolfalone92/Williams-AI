@@ -11,7 +11,7 @@ import unittest
 
 from williams_ai.book_index import index_pages
 from williams_ai.book_rules import registry
-from williams_ai.course_visual_private import course_visual_refs, course_visual_audit
+from williams_ai.course_visual_private import course_visual_refs, course_visual_audit, combine_with_existing_private_books
 from williams_ai.grounded_inference import verified_private_book_pages
 
 
@@ -79,6 +79,26 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
                          "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
         self.assertEqual(len(result[0]["visual_refs"]),1)
         self.assertTrue(result[0]["visual_meaning_not_authoritatively_checked"])
+
+    def test_merge_into_copy_does_not_erase_other_books(self):
+        other=self.root/"original_three_books.sqlite3"
+        tc2=next(x for x in registry()["books"] if x["id"]=="TC2")
+        text=[""]*tc2["pages"]
+        text[40]="A locally indexed, synthetic TC2 research reference (not original text)."
+        index_pages(other,"TC2",tc2["sha256"],text,declared_pages=tc2["pages"])
+        output=self.root/"all_four_private.sqlite3"
+        report=combine_with_existing_private_books(
+            other,self.db,destination=output)
+        self.assertEqual(report["course_page_images_verified"],122)
+        self.assertIn("TC2",report["editions"])
+        self.assertIn("COURSE",report["editions"])
+        self.assertTrue(output.is_file())
+        self.assertEqual(course_visual_audit(output)["pages_with_images"],122)
+        with sqlite3.connect(other) as old:
+            editions={x[0] for x in old.execute("SELECT book FROM volumes")}
+        self.assertEqual(editions,{"TC2"})
+        with self.assertRaisesRegex(ValueError,"NEW_COMBINED"):
+            combine_with_existing_private_books(other,self.db,destination=output)
 
     def test_corrupt_image_is_rejected_without_inventing_figures(self):
         picture=self.root/"page_images/page_018.jpg"
