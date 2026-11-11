@@ -753,9 +753,27 @@ class LocalWilliamsModel:
                         raise ValueError("Bad Course PDF source page number") from exc
                     source_role=private_course_page_role(page_number)
                     blank_form=bool(source_role.get("blank_form_not_a_trading_rule"))
+                draft_items=item.get("private_visual_drafts",[])
+                if not isinstance(draft_items,list) or len(draft_items)>2:
+                    raise ValueError("Only bounded private Course visual drafts allowed")
+                drafts=[]
+                for note in draft_items:
+                    if (not isinstance(note,dict)
+                            or note.get("review_status")!="DIRECT_VISUAL_DRAFT_UNVERIFIED_BY_SECOND_REVIEWER"
+                            or note.get("use_as_expert_gold") is not False
+                            or not isinstance(note.get("statement"),str)
+                            or not 1<=len(note["statement"])<=500
+                            or not isinstance(note.get("source_page_sha256"),str)
+                            or len(note["source_page_sha256"])!=64):
+                        raise ValueError("Invalid or expert-impersonating visual draft")
+                    drafts.append({"statement":note["statement"],
+                                   "status":"UNVERIFIED_VISUAL_OBSERVATION",
+                                   "source_page_sha256":note["source_page_sha256"],
+                                   "gold_label":False})
                 pages.append({"source":source,"excerpt":excerpt,
                               "source_status":evidence_status,
                               "visual_refs":excerpts,
+                              "visual_draft_observations":drafts,
                               "source_page_role":source_role,
                               "blank_form_is_not_trading_rule":blank_form,
                               "not_expert_verified":True})
