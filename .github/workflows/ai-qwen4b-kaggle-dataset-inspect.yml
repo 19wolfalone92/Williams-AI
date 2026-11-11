@@ -1,0 +1,39 @@
+name: Williams AI read-only Kaggle saved rank8 LoRA dataset inspection
+on:
+  push:
+    branches: [research/qwen4b-after-training-blind-market-cohort-20261027]
+    paths: [.github/workflows/ai-qwen4b-kaggle-dataset-inspect.yml]
+permissions:
+  contents: read
+jobs:
+  introspect-own-private-public-exercise-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --disable-pip-version-check 'kaggle>=1.7.0,<2'
+      - name: Query own Kaggle dataset filenames only; NO new GPU usage or uploads
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os,subprocess,re
+          slug="wolf19loner92/williams-ai-qwen4b-rank8-research-20261027"
+          tok=os.environ.get("KAGGLE_API_TOKEN","")
+          for label,command in [
+              ("STATUS",["kaggle","datasets","status",slug]),
+              ("FILES",["kaggle","datasets","files",slug,"--csv"]),
+              ("METADATA",["kaggle","datasets","metadata",slug])
+          ]:
+              try:r=subprocess.run(command,capture_output=True,text=True,timeout=60)
+              except Exception as ex:
+                  print("KAGGLE_PUBLIC_ADAPTER_DATASET",label,type(ex).__name__)
+                  continue
+              output=(r.stdout+"\n"+r.stderr)
+              if tok:output=output.replace(tok,"[REDACTED]")
+              # Filenames and dataset ID contain no original book pages.
+              print("KAGGLE_PUBLIC_ADAPTER_DATASET",label,"exit",r.returncode,
+                     "response",output[-1400:])
+          PY
