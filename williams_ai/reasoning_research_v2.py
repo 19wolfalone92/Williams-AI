@@ -220,7 +220,7 @@ def check_corpus(cases):
             "execution_allowed": False}
 
 
-def _frame_observations(bars, timeframe):
+def _frame_observations(bars, timeframe, *, tail_bars=24, pivot_count=12):
     """Compute strict confirmed pivots using only observed closed candles."""
     from .chart_reader import indicators, validate_closed_bars
     candles, gaps = validate_closed_bars(bars, timeframe, bars[-1]["close_time"])
@@ -230,7 +230,10 @@ def _frame_observations(bars, timeframe):
     def num(v):
         return None if v is None else float(f"{v:.8g}")
     tail = []
-    for i in range(len(candles) - 24, len(candles)):
+    if (type(tail_bars) is not int or not 4 <= tail_bars <= 24 or
+            type(pivot_count) is not int or not 2 <= pivot_count <= 12):
+        raise ValueError("BOUNDED_CAUSAL_CONTEXT_BUDGET_REQUIRED")
+    for i in range(len(candles) - tail_bars, len(candles)):
         b = candles[i]
         tail.append({"close_time": bars[i]["close_time"],
                      "o": num(b.open), "h": num(b.high), "l": num(b.low),
@@ -249,24 +252,28 @@ def _frame_observations(bars, timeframe):
                            "confirmed_at": bars[i+2]["close_time"]})
     return {"timeframe": timeframe, "last_closed_at": bars[-1]["close_time"],
             "closed_bar_count": len(candles),
-            "tail": tail, "strict_confirmed_fractals": pivots[-12:],
+            "tail": tail, "strict_confirmed_fractals": pivots[-pivot_count:],
             "prior_ranges": {str(n): {"high":num(max(b.high for b in candles[-n:])),
                                       "low":num(min(b.low for b in candles[-n:]))}
                              for n in (34, 100, 220)},
             "wave_degree_not_deduced_from_fractals": True}
 
 
-def question_only(row):
+def question_only(row, *, tail_bars=24, pivot_count=12):
     """Gold-free, causally validated multi-timeframe features plus book evidence."""
     if row.get("higher_timeframes") is not None:
         _validate_full_research_context(row)
     if digest(row["bars"]) != row["visible_prefix_sha256"]:
         raise ValueError("RECHECKED_CLOSED_MARKET_PREFIX_REQUIRED")
-    frames = {row["timeframe"]: _frame_observations(row["bars"], row["timeframe"])}
+    frames = {row["timeframe"]: _frame_observations(
+        row["bars"], row["timeframe"],
+        tail_bars=tail_bars, pivot_count=pivot_count)}
     if "higher_timeframes" in row:
         for tf in ("H4", "D1"):
             if tf not in frames:
-                frames[tf] = _frame_observations(row["higher_timeframes"][tf]["bars"], tf)
+                frames[tf] = _frame_observations(
+                    row["higher_timeframes"][tf]["bars"], tf,
+                    tail_bars=tail_bars, pivot_count=pivot_count)
     return {"case_id": row["case_id"], "symbol": row["symbol"],
             "timeframe": row["timeframe"], "cutoff": row["cutoff"],
             "visible_prefix_sha256": row["visible_prefix_sha256"],
@@ -274,6 +281,8 @@ def question_only(row):
             "pdf_page": row["pdf_page"], "source_sha256": row["source_sha256"],
             "question": row["question"],
             "timeframe_observations": frames,
+            "context_tail_bars_per_frame": tail_bars,
+            "confirmed_pivots_per_frame_limit": pivot_count,
             "complete_h1_h4_d1_context": all(tf in frames for tf in ("H1", "H4", "D1")),
             "book_evidence": ({k: row["book_evidence"][k]
                                for k in ("edition", "pdf_page", "source_sha256", "excerpt")}
