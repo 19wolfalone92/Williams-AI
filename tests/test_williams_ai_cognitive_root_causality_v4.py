@@ -65,8 +65,10 @@ class RootCausalMemoryTests(unittest.TestCase):
                         3,"2026-11-05T12:00:00+00:00"))
         before=recall_model_corrections(self.db,self.model_id,"TC2",
                  as_of="2026-11-01T12:00:00Z")
+        self.assertEqual(recall_model_corrections(self.db,self.model_id,"TC2",
+                 as_of="2026-11-06T12:00:00Z"),[])
         after=recall_model_corrections(self.db,self.model_id,"TC2",
-                 as_of="2026-11-06T12:00:00Z")
+                 as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat())
         self.assertEqual(before,[])
         self.assertEqual(len(after),1)
         self.assertIn("Fractal",after[0]["excerpt"])
@@ -84,8 +86,11 @@ class RootCausalMemoryTests(unittest.TestCase):
                  "2026-11-05T12:00:00+00:00"))
         before=recall(self.db,"фрактал",edition="TC2",
                model_id=self.model_id,as_of="2026-11-01T12:00:00Z")
+        self.assertEqual(recall(self.db,"фрактал",edition="TC2",
+               model_id=self.model_id,as_of="2026-11-06T12:00:00Z"),[])
         after=recall(self.db,"фрактал",edition="TC2",
-               model_id=self.model_id,as_of="2026-11-06T12:00:00Z")
+               model_id=self.model_id,
+               as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat())
         self.assertEqual(before,[])
         self.assertEqual(len(after),1)
 
