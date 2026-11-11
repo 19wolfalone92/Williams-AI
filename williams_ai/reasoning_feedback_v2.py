@@ -6,6 +6,7 @@ Rejected test examples can NEVER appear in a training schedule.
 """
 from __future__ import annotations
 from pathlib import Path
+from datetime import datetime, timezone
 import sqlite3
 
 from .reasoning_research_v2 import HypothesisMemory, adaptive_schedule, utc
@@ -34,8 +35,16 @@ class ReviewedFailureJournal:
                 reviewed_at TEXT NOT NULL,error_code TEXT NOT NULL,
                 reviewer_a TEXT NOT NULL,reviewer_b TEXT NOT NULL,
                 split TEXT NOT NULL CHECK(split='validation'),
+                recorded_at TEXT NOT NULL,
                 PRIMARY KEY (run_id,model_id,case_id,error_code)
             )""")
+            columns={col[1] for col in db.execute("PRAGMA table_info(learning_feedback_v2)")}
+            if "recorded_at" not in columns:
+                # Preserve older events but refuse to treat their purported
+                # historical time as verified availability.
+                db.execute("ALTER TABLE learning_feedback_v2 ADD COLUMN recorded_at TEXT")
+                db.execute("UPDATE learning_feedback_v2 SET recorded_at=? WHERE recorded_at IS NULL",
+                           (datetime.now(timezone.utc).isoformat(),))
 
     def append_validation_failure(
         self, *,case_id,rule_id,edition,source_sha256,
@@ -64,24 +73,30 @@ class ReviewedFailureJournal:
                 books[edition]!=source_sha256):
             raise ValueError("REVIEWED_ERROR_BOOK_OR_RULE_MISMATCH")
         with sqlite3.connect(self.path) as db:
-            db.execute("""INSERT INTO learning_feedback_v2 VALUES
-                       (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO learning_feedback_v2
+                          (run_id,model_id,case_id,rule_id,edition,source_sha256,
+                           prediction_sha256,decision_cutoff,reviewed_at,error_code,
+                           reviewer_a,reviewer_b,split,recorded_at)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                        (self.run_id,self.model_id,case_id,rule_id,edition,
                         source_sha256,prediction_sha256,decision_cutoff,reviewed_at,
-                        error_code,reviewer_a,reviewer_b,split))
+                        error_code,reviewer_a,reviewer_b,split,
+                        datetime.now(timezone.utc).isoformat()))
 
     def validation_error_metadata_as_of(self, *,timestamp):
         cutoff=utc(timestamp)
         with sqlite3.connect(self.path) as db:
             rows=db.execute("""SELECT case_id,rule_id,error_code,reviewed_at,
-                             decision_cutoff FROM learning_feedback_v2
+                             decision_cutoff,recorded_at FROM learning_feedback_v2
                              WHERE run_id=? AND model_id=? AND split='validation'
                              ORDER BY reviewed_at,case_id,error_code""",
                             (self.run_id,self.model_id)).fetchall()
         return [{"case_id":case_id,"split":"validation",
                  "rule_id":rule_id,"error_code":error_code}
-                for case_id,rule_id,error_code,reviewed_at,decision_at in rows
-                if utc(reviewed_at)<cutoff and utc(decision_at)<utc(reviewed_at)]
+                for case_id,rule_id,error_code,reviewed_at,decision_at,recorded_at in rows
+                if (recorded_at is not None and utc(recorded_at)<cutoff
+                    and utc(reviewed_at)<cutoff
+                    and utc(decision_at)<utc(reviewed_at))]
 
     def schedule_from_previous_errors(self, train_cases, *,timestamp,rounds=10):
         failures=self.validation_error_metadata_as_of(timestamp=timestamp)
