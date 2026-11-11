@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from williams_ai.reasoning_training_readiness_v2 import readiness
 from williams_ai.reasoning_research_v2 import (
     HypothesisMemory, adaptive_schedule, check_corpus, digest,
     export_research, grade_blind, prediction_commitment, verify_case,
@@ -58,6 +59,16 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertNotIn("answer", payload["test_prompts"][0])
         self.assertNotIn("reviewers", payload["test_prompts"][0])
         self.assertFalse(report["test_gold_exported"])
+
+    def test_refuse_gpu_without_expert_market_coverage(self):
+        rows = [example("case-a", "train", "BTCUSDT"),
+                example("case-b", "validation", "ETHUSDT"),
+                example("case-c", "test", "SOLUSDT")]
+        decision = readiness(rows)
+        self.assertFalse(decision["ready_for_gpu_experiment"])
+        self.assertIn("train_INSUFFICIENT_REVIEWED_MARKET_CASES", decision["reasons"])
+        self.assertIn("test_MISSING_FOUR_BOOK_COVERAGE", decision["reasons"])
+        self.assertFalse(decision["automatic_training_enabled"])
 
     def test_no_future_bar_or_open_bar(self):
         row = example()
