@@ -86,10 +86,21 @@ def course_visual_audit(database: str | Path) -> dict[str, Any]:
                            "WHERE book='COURSE'").fetchone()
         if volumes != (known["sha256"],122,"PDF_TEXT_WITH_UNREVIEWED_OCR"):
             raise ValueError("NOT_THE_PINNED_122_PAGE_OCR_COURSE")
-        pages=db.execute("SELECT pdf_page,page_image_sha256 FROM course_pages "
+        pages=db.execute("SELECT pdf_page,page_image_path,page_image_sha256,"
+                         "source_sha256 FROM course_pages "
                          "ORDER BY pdf_page").fetchall()
         if [r[0] for r in pages] != list(range(1,123)):
             raise ValueError("NOT_ALL_122_PAGE_IMAGES_MAPPED")
+        for page_number,relative,checksum,source_hash in pages:
+            rel=Path(relative)
+            if (rel.is_absolute() or ".." in rel.parts or
+                    not str(rel).startswith("page_images/") or
+                    source_hash!=known["sha256"]):
+                raise ValueError("INVALID_PRIVATE_PAGE_ORIGINAL_PROVENANCE")
+            img=path.parent/rel
+            if (not img.is_file() or img.is_symlink() or
+                    hashlib.sha256(img.read_bytes()).hexdigest()!=checksum):
+                raise ValueError("COURSE_PAGE_IMAGE_HASH_MISMATCH_OR_MISSING")
         annotated=db.execute("SELECT COUNT(*) FROM course_visuals").fetchone()[0]
         statuses=db.execute("SELECT DISTINCT semantic_review_status FROM course_pages").fetchall()
         if any(s[0] != "NOT_INDEPENDENTLY_VERIFIED" for s in statuses):
