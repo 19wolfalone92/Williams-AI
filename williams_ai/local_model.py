@@ -712,11 +712,19 @@ class LocalWilliamsModel:
                     raise ValueError("Invalid page evidence")
                 source=item.get("source")
                 excerpt=item.get("excerpt")
+                source_status=item.get("status")
+                allowed={"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"}
+                # A scanned Course is available for private research, but
+                # OCR is never quietly promoted to a verified book passage.
+                if edition=="COURSE":
+                    allowed.add("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
                 if (not isinstance(source,str) or not source.startswith(edition+": PDF ")
                         or not isinstance(excerpt,str) or not 1<=len(excerpt)<=650
-                        or item.get("status")!="PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"):
+                        or source_status not in allowed):
                     raise ValueError("Unverified or mixed-edition source")
-                pages.append({"source":source,"excerpt":excerpt})
+                pages.append({"source":source,"excerpt":excerpt,
+                              "source_status":source_status,
+                              "visual_meaning_not_independently_checked":True})
         corrections=[]
         if prior_lessons is not None:
             if not isinstance(prior_lessons,list) or len(prior_lessons)>3:
