@@ -146,6 +146,41 @@ class BlockerFixes(unittest.TestCase):
                 symbol="BTCUSDT",edition="NTD",
                 timestamp="2026-11-05T00:00:00Z"),[])
 
+    def test_past_reviewer_errors_drive_adaptation_but_never_test_gold(self):
+        from williams_ai.reasoning_feedback_v2 import ReviewedFailureJournal
+        from williams_ai.book_rules import registry
+        with tempfile.TemporaryDirectory() as directory:
+            db=Path(directory)/"feedback.db"
+            journal=ReviewedFailureJournal(db,run_id="study-run-001",
+                                           model_id="adapter-parent-001")
+            book=next(x for x in registry()["books"] if x["id"]=="NTD")
+            evidence={
+                "case_id":"valid-ac-001","rule_id":"NTD.AC","edition":"NTD",
+                "source_sha256":book["sha256"],"prediction_sha256":"a"*64,
+                "decision_cutoff":"2026-11-01T01:00:00Z",
+                "reviewed_at":"2026-11-04T01:00:00Z",
+                "error_code":"MISUNDERSTOOD_AC",
+                "reviewer_a":"expert-alpha","reviewer_b":"expert-bravo",
+            }
+            with self.assertRaisesRegex(ValueError,"TEST_OR_TRAIN_GOLD"):
+                journal.append_validation_failure(**{**evidence,"split":"test"})
+            journal.append_validation_failure(**evidence)
+            self.assertEqual(journal.validation_error_metadata_as_of(
+                timestamp="2026-11-03T00:00:00Z"),[])
+            memory=journal.validation_error_metadata_as_of(
+                timestamp="2026-11-05T00:00:00Z")
+            self.assertEqual(len(memory),1)
+            self.assertEqual(set(memory[0]),{"case_id","split","rule_id","error_code"})
+            plan=journal.schedule_from_previous_errors(
+                [full_case()],timestamp="2026-11-05T00:00:00Z",rounds=3)
+            self.assertGreater(plan["previously_reviewed_failure_count"],0)
+            self.assertTrue(any(x["focus_skill"]=="MOMENTUM"
+                                for x in plan["schedule"]))
+            other=ReviewedFailureJournal(db,run_id="study-run-001",
+                                         model_id="adapter-other-001")
+            self.assertEqual(other.validation_error_metadata_as_of(
+                timestamp="2026-11-05T00:00:00Z"),[])
+
     def test_isolated_models_can_write_same_case_in_one_db(self):
         with tempfile.TemporaryDirectory() as root:
             a=HypothesisMemory(Path(root)/"memory.db",model_id="qwen-parent-aa",run_id="replay-0001")
