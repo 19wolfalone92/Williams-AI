@@ -120,7 +120,7 @@ class EvidenceGateTests(unittest.TestCase):
 
     def test_memory_never_uses_future_feedback(self):
         with tempfile.TemporaryDirectory() as folder:
-            mem = HypothesisMemory(Path(folder)/"private.sqlite")
+            mem = HypothesisMemory(Path(folder)/"private.sqlite", run_id="test-run-0001", model_id="test-model-parent")
             mem.append(case_id="h-001", symbol="BTCUSDT",
                        cutoff="2026-11-01T01:00:00Z",
                        available_at="2026-11-01T02:00:00Z",
@@ -135,7 +135,7 @@ class EvidenceGateTests(unittest.TestCase):
 
     def test_human_review_never_retroactively_leaks_into_memory(self):
         with tempfile.TemporaryDirectory() as folder:
-            mem = HypothesisMemory(Path(folder) / "private.sqlite")
+            mem = HypothesisMemory(Path(folder) / "private.sqlite", run_id="test-run-0001", model_id="test-model-parent")
             mem.append(case_id="hist-001", symbol="BTCUSDT",
                        cutoff="2026-11-01T01:00:00Z",
                        available_at="2026-11-01T02:00:00Z",
@@ -165,8 +165,7 @@ class EvidenceGateTests(unittest.TestCase):
         p = {"case_id": "test-1", "cutoff": case["cutoff"],
              "visible_prefix_sha256": case["visible_prefix_sha256"],
              "prediction_at": "2026-11-01T01:01:00Z",
-             "answer": {"decision": "WAIT", "wave_confirmed": None,
-                        "execution_allowed": False}}
+             "answer": deepcopy(case["answer"])}
         p["commitment"] = prediction_commitment(p)
         result = grade_blind([case], [p])
         self.assertEqual(result["decision_correct"], 1)
