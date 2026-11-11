@@ -23,6 +23,7 @@ from williams_ai.reasoning_research_v2 import adaptive_schedule, check_corpus, e
 from williams_ai.reasoning_walkforward_v2 import compare_frozen_predictions
 from williams_ai.reasoning_training_readiness_v2 import readiness
 from williams_ai.reasoning_qlora_bridge_v2 import prepare_gpu_handoff
+from williams_ai.reasoning_feedback_v2 import ReviewedFailureJournal
 
 
 def private_path(value):
@@ -72,7 +73,12 @@ def main():
     prep.add_argument("--output", type=Path, required=True)
     schedule = commands.add_parser("schedule")
     schedule.add_argument("--cases", type=Path, required=True)
-    schedule.add_argument("--failures", type=Path, required=True)
+    source=schedule.add_mutually_exclusive_group(required=True)
+    source.add_argument("--failures", type=Path)
+    source.add_argument("--feedback-ledger", type=Path)
+    schedule.add_argument("--run-id")
+    schedule.add_argument("--model-id")
+    schedule.add_argument("--as-of")
     schedule.add_argument("--output", type=Path, required=True)
     compare = commands.add_parser("compare")
     compare.add_argument("--cases", type=Path, required=True)
@@ -116,10 +122,20 @@ def main():
                           "ready_for_gpu_experiment": True}, sort_keys=True))
     elif args.command == "schedule":
         rows = [c for c in cases if c["split"] == "train"]
-        failures = load_rows(args.failures)
-        result = adaptive_schedule(rows, failures)
+        if args.feedback_ledger:
+            if not all((args.run_id,args.model_id,args.as_of)):
+                raise ValueError("MODEL_RUN_AND_AS_OF_REQUIRED_FOR_REVIEWED_MEMORY")
+            journal=ReviewedFailureJournal(private_path(args.feedback_ledger),
+                                           run_id=args.run_id,model_id=args.model_id)
+            result=journal.schedule_from_previous_errors(
+                rows,timestamp=args.as_of)
+        else:
+            failures = load_rows(args.failures)
+            result = adaptive_schedule(rows, failures)
         write_new(args.output, result)
-        print(json.dumps({"rounds": len(result["schedule"]), "validation_answers_used": False}))
+        print(json.dumps({"rounds": len(result["schedule"]),
+                          "validation_answers_used": False,
+                          "previous_errors_used": result.get("previously_reviewed_failure_count",0)}))
     elif args.command == "compare":
         parents = load_rows(args.parent)
         candidates = load_rows(args.candidate)
