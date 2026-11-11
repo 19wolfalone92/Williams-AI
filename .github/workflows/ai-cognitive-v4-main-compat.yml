@@ -1,7 +1,6 @@
 name: Williams AI cognitive v4 main compatibility
 on:
-  push:
-    branches: [integration/cognitive-v4-main-20261111]
+  workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
@@ -26,7 +25,7 @@ permissions:
   contents: read
 concurrency:
   group: williams-cognitive-v4-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   cognitive-compatibility:
     runs-on: ubuntu-24.04
