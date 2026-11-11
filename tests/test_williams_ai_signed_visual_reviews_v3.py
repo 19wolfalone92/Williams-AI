@@ -2,12 +2,15 @@
 from datetime import datetime,timezone,timedelta
 import sqlite3
 import unittest
+import importlib.util
 
 from williams_ai.signed_visual_reviews_v3 import (
     approval_message,verify_two_ed25519_course_approvals,
 )
 
 
+@unittest.skipUnless(importlib.util.find_spec("cryptography") is not None,
+                     "Optional Ed25519 dependency unavailable; source-gold signing fails closed")
 class SignedCourseReviewTests(unittest.TestCase):
     def setUp(self):
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
