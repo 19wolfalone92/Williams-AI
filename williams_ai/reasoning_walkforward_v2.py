@@ -30,7 +30,7 @@ def run_blind_replay(test_cases, model_predict, memory: HypothesisMemory):
             raise ValueError("UNIQUE_BLIND_CASE_ID_REQUIRED")
         seen.add(row["case_id"])
         prompt = question_only(row)
-        earlier = memory.as_of(symbol=row["symbol"], timestamp=row["cutoff"])
+        earlier = memory.as_of(symbol=row["symbol"], timestamp=row["cutoff"], strict_before=True)
         # A caller-provided inference adapter must not have access to private
         # gold labels. This interface never supplies them.
         answer = model_predict(prompt, earlier)
