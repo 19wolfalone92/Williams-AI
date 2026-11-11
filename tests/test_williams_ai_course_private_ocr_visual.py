@@ -164,6 +164,20 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"NEW_COMBINED"):
             combine_with_existing_private_books(other,self.db,destination=output)
 
+    def test_worksheets_are_never_treated_as_tactical_rules(self):
+        from williams_ai.course_page_semantics_v3 import (
+            private_course_page_role, require_not_an_empty_rule_template)
+        for page in (90,120,121):
+            role=private_course_page_role(page)
+            self.assertTrue(role["blank_form_not_a_trading_rule"])
+            self.assertFalse(role["automatic_market_gold_allowed"])
+            with self.assertRaisesRegex(ValueError,"BLANK_WORKSHEET"):
+                require_not_an_empty_rule_template(page)
+        self.assertEqual(private_course_page_role(56)["role"],
+                         "NESTED_ELLiOTT_DEGREES_DIAGRAM")
+        self.assertEqual(private_course_page_role(89)["role"],
+                         "UNKNOWN_UNREVIEWED")
+
     def test_global_audit_checks_all_122_images_not_only_annotated(self):
         unannotated=self.root/"page_images/page_119.jpg"
         unannotated.write_bytes(b"CORRUPTED UNANNOTATED PDF PAGE")
