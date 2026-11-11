@@ -91,6 +91,36 @@ class CognitiveV4Tests(unittest.TestCase):
         self.assertFalse(found[0]["model_scoped"])
         self.assertEqual(self.memory.stats()["entries"],1)
 
+    def test_real_coaching_mistakes_recalled_but_not_retroactively(self):
+        from williams_ai.adaptive_coach import notebook
+        with notebook(self.memory.path) as db:
+            db.execute("INSERT INTO private_remediation VALUES(?,?,?,?,?,?,?)",
+                (self.model_id,"TC2","TC2.WM3","TC2:RULE:TC2.WM3",
+                 "A previous fractal confirmation error needs review.",2,
+                 "2026-01-10T00:00:00+00:00"))
+        report=self.memory.import_previous_coaching_errors(
+            model_id=self.model_id,run_id=self.run_id)
+        self.assertEqual(report["eligible_scoped_lessons"],1)
+        self.assertFalse(report["imported_as_expert_gold"])
+        self.assertEqual(self.memory.retrieve(
+            "fractal confirmation",edition="TC2",
+            as_of="2026-02-01T00:00:00Z",
+            model_id=self.model_id,run_id=self.run_id),[])
+        results=self.memory.retrieve(
+            "fractal confirmation",edition="TC2",
+            as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat(),
+            model_id=self.model_id,run_id=self.run_id)
+        self.assertEqual(len(results),1)
+        self.assertEqual(results[0]["status"],
+                         "UNVERIFIED_RESEARCH_NOT_BOOK_AUTHORITY")
+        self.memory.import_previous_coaching_errors(
+            model_id=self.model_id,run_id=self.run_id)
+        self.assertEqual(self.memory.stats()["entries"],1)
+        self.assertEqual(self.memory.retrieve(
+            "fractal",edition="TC2",
+            as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat(),
+            model_id="gguf-other-model-001",run_id=self.run_id),[])
+
     def test_semantic_recall_finds_paraphrase_no_word_overlap(self):
         self.memory.put(kind="RESEARCH_NOTE",edition="TC2",
             source_ref="RESEARCH:learning-0001",
