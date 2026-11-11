@@ -17,8 +17,8 @@ class WalkForwardV2Tests(unittest.TestCase):
         second = deepcopy(first)
         second["case_id"] = "test-second"
         extra = deepcopy(first["bars"][-1])
-        extra["close_time"] = "2026-11-01T02:00:00+00:00"
-        extra["open"], extra["close"], extra["high"], extra["low"] = 102.0, 103.0, 104.0, 100.0
+        extra["close_time"] = (datetime.fromisoformat(first["cutoff"]) + timedelta(hours=1)).isoformat()
+        extra["open"], extra["close"], extra["high"], extra["low"] = 320.0, 321.0, 322.0, 319.0
         second["bars"].append(extra)
         second["cutoff"] = extra["close_time"]
         second["visible_prefix_sha256"] = digest(second["bars"])
