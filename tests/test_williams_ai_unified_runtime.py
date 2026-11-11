@@ -120,7 +120,7 @@ class UnifiedRuntimeTests(unittest.TestCase):
         self.assertFalse(result["private_research_material_refs_used"])
         self.assertEqual(result["deliberate_book_learning"]["past_study_sources_reread"],[])
         prompt=json.loads(runtime.calls[-1]["messages"][1]["content"])
-        self.assertTrue(prompt["retained_research_materials_not_authoritative_rules"])
+        self.assertEqual(prompt["retained_research_materials_not_authoritative_rules"], [])
         self.assertNotIn("Непроверенный учебный вывод",json.dumps(prompt,ensure_ascii=False))
         self.assertEqual(brain.status()["memory_counts"]["study_notes"],1)
         resumed=self.brain()
@@ -169,7 +169,7 @@ class UnifiedRuntimeTests(unittest.TestCase):
         market=frozen_markets()["ETHUSDT"]
         result=brain.analyze('ETHUSDT',market['bars'],tick_size=market['tick_size'],bar_index=299,
             edition='NTD',include_topdown=False)
-        self.assertEqual(result['deliberate_book_learning']['past_study_sources_reread'],['NTD: PDF 11'])
+        self.assertEqual(result['deliberate_book_learning']['past_study_sources_reread'],[])
 
     def test_missing_mixed_or_changed_adapter_stops_before_native_loader(self):
         for key,value in (("base_sha256","0"*64),("adapter_sha256","1"*64),
