@@ -44,10 +44,15 @@ def check_private_expert_source_cases(rows,private_book_index):
             originals=[x[0] for x in db.execute(
                 "SELECT content FROM excerpts WHERE book=? AND pdf_page=?",
                 (book,row["pdf_page"]))]
-            if (not originals or len(_normalise(excerpt))<24
-                    or _normalise(excerpt) not in _normalise(" ".join(originals))):
+            verbatim_on_page=bool(
+                originals and len(_normalise(excerpt))>=24 and
+                _normalise(excerpt) in _normalise(" ".join(originals)))
+            if volume[2]=="PDF_TEXT" and not verbatim_on_page:
                 raise ValueError("SOURCE_EXCERPT_NOT_PRESENT_ON_PINNED_PAGE")
-            # Even perfect OCR text matching cannot approve a scanned figure.
+            # Visual-only Course page 56 has no OCR. Human-reviewed case-level
+            # image attestations can authorize a paraphrased visual statement
+            # without inventing missing PDF text.
+            signed_visual_case=False
             if volume[2]=="PDF_TEXT_WITH_UNREVIEWED_OCR":
                 # Lesson must be independently reviewed at the exact
                 # page + case SHA, not just have checked_by_reviewers=true.
@@ -69,12 +74,14 @@ def check_private_expert_source_cases(rows,private_book_index):
                     db,case_sha256=case_sha,
                     pdf_page=row["pdf_page"],image_sha256=page[0],
                     source_sha256=volume[0],expected_reviewers=reviewers)
+                signed_visual_case=True
             successful.append({"case_id":row["case_id"],
                                "edition":book,"pdf_page":row["pdf_page"],
                                "source_index_sha256":known["sha256"],
                                "case_sha256":digest({k:v for k,v in row.items()
                                                      if k!="reviewers"}),
-                               "page_text_found":True,
+                               "page_text_found":verbatim_on_page,
+                               "signed_visual_interpretation":signed_visual_case,
                                "source_is_ocr":volume[2]!="PDF_TEXT"})
     return {"schema":"WILLIAMS_AI_PRIVATE_BOOK_CASE_SOURCE_GATE_V3",
             "verified_case_count":len(successful),
