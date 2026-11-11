@@ -10,6 +10,6 @@
   "expert_market_gold": false,
   "allowed_to_trade": false,
   "free_gpu_only": true,
-  "launch_retry": 2,
-  "previous_attempt": "GitHub Actions 43094595416 failed before Kaggle submission (local import path), no GPU quota spent"
+  "launch_retry": 3,
+  "previous_attempt": "Run 43094823752 failed before Kaggle submission: Kaggle CLI lacked declared six dependency"
 }
