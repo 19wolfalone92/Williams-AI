@@ -50,6 +50,9 @@ class RootCausalMemoryTests(unittest.TestCase):
             db.execute("INSERT INTO retained_materials VALUES(?,?,?,?,?,?,?)",
                  (sha,"TC2","old-note","legacy","2025-01-01T00:00:00+00:00",
                   fields[-1],"UNVERIFIED_RESEARCH_NOT_BOOK_AUTHORITY"))
+        # Simulate a private historical database (real users are required
+        # to keep it mode 0600; no broad permissions are auto-accepted).
+        self.db.chmod(0o600)
         brain=UnifiedMemory(self.db)
         self.assertEqual(brain.retrieve("fractal",edition="TC2",
              as_of="2025-06-01T00:00:00Z"),[])
