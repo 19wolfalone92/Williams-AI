@@ -32,8 +32,8 @@ def example(case_id="case-001", split="train", symbol="BTCUSDT"):
         "execution_allowed": False,
     }
     return {
-        "case_id": case_id, "split": split, "rule_id": "TC2.WM1",
-        "edition": "TC2", "pdf_page": 124, "source_sha256": "a"*64,
+        "case_id": case_id, "split": split, "rule_id": "TC2.WM1.ANG",
+        "edition": "TC2", "pdf_page": 124, "source_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
         "symbol": symbol, "timeframe": "H1",
         "cutoff": bars[-1]["close_time"], "visible_prefix_sha256": digest(bars),
         "bars": bars, "question": "Analyze the closed market snapshot without assuming a fill.",
@@ -93,7 +93,7 @@ class EvidenceGateTests(unittest.TestCase):
         row = example()
         schedule = adaptive_schedule([row],
             [{"case_id": "validation-1", "split": "validation",
-              "rule_id": "TC2.WM1", "error_code": "MISSED_ALTERNATIVE"}],
+              "rule_id": "TC2.WM1.ANG", "error_code": "MISSED_ALTERNATIVE"}],
             rounds=3)
         self.assertEqual(len(schedule["schedule"]), 3)
         self.assertFalse(schedule["validation_answers_used_as_training"])
