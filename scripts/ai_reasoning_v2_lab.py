@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from williams_ai.reasoning_research_v2 import adaptive_schedule, check_corpus, export_research
 from williams_ai.reasoning_walkforward_v2 import compare_frozen_predictions
+from williams_ai.reasoning_training_readiness_v2 import readiness
 
 
 def private_path(value):
@@ -62,6 +63,9 @@ def write_new(path, value, *, jsonl=False):
 def main():
     p = argparse.ArgumentParser()
     commands = p.add_subparsers(dest="command", required=True)
+    preflight = commands.add_parser("preflight")
+    preflight.add_argument("--cases", type=Path, required=True)
+    preflight.add_argument("--output", type=Path, required=True)
     prep = commands.add_parser("prepare")
     prep.add_argument("--cases", type=Path, required=True)
     prep.add_argument("--output", type=Path, required=True)
@@ -77,7 +81,14 @@ def main():
     args = p.parse_args()
     cases = load_rows(args.cases)
     manifest = check_corpus(cases)
-    if args.command == "prepare":
+    if args.command == "preflight":
+        result = readiness(cases)
+        write_new(args.output, result)
+        print(json.dumps({"ready_for_gpu_experiment": result["ready_for_gpu_experiment"],
+                          "reasons": result["reasons"]}, sort_keys=True))
+        if not result["ready_for_gpu_experiment"]:
+            sys.exit(3)
+    elif args.command == "prepare":
         output = private_path(args.output)
         if not output.is_dir() or output.stat().st_mode & 0o077:
             raise ValueError("EXISTING_PRIVATE_0700_OUTPUT_DIRECTORY_REQUIRED")
@@ -87,11 +98,13 @@ def main():
         if any(path.exists() for path in paths):
             raise ValueError("OUTPUT_ALREADY_EXISTS_NO_OVERWRITE")
         payload, manifest = export_research(cases)
+        manifest["gpu_readiness"] = readiness(cases)
         for name, path in zip(("train_sft", "validation_prompts", "test_prompts"), paths[:3]):
             write_new(path, payload[name], jsonl=True)
         write_new(paths[-1], manifest)
         print(json.dumps({"prepared": manifest["counts"],
-                          "test_gold_exported": False}, sort_keys=True))
+                          "test_gold_exported": False,
+                          "ready_for_gpu_experiment": manifest["gpu_readiness"]["ready_for_gpu_experiment"]}, sort_keys=True))
     elif args.command == "schedule":
         rows = [c for c in cases if c["split"] == "train"]
         failures = load_rows(args.failures)
