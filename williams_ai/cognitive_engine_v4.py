@@ -11,7 +11,6 @@ import json
 import math
 from pathlib import Path
 
-from .book_index import search_pages
 from .cognitive_memory_v4 import CognitiveMemory, _sha, _utc
 from .decision_contract import _as_utc
 from .research_source_router import source_route
@@ -182,7 +181,11 @@ class CognitiveResearchEngine:
         allowed_rules={r["rule_id"] for r in rules}
         excerpts=[]
         if self.book_index is not None:
-            excerpts=search_pages(self.book_index,question,edition=edition,limit=3)
+            from .grounded_inference import verified_private_book_pages
+            focus=tuple(r["rule_id"] for r in rules[:3])
+            excerpts=verified_private_book_pages(
+                self.book_index,edition,rule_ids=focus,
+                question=question,limit=3)
         history=(self.memory.retrieve(
                 question,edition=edition,as_of=at,model_id=self.model_id,
                 run_id=self.run_id,limit=4,
@@ -192,6 +195,7 @@ class CognitiveResearchEngine:
         base={"question":question,"as_of":at,"edition":edition,
               "closed_facts":list(facts.values()),"reviewed_rule_bookmarks":rules,
               "original_private_pages_unverified_extraction":excerpts,
+              "page_provenance_is_checked_but_meaning_not_certified":True,
               "recall_not_verified_expert_gold":history,
               "no_exchange_positions_or_order_acknowledgements":True}
         proposal=_validate_proposal(
@@ -208,6 +212,19 @@ class CognitiveResearchEngine:
             problems.append("NO_CLOSED_EVIDENCE")
         if not proposal["rule_ids"]:
             problems.append("NO_REVIEWED_BOOK_RULE_POINTER")
+        if self.book_index is not None:
+            # Matching a word anywhere in a book is NOT a citation for a
+            # specific reviewed trading rule. Link each claimed rule ID to a
+            # pinned page in the original source before admitting it.
+            by_rule={r["rule_id"]:set(r["pdf_pages"]) for r in rules}
+            source_pages={p["pdf_page"] for p in excerpts
+                          if p.get("status") in {
+                              "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
+                              "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"}}
+            missing=[rid for rid in proposal["rule_ids"]
+                     if not (by_rule.get(rid,set()) & source_pages)]
+            if missing:
+                problems.append("CLAIMED_RULE_HAS_NO_PINNED_SOURCE_PAGE")
         if critique["suggestion"]=="WAIT":
             problems.append("SKEPTIC_UNRESOLVED_RISK")
         if critique["rule_conflicts"]:
