@@ -147,7 +147,7 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
     def test_reject_forged_book_volume(self):
         with sqlite3.connect(self.db) as db:
             db.execute("UPDATE volumes SET sha256=? WHERE book='COURSE'",("0"*64,))
-        with self.assertRaisesRegex(ValueError,"MISMATCH"):
+        with self.assertRaisesRegex(ValueError,"NOT_THE_PINNED"):
             course_visual_audit(self.db)
 
 
