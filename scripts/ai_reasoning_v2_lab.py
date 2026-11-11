@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT))
 from williams_ai.reasoning_research_v2 import adaptive_schedule, check_corpus, export_research
 from williams_ai.reasoning_walkforward_v2 import compare_frozen_predictions
 from williams_ai.reasoning_training_readiness_v2 import readiness
+from williams_ai.reasoning_qlora_bridge_v2 import prepare_gpu_handoff
 
 
 def private_path(value):
@@ -92,19 +93,27 @@ def main():
         output = private_path(args.output)
         if not output.is_dir() or output.stat().st_mode & 0o077:
             raise ValueError("EXISTING_PRIVATE_0700_OUTPUT_DIRECTORY_REQUIRED")
+        # Prepare is a GPU handoff, not merely an unverified proposal dump.
+        # Incomplete/rejected expert corpora MUST NOT generate GPU lessons.
+        reviewed, gpu_manifest = prepare_gpu_handoff(cases)
         paths = [output / (name + ".jsonl") for name in
-                 ("train_sft", "validation_prompts", "test_prompts")]
-        paths.append(output / "manifest.json")
+                 ("train_sft", "validation_prompts", "test_prompts",
+                  "approved_train_validation")]
+        paths += [output / "manifest.json", output / "gpu_handoff_manifest.json"]
         if any(path.exists() for path in paths):
             raise ValueError("OUTPUT_ALREADY_EXISTS_NO_OVERWRITE")
         payload, manifest = export_research(cases)
         manifest["gpu_readiness"] = readiness(cases)
-        for name, path in zip(("train_sft", "validation_prompts", "test_prompts"), paths[:3]):
+        for name, path in zip(("train_sft", "validation_prompts",
+                               "test_prompts"), paths[:3]):
             write_new(path, payload[name], jsonl=True)
-        write_new(paths[-1], manifest)
+        write_new(paths[3], reviewed, jsonl=True)
+        write_new(paths[4], manifest)
+        write_new(paths[5], gpu_manifest)
         print(json.dumps({"prepared": manifest["counts"],
                           "test_gold_exported": False,
-                          "ready_for_gpu_experiment": manifest["gpu_readiness"]["ready_for_gpu_experiment"]}, sort_keys=True))
+                          "gpu_reviewed_rows": len(reviewed),
+                          "ready_for_gpu_experiment": True}, sort_keys=True))
     elif args.command == "schedule":
         rows = [c for c in cases if c["split"] == "train"]
         failures = load_rows(args.failures)
