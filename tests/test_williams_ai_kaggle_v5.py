@@ -15,9 +15,9 @@ class KaggleV5Contracts(unittest.TestCase):
     def test_pinned_git_commit_and_no_secret_or_private_pdf_text(self):
         worker=worker_source("a"*40)
         ast.parse(worker)
-        self.assertIn('REV="a'*0 if False else 'REV="aaaaaaaa',worker)
+        self.assertIn('REV="'+"a"*40+'"',worker)
         self.assertIn("CUDA_VISIBLE_DEVICES",worker)
-        self.assertIn('KAGGLE',KERNEL_SLUG.upper())
+        self.assertIn("williams-ai-v5-book-sft",KERNEL_SLUG)
         self.assertIn("v5-training-control.json",worker)
         self.assertIn('knowledge_training_v5',worker)
         self.assertNotIn("KAGGLE_API_TOKEN",worker)
