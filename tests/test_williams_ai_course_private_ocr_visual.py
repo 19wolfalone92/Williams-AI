@@ -44,6 +44,11 @@ class PrivateCourseOCRVisualTests(unittest.TestCase):
                 page_image_path TEXT,image_sha256 TEXT,
                 associated_paragraph_indices TEXT,association_method TEXT,
                 semantic_status TEXT)""")
+            db.execute("""CREATE TABLE course_paragraphs(
+                pdf_page INTEGER, paragraph_index INTEGER, body TEXT,
+                bbox_json TEXT, ocr_confidence REAL)""")
+            db.execute("INSERT INTO course_paragraphs VALUES(?,?,?,?,?)",
+                       (18,0,"Synthetic illustration description","[1,2,3,4]",96.0))
             for n in range(1,123):
                 rel=f"page_images/page_{n:03d}.jpg"
                 image_hash=hashlib.sha256((root/rel).read_bytes()).hexdigest()
