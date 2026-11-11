@@ -133,6 +133,18 @@ def _verify_and_archive(files:Path,secret:str,dest:Path,source_sha:str):
              "dataset_rule_registry_sha":manifest["source_registry_sha256"],
              "research_only":True,"trade_execution":False},sort_keys=True))
     encrypted=_seal_data(buf.getvalue(),secret)
+    # Same trusted Actions runner may now perform REAL trained-weight exam.
+    # The cleartext files are NEVER part of the published artifact.
+    runtime=Path(os.environ["RUNNER_TEMP"])/"williams_v5_private_runtime"
+    runtime.mkdir(mode=0o700,exist_ok=False)
+    for name,material in (
+        ("adapter_model.safetensors",weights[0].read_bytes()),
+        ("adapter_config.json",config[0].read_bytes()),
+        ("training_receipt.json",json.dumps(receipt,sort_keys=True).encode()),
+    ):
+        fd=os.open(runtime/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        with os.fdopen(fd,"wb") as private:
+            private.write(material)
     dest.mkdir(parents=True,mode=0o700,exist_ok=False)
     (dest/"williams-v5-trained-qwen3-4b-lora.zip.sealed").write_bytes(encrypted)
     public={k:receipt[k] for k in (
