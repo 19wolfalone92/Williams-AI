@@ -434,6 +434,11 @@ class HypothesisMemory:
                 rule_id TEXT NOT NULL, book_sha256 TEXT NOT NULL,
                 PRIMARY KEY (run_id, model_id, case_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS research_hypothesis_review_ingestion_v2 (
+                run_id TEXT NOT NULL, model_id TEXT NOT NULL, case_id TEXT NOT NULL,
+                recorded_at TEXT NOT NULL,
+                PRIMARY KEY (run_id, model_id, case_id)
+            )""")
             db.execute("""CREATE TABLE IF NOT EXISTS research_hypothesis_reviews_v2 (
                 run_id TEXT NOT NULL, model_id TEXT NOT NULL,
                 case_id TEXT NOT NULL,
@@ -505,6 +510,10 @@ class HypothesisMemory:
                           VALUES(?,?,?,?,?,?,?,?)""",
                        (self.run_id, self.model_id, case_id, reviewer_a,
                         reviewer_b, reviewed_at, verdict, rationale))
+            db.execute("""INSERT INTO research_hypothesis_review_ingestion_v2
+                          VALUES(?,?,?,?)""",
+                       (self.run_id, self.model_id, case_id,
+                        datetime.now(timezone.utc).isoformat()))
 
     def as_of(self, *, symbol, timestamp, strict_before=False, edition=None):
         cutoff = utc(timestamp)
@@ -513,7 +522,7 @@ class HypothesisMemory:
                              h.hypothesis,h.alternative,h.evidence_json,
                              h.counter_json,h.invalidation,r.reviewed_at,
                              r.verdict,r.rationale, s.edition,s.rule_id,
-                             s.book_sha256
+                             s.book_sha256,ing.recorded_at
                              FROM research_hypotheses_v2 AS h
                              LEFT JOIN research_hypothesis_reviews_v2 AS r
                              ON r.run_id=h.run_id AND r.model_id=h.model_id
@@ -521,6 +530,9 @@ class HypothesisMemory:
                              LEFT JOIN research_hypothesis_sources_v2 AS s
                              ON s.run_id=h.run_id AND s.model_id=h.model_id
                                 AND s.case_id=h.case_id
+                             LEFT JOIN research_hypothesis_review_ingestion_v2 AS ing
+                             ON ing.run_id=h.run_id AND ing.model_id=h.model_id
+                                AND ing.case_id=h.case_id
                              WHERE h.run_id=? AND h.model_id=? AND h.symbol=?
                              ORDER BY h.cutoff,h.case_id""",
                              (self.run_id, self.model_id, symbol)).fetchall()
@@ -534,6 +546,7 @@ class HypothesisMemory:
                  "book_sha256": row[13],
                  "status": ("HUMAN_REVIEW_" + row[9]
                             if row[8] is not None and visible(row[8])
+                            and row[14] is not None and visible(row[14])
                             else "UNVERIFIED_MODEL_HYPOTHESIS"),
                  "review_rationale": (row[10]
                             if row[8] is not None and visible(row[8])
