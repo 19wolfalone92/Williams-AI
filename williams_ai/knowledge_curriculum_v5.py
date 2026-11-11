@@ -97,36 +97,35 @@ def _sample(card,n):
         ]
         choices=[correct]+wrongs
         rng.shuffle(choices)
-        prompt={"edition":ed,
-                "question":(
-                    f"Для книги {ed}: какое утверждение о «{title}» "
-                    "соответствует проверенной карточке и не обещает исполнение сделки?"
-                    if n<6 else
-                    f"Проверь применение определения «{title}» в профиле {ed}. "
-                    "Выбери одно корректное утверждение, не смешивая книги."),
+        stems=[
+            f"Для книги {ed}: какое утверждение о «{title}» соответствует карточке?",
+            f"Выбери строго книжное определение «{title}» в издании {ed}.",
+            f"Какое из трёх утверждений о «{title}» в {ed} не обещает рыночный fill?",
+            f"Отдели правило «{title}» ({ed}) от неподтверждённых торговых выводов."
+        ]
+        prompt={"edition":ed,"question":stems[n//3],
                 "choices":dict(zip("ABC",choices))}
         answer=_target(card,style,"ABC"[choices.index(correct)])
     elif n%3==1:
         style="KNOWLEDGE"
-        prompt={"edition":ed,
-                "question":(
-                    f"Дай проверяемое объяснение правила «{title}» по {ed} "
-                    "с PDF-страницами и ограничениями применимости."
-                    if n<7 else
-                    f"Что действительно известно из первоисточника {ed} "
-                    f"о «{title}» и что нельзя считать доказанным?"
-                )}
+        stems=[
+            f"Объясни «{title}» ({ed}) и укажи страницы источника.",
+            f"Назови ограничения правила «{title}» из книги {ed}.",
+            f"Отдели проверяемые источники от гипотез для «{title}» ({ed}).",
+            f"Что известно про «{title}» в {ed}, а что остаётся неизвестным?"
+        ]
+        prompt={"edition":ed,"question":stems[n//3]}
         answer=_target(card,style)
     else:
         style="BOUNDARY"
-        prompt={"edition":ed,
-                "question":(
-                    f"Есть только название «{title}» и его книжная карточка {ed}. "
-                    "Можно ли на её основании подтвердить открытие сделки прямо сейчас?"
-                    if n<8 else
-                    f"Построй исследовательское решение для «{title}» ({ed}) "
-                    "при отсутствии закрытых рыночных свечей и подтверждённых ордеров."
-                ),"reviewed_source_context":{
+        stems=[
+            f"Есть только карточка «{title}» ({ed}). Допустим ли торговый вход?",
+            f"Нет закрытых H1/H4/D1: как исследовать «{title}» ({ed}) без догадок?",
+            f"Книжный термин «{title}» виден, но статус ордера отсутствует. Что известно?",
+            f"Применение «{title}» из {ed} без рыночных подтверждений: вердикт?"
+        ]
+        prompt={"edition":ed,"question":stems[n//3],
+                "reviewed_source_context":{
                     "rule_id":rule,"pages":card["pdf_pages"],
                     "paraphrased_rule":card["summary"],
                     "not_expert_market_gold":True}}
