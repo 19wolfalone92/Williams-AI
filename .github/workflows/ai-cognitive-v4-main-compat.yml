@@ -28,6 +28,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -44,8 +45,7 @@ jobs:
           python - <<'PY'
           import subprocess
           paths=subprocess.check_output(['git','diff','--name-only',
-              '${{ github.event.pull_request.base.sha || github.event.before }}',
-              'HEAD'],text=True).splitlines()
+              'origin/main...HEAD'],text=True).splitlines()
           forbidden=('.pdf','.zip','.sqlite','.sqlite3','.gguf','.safetensors','.key')
           bad=[x for x in paths if x.lower().endswith(forbidden)]
           if bad: raise SystemExit('PRIVATE_USER_ASSET_IN_PUBLIC_BRANCH:'+str(bad))
