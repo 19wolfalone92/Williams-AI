@@ -32,7 +32,7 @@ def example(case_id="case-001", split="train", symbol="BTCUSDT"):
         "wave_confirmed": None, "squat_verified": None,
         "execution_allowed": False,
     }
-    return {
+    row = {
         "case_id": case_id, "split": split, "rule_id": "TC2.WM1.ANG",
         "edition": "TC2", "pdf_page": 124, "source_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
         "symbol": symbol, "timeframe": "H1",
@@ -40,10 +40,14 @@ def example(case_id="case-001", split="train", symbol="BTCUSDT"):
         "bars": bars, "question": "Analyze the closed market snapshot without assuming a fill.",
         "answer": answer,
         "reviewers": [
-            {"reviewer_id": "analyst-one", "approved_at": "2026-11-03T00:00:00Z", "answer_sha256": digest(answer)},
+            {"reviewer_id": "analyst-one", "approved_at": "2026-11-03T00:00:00Z", "case_sha256": "pending-review-seal"},
             {"reviewer_id": "analyst-two", "approved_at": "2026-11-03T00:00:00Z", "answer_sha256": digest(answer)},
         ],
     }
+    case_sha = digest({k: v for k, v in row.items() if k != "reviewers"})
+    for review in row["reviewers"]:
+        review["case_sha256"] = case_sha
+    return row
 
 
 class EvidenceGateTests(unittest.TestCase):
@@ -90,7 +94,7 @@ class EvidenceGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "DISTINCT_REVIEWER"):
             verify_case(row)
         row = example()
-        row["reviewers"][1]["answer_sha256"] = "f"*64
+        row["reviewers"][1]["case_sha256"] = "f"*64
         with self.assertRaisesRegex(ValueError, "REVIEW_MUST_APPROVE"):
             verify_case(row)
 
