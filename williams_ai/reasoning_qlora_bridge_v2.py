@@ -83,24 +83,36 @@ def tokenize_verified(rows, tokenizer, *, max_tokens):
             raise ValueError("NEVER_TOKENIZE_TEST_GOLD")
         if "higher_timeframes" not in row or "book_evidence" not in row:
             raise ValueError("REVIEWED_H1_H4_D1_EVIDENCE_REQUIRED")
-        prompt = [
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": canonical(question_only(row))},
-        ]
         answer = canonical(row["answer"])
-        full = prompt + [{"role": "assistant", "content": answer}]
-        before = tokenizer.apply_chat_template(
-            prompt, tokenize=True, add_generation_prompt=True,
-            enable_thinking=False)
-        complete = tokenizer.apply_chat_template(
-            full, tokenize=True, add_generation_prompt=False,
-            enable_thinking=False)
-        if (not isinstance(before, list) or not isinstance(complete, list)
-                or complete[:len(before)] != before
-                or not 2 <= len(before) < len(complete) <= max_tokens):
-            raise ValueError("ANSWER_ONLY_FULL_TEMPLATE_NO_TRUNCATION_REQUIRED")
+        encoded = None
+        # Do not truncate away book evidence, fractal confirmation timestamps,
+        # loss labels or alternative hypotheses. Compress tail visualization
+        # only, explicitly recording the count in the model-visible prompt.
+        for tail, pivots in ((24, 12), (16, 12), (12, 8), (8, 6), (4, 4)):
+            prompt = [
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": canonical(
+                    question_only(row, tail_bars=tail, pivot_count=pivots))},
+            ]
+            full = prompt + [{"role": "assistant", "content": answer}]
+            before = tokenizer.apply_chat_template(
+                prompt, tokenize=True, add_generation_prompt=True,
+                enable_thinking=False)
+            complete = tokenizer.apply_chat_template(
+                full, tokenize=True, add_generation_prompt=False,
+                enable_thinking=False)
+            if (not isinstance(before, list) or not isinstance(complete, list)
+                    or complete[:len(before)] != before):
+                raise ValueError("QWEN_CHAT_TURN_DELIMITER_MISMATCH")
+            if 2 <= len(before) < len(complete) <= max_tokens:
+                encoded = (before, complete)
+                break
+        if encoded is None:
+            raise ValueError("ANSWER_ONLY_FULL_TEMPLATE_EXCEEDS_CONTEXT_NO_TRUNCATION")
+        before, complete = encoded
         labels = [-100] * len(before) + complete[len(before):]
-        records.append({"input_ids": complete, "attention_mask": [1]*len(complete),
+        records.append({"input_ids": complete,
+                        "attention_mask": [1] * len(complete),
                         "labels": labels})
     return records
 
