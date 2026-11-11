@@ -11,7 +11,6 @@ import json
 import math
 from pathlib import Path
 
-from .book_index import search_pages
 from .cognitive_memory_v4 import CognitiveMemory, _sha, _utc
 from .decision_contract import _as_utc
 from .research_source_router import source_route
@@ -182,7 +181,9 @@ class CognitiveResearchEngine:
         allowed_rules={r["rule_id"] for r in rules}
         excerpts=[]
         if self.book_index is not None:
-            excerpts=search_pages(self.book_index,question,edition=edition,limit=3)
+            from .grounded_inference import verified_private_book_pages
+            excerpts=verified_private_book_pages(
+                self.book_index,edition,question=question,limit=3)
         history=(self.memory.retrieve(
                 question,edition=edition,as_of=at,model_id=self.model_id,
                 run_id=self.run_id,limit=4,
@@ -192,6 +193,7 @@ class CognitiveResearchEngine:
         base={"question":question,"as_of":at,"edition":edition,
               "closed_facts":list(facts.values()),"reviewed_rule_bookmarks":rules,
               "original_private_pages_unverified_extraction":excerpts,
+              "page_provenance_is_checked_but_meaning_not_certified":True,
               "recall_not_verified_expert_gold":history,
               "no_exchange_positions_or_order_acknowledgements":True}
         proposal=_validate_proposal(
