@@ -1,0 +1,75 @@
+name: Williams AI REAL Qwen3-4B four-book knowledge A-B baseline exam
+on:
+  push:
+    branches:
+      - research/real-qwen4b-knowledge-exam-20261111
+    paths:
+      - '.github/workflows/ai-real-qwen4b-knowledge-ab.yml'
+      - 'williams_ai/knowledge_abc_exam_v1.py'
+      - 'tests/test_williams_ai_knowledge_abc_exam_v1.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-real-qwen4b-knowledge-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  real-public-base-4b-knowledge-control:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams_qwen4b_knowledge_hf
+      HF_HUB_ENABLE_HF_TRANSFER: '0'
+      GGUF_FILE: Qwen3-4B-Q4_K_M.gguf
+      GGUF_SHA256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source knowledge / hidden key and code integrity preflight
+        run: |
+          python -m unittest tests.test_williams_ai_knowledge_abc_exam_v1 tests.test_williams_ai_four_book_mastery -v
+          python -m py_compile williams_ai/knowledge_abc_exam_v1.py
+      - name: Install real GGUF CPU runtime, no secret GPU or bot trading
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python 'huggingface_hub>=0.29,<2'
+      - name: Download and SHA-256 verify public base Qwen3-4B GGUF
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          weight=hf_hub_download(repo_id='unsloth/Qwen3-4B-GGUF',
+              filename=os.environ['GGUF_FILE'],
+              local_dir='/tmp/williams_public_base_4b')
+          verified=actual_gguf_sha256(weight,os.environ['GGUF_SHA256'])
+          print('PUBLIC_CONTROL_QWEN3_4B_WEIGHTS_VERIFIED',
+                verified['model_sha256'],flush=True)
+          PY
+      - name: ACTUAL Qwen3-4B frozen 16-case A/B book exam across all four editions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m williams_ai.knowledge_abc_exam_v1 \
+            --model "/tmp/williams_public_base_4b/${GGUF_FILE}" \
+            --expected-sha256 "${GGUF_SHA256}" \
+            --per-edition 4 --seed 20261024 --ctx 4096 \
+            --reasoning-budget 512 \
+            --output "$RUNNER_TEMP/williams-real-public-qwen4b-knowledge-ab.json"
+      - name: Publish ONLY choice-based scorecard, no copyrighted books or weight files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-PUBLIC-BASE-Qwen3-4B-four-book-knowledge-AB-not-trained-williams
+          path: ${{ runner.temp }}/williams-real-public-qwen4b-knowledge-ab.json
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,49 @@
+name: Williams AI RECOVER genuine encrypted Qwen3-4B LoRA checkpoint
+on:
+  push:
+    branches: [research/real-qwen4b-knowledge-exam-20261111]
+    paths:
+      - 'scripts/ai_recover_serial50_for_knowledge_exam.py'
+      - '.github/workflows/ai-real-serial50-knowledge-adapter-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: genuine-serial50-recovery-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  decrypt-validate-trained-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inspect recovery source and ensure no model secret is logged
+        run: python -m py_compile scripts/ai_recover_serial50_for_knowledge_exam.py
+      - name: Download ORIGINAL sealed Qwen3-4B model artifact (2026-11-10)
+        run: |
+          mkdir -p "$RUNNER_TEMP/serial50_sealed"
+          gh run download 42882670406 --repo "${{ github.repository }}" \
+            --name Williams_AI_Serial_50_QLoRA_20261110_Research_Encrypted \
+            --dir "$RUNNER_TEMP/serial50_sealed"
+      - name: Authenticate encrypted original and recover candidate strictly in runner temp
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<47'
+          python scripts/ai_recover_serial50_for_knowledge_exam.py \
+            --sealed "$RUNNER_TEMP/serial50_sealed/Williams_Qwen3_4B_SERIAL_50_20261110.zip.sealed" \
+            --audit "$RUNNER_TEMP/serial50_sealed/independent_market_decision_audit.json" \
+            --private-output "$RUNNER_TEMP/serial50_verified_adapter"
+      - name: Private weights NEVER uploaded
+        run: |
+          test -f "$RUNNER_TEMP/serial50_verified_adapter/adapter_model.safetensors"
+          echo 'ORIGINAL_50_CYCLE_TRAINED_LORA_CRYPTOGRAPHICALLY_VERIFIED_NO_PUBLIC_UPLOAD'
