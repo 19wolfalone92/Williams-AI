@@ -7,8 +7,8 @@ import tempfile
 import unittest
 
 from tests.test_williams_ai_reasoning_research_v2 import example
-from williams_ai.reasoning_research_v2 import HypothesisMemory, digest, verify_case
-from williams_ai.reasoning_walkforward_v2 import run_blind_replay, compare_frozen_predictions
+from williams_ai.reasoning_research_v2 import HypothesisMemory, digest, verify_case, question_only
+from williams_ai.reasoning_walkforward_v2 import run_blind_replay, compare_frozen_predictions, run_prompt_only_replay
 
 
 class WalkForwardV2Tests(unittest.TestCase):
@@ -43,6 +43,34 @@ class WalkForwardV2Tests(unittest.TestCase):
             self.assertFalse(report["grade"]["cryptographically_attested_prediction_time"])
             paired = compare_frozen_predictions([first, second], report["predictions"], report["predictions"])
             self.assertEqual(paired["accuracy_delta_points"], 0.0)
+
+    def test_strict_prompt_only_worker_without_gold(self):
+        from tests.test_williams_ai_reasoning_v2_blocker_fixes import full_case, reseal
+        case=full_case()
+        case["split"]="test"
+        reseal(case)
+        seen=[]
+        def model(prompt,history):
+            self.assertNotIn("answer",prompt)
+            self.assertNotIn("reviewers",prompt)
+            self.assertTrue(prompt["complete_h1_h4_d1_context"])
+            self.assertEqual(history,[])
+            seen.append(prompt["case_id"])
+            return deepcopy(case["answer"])
+        with tempfile.TemporaryDirectory() as folder:
+            memory=HypothesisMemory(Path(folder)/"prompts.sqlite",
+                                    run_id="prompt-only-run-001",
+                                    model_id="qwen-parent-001")
+            prompt=question_only(case)
+            result=run_prompt_only_replay([prompt],model,memory)
+            self.assertEqual(seen,[case["case_id"]])
+            self.assertFalse(result["gold_answer_loaded_by_this_function"])
+            grade=compare_frozen_predictions([case],result["predictions"],
+                                              result["predictions"])
+            self.assertEqual(grade["accuracy_delta_points"],0.0)
+            with self.assertRaisesRegex(ValueError,"PROMPTS_ONLY"):
+                run_prompt_only_replay([{**prompt,"answer":case["answer"]}],
+                                       model,memory)
 
     def test_reject_fake_book_source(self):
         row = example()
