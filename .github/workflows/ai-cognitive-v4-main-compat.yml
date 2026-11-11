@@ -12,6 +12,8 @@ on:
       - 'williams_ai/adaptive_coach.py'
       - 'williams_ai/study.py'
       - 'williams_ai/reasoning_trial.py'
+      - 'williams_ai/deliberate_learning.py'
+      - 'tests/test_williams_ai_unified_runtime.py'
       - 'tests/test_williams_ai_cognitive_v4.py'
       - 'tests/test_williams_ai_cognitive_root_causality_v4.py'
       - '.github/workflows/ai-cognitive-v4-main-compat.yml'
