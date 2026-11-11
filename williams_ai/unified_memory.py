@@ -62,6 +62,10 @@ class UnifiedMemory:
                 row_sha256 TEXT PRIMARY KEY,table_name TEXT NOT NULL,imported_at TEXT NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS actual_run_receipts(
                 name TEXT PRIMARY KEY,payload TEXT NOT NULL,payload_sha256 TEXT NOT NULL)""")
+        # Eagerly initialize only the lightweight SQLite schema. Without this,
+        # inventory() fails when status() reads the v4 tables before cognition
+        # was ever requested.
+        self.cognitive
 
     @property
     def cognitive(self):
