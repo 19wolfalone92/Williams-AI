@@ -107,6 +107,7 @@ def prior_lesson(
 def recall_model_corrections(
     notebook_db:Path,model_id:str,edition:str, *,
     focus_rule_ids:tuple[str,...]=(),limit:int=2,
+    as_of:str|None=None,
 )->list[dict[str,str]]:
     """Retrieve REAL previous private mistakes for this exact model fingerprint.
 
@@ -124,13 +125,28 @@ def recall_model_corrections(
         raise ValueError("Only known same-edition rule IDs")
     if not _private_database(notebook_db).is_file():
         raise FileNotFoundError("Model has not yet completed a private coaching session")
+    if as_of is not None:
+        from .decision_contract import _as_utc
+        if _as_utc(as_of) is None:
+            raise ValueError("CAUSAL_COACH_RECALL_CUTOFF_REQUIRED")
     with notebook(notebook_db) as db:
-        rows=db.execute(
-            "SELECT rule_id,source,explanation FROM private_remediation "
-            "WHERE model_id=? AND edition=? "
-            "ORDER BY failures DESC,updated_at DESC",
-            (model_id,edition),
-        ).fetchall()
+        # A coaching correction made after a backtest candle is future
+        # information even if its original rule belonged to an older book.
+        if as_of is None:
+            rows=db.execute(
+                "SELECT rule_id,source,explanation FROM private_remediation "
+                "WHERE model_id=? AND edition=? "
+                "ORDER BY failures DESC,updated_at DESC",
+                (model_id,edition),
+            ).fetchall()
+        else:
+            rows=db.execute(
+                "SELECT rule_id,source,explanation FROM private_remediation "
+                "WHERE model_id=? AND edition=? "
+                "AND julianday(updated_at)<=julianday(?) "
+                "ORDER BY failures DESC,updated_at DESC",
+                (model_id,edition,as_of),
+            ).fetchall()
     selected=[r for r in rows if not focus_rule_ids or r[0] in focus_rule_ids]
     return [{"source":source,"excerpt":explanation}
             for rule,source,explanation in selected[:limit]]
