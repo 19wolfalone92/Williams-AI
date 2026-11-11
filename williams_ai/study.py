@@ -300,7 +300,8 @@ def study_report(book_db: str | Path, memory_db: str | Path,
 
 def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
            limit: int = 3, model_id: str | None = None,
-           book_index: str | Path | None = None) -> list[dict[str, str]]:
+           book_index: str | Path | None = None,
+           as_of: str | None = None) -> list[dict[str, str]]:
     """Recall model-scoped, source-identified study notes as UNVERIFIED hints.
 
     For decisions involving a specific GGUF, model_id is mandatory at the
@@ -315,6 +316,10 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
         _known_book(edition)
     if model_id is not None and not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,120}",model_id):
         raise ValueError("Invalid GGUF model fingerprint")
+    if as_of is not None:
+        from .decision_contract import _as_utc
+        if _as_utc(as_of) is None:
+            raise ValueError("CAUSAL_STUDY_MEMORY_CUTOFF_REQUIRED")
     current = None
     if book_index is not None:
         if _private_database(book_index) == _private_database(memory_db):
@@ -343,6 +348,9 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
         if model_id is not None:
             conditions.append("model_id=?")
             args.append(model_id)
+        if as_of is not None:
+            conditions.append("julianday(learned_at)<=julianday(?)")
+            args.append(as_of)
         if conditions:
             query+=" WHERE "+" AND ".join(conditions)
         for book,page,content,student,source_sha,chunk_sha in db.execute(query,args):
