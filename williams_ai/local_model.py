@@ -715,7 +715,10 @@ class LocalWilliamsModel:
                 evidence_status=item.get("status")
                 allowed={"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"}
                 if edition=="COURSE":
-                    allowed.add("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
+                    allowed.update({
+                        "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW",
+                        "PRIVATE_VISUAL_DESCRIPTION_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW",
+                    })
                 if (not isinstance(source,str) or not source.startswith(edition+": PDF ")
                         or not isinstance(excerpt,str) or not 1<=len(excerpt)<=650
                         or evidence_status not in allowed):
