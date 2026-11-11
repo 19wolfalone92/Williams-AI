@@ -233,3 +233,55 @@ def search_course_visual_descriptions(database: str | Path, question: str,
             "visual_meaning_not_authoritatively_checked":True,
         })
     return found
+
+
+def direct_visual_drafts(database: str | Path,pdf_page:int,*,limit:int=3):
+    """Source-bound PRIVATE observations for a few visually inspected pages.
+
+    The seven human-assisted drafts in the user's private archive are not
+    licensed verbatim text, expert gold or certified market hypotheses.
+    They are available to text Qwen only as visibly tagged observations.
+    """
+    import json
+    from .book_rules import registry
+    if type(pdf_page) is not int or not 1<=pdf_page<=122:
+        raise ValueError("PRIVATE_VISUAL_DRAFT_PAGE_RANGE_REQUIRED")
+    if type(limit) is not int or not 1<=limit<=3:
+        raise ValueError("BOUNDED_PRIVATE_VISUAL_DRAFT_LIMIT_REQUIRED")
+    path=_private_database(database)
+    src=path.parent/"VISUAL_DRAFTS_7.json"
+    if not src.is_file() or src.is_symlink():
+        return []
+    if src.stat().st_size>200_000:
+        raise ValueError("OVERLARGE_UNTRUSTED_PRIVATE_VISUAL_DRAFT_FILE")
+    with sqlite3.connect(f"file:{path}?mode=ro",uri=True) as db:
+        row=db.execute("SELECT page_image_sha256,source_sha256 FROM course_pages "
+                       "WHERE pdf_page=?",(pdf_page,)).fetchone()
+    if not row:
+        return []
+    books={x["id"]:x["sha256"] for x in registry()["books"]}
+    if row[1]!=books["COURSE"]:
+        raise ValueError("VISUAL_DRAFT_BOOK_HASH_MISMATCH")
+    data=json.loads(src.read_text(encoding="utf-8"))
+    if not isinstance(data,list) or len(data)>122:
+        raise ValueError("UNTRUSTED_VISUAL_DRAFT_LIST")
+    found=[]
+    for item in data:
+        if not isinstance(item,dict) or item.get("page")!=pdf_page:
+            continue
+        if (item.get("source_pdf_sha256")!=row[1]
+                or item.get("page_image_sha256")!=row[0]
+                or item.get("independently_verified") is not False
+                or item.get("use_as_expert_gold") is not False):
+            raise ValueError("FORGED_PRIVATE_VISUAL_DRAFT")
+        segments=item.get("geometry_observations",[])
+        if (not isinstance(segments,list) or len(segments)>12 or
+                any(not isinstance(v,str) or not 1<=len(v)<=500 for v in segments)):
+            raise ValueError("BAD_PRIVATE_VISUAL_DRAFT_EVIDENCE")
+        for observation in segments[:limit]:
+            found.append({"pdf_page":pdf_page,"statement":observation,
+                          "source_page_sha256":row[0],
+                          "review_status":"DIRECT_VISUAL_DRAFT_UNVERIFIED_BY_SECOND_REVIEWER",
+                          "use_as_expert_gold":False})
+        break
+    return found[:limit]
