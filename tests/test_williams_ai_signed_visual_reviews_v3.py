@@ -89,6 +89,8 @@ class SignedCourseReviewTests(unittest.TestCase):
         case["book_evidence"].update(
             {"edition":"COURSE","pdf_page":56,"source_sha256":course["sha256"],
              "excerpt":"Expert-reviewed description of nested degree wave labels on the diagram."})
+        case["reviewers"][0]["reviewer_id"]="expert-alpha"
+        case["reviewers"][1]["reviewer_id"]="expert-bravo"
         reseal(case)
         case_sha=__import__("williams_ai.reasoning_research_v2",fromlist=["digest"]).digest(
             {k:v for k,v in case.items() if k!="reviewers"})
