@@ -14,7 +14,7 @@ def readiness(cases):
     audit = check_corpus(cases)
     minimum = {"train": 64, "validation": 16, "test": 16}
     min_symbols = {"train": 3, "validation": 2, "test": 2}
-    min_frames = {"train": 2, "validation": 2, "test": 2}
+    min_frames = {"train": 3, "validation": 3, "test": 3}
     split_rows = {name: [r for r in cases if r["split"] == name] for name in SPLITS}
     reasons = []
     book_rules = defaultdict(set)
@@ -22,7 +22,13 @@ def readiness(cases):
     for split, rows in split_rows.items():
         eds = {r["edition"] for r in rows}
         symbols = {r["symbol"] for r in rows}
-        frames = {r["timeframe"] for r in rows}
+        frames = {tf for row in rows for tf in (
+            {row["timeframe"]} |
+            (set(row["higher_timeframes"]) if "higher_timeframes" in row else set()))}
+        incomplete = sum(not (
+            row["timeframe"] == "H1" and
+            "higher_timeframes" in row and
+            "book_evidence" in row) for row in rows)
         counts = Counter(r["rule_id"] for r in rows)
         wave = Counter(str(r["answer"]["wave_confirmed"]) for r in rows
                        if r["answer"]["wave_confirmed"] is not None)
@@ -32,6 +38,7 @@ def readiness(cases):
             "cases": len(rows), "sources": sorted(eds),
             "symbols": len(symbols), "timeframes": len(frames),
             "rules": len(counts),
+            "cases_missing_h1_h4_d1_or_source_evidence": incomplete,
             "expert_wave_confirmed_true": wave["True"],
             "expert_wave_confirmed_false": wave["False"],
             "expert_squat_true": squat["True"],
@@ -43,6 +50,8 @@ def readiness(cases):
             reasons.append(split + "_MISSING_FOUR_BOOK_COVERAGE")
         if len(symbols) < min_symbols[split]:
             reasons.append(split + "_INSUFFICIENT_ASSET_DIVERSITY")
+        if incomplete:
+            reasons.append(split + "_MISSING_APPROVED_FULL_MARKET_AND_BOOK_CONTEXT")
         if len(frames) < min_frames[split]:
             reasons.append(split + "_INSUFFICIENT_TIMEFRAME_DIVERSITY")
         if not (wave["True"] >= 2 and wave["False"] >= 2):
