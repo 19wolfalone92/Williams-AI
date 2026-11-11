@@ -23,9 +23,11 @@ def _with_private_course_visuals(item:dict[str,Any],db_path:Path,edition:str)->d
     a vision-capable model or human reviewer.
     """
     if edition=="COURSE":
-        from .course_visual_private import course_visual_refs
+        from .course_visual_private import course_visual_refs,direct_visual_drafts
         from .course_page_semantics_v3 import private_course_page_role
         item["visual_refs"]=course_visual_refs(db_path,item["pdf_page"])
+        item["private_visual_drafts"]=direct_visual_drafts(
+            db_path,item["pdf_page"],limit=2)
         item["visual_meaning_not_authoritatively_checked"]=True
         item["page_role"]=private_course_page_role(item["pdf_page"])
         item["blank_form_is_not_trade_rule"]=bool(
