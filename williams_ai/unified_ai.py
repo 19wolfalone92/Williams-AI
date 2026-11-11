@@ -141,6 +141,33 @@ class WilliamsAI:
             "execution_allowed": False}
         return result
 
+    def cognitive_from_closed_bars(
+            self, question: str, *, edition: str, as_of: str,
+            historical_bars: dict[str, list[dict[str, Any]]], run_id: str,
+            retain_hypothesis: bool = False, use_memory: bool = True,
+            research_backend: Callable[..., Any] | None = None) -> dict[str, Any]:
+        """Actual deterministic observations, rather than LLM-tagged facts.
+
+        The supplied historical OHLCV still needs independent exchange-feed
+        provenance before performance or trading claims.
+        """
+        from .cognitive_market_bridge_v4 import market_facts_from_closed_history
+        packet=market_facts_from_closed_history(historical_bars,as_of=as_of)
+        result=self.cognitive_research(
+            question,edition=edition,as_of=as_of,
+            closed_facts=packet["facts"],run_id=run_id,
+            retain_hypothesis=retain_hypothesis,use_memory=use_memory,
+            research_backend=research_backend)
+        result["source_market_snapshot"]={
+            "snapshot_sha256":packet["whole_snapshot_sha256"],
+            "frames":packet["frames"],
+            "exchange_feed_not_attested":True,
+            "future_candles_blocked":True,
+            "no_order_fills_claimed":True}
+        result["integration"]["facts_computed_from_closed_bars"] = True
+        result["integration"]["caller_asserted_facts_not_used"] = True
+        return result
+
     def status(self) -> dict[str, Any]:
         from .study import study_report
         books = (study_report(self.book_index, self.memory.path, model_id=self.identity["model_id"])
@@ -175,6 +202,14 @@ def main() -> None:
     cog.add_argument("--run-id", required=True)
     cog.add_argument("--retain-hypothesis", action="store_true")
     cog.add_argument("--no-memory", action="store_true")
+    cb = actions.add_parser("cognitive-bars")
+    cb.add_argument("--question", required=True)
+    cb.add_argument("--edition", choices=["TC1","NTD","TC2","COURSE"], required=True)
+    cb.add_argument("--as-of", required=True)
+    cb.add_argument("--history", type=Path, required=True)
+    cb.add_argument("--run-id", required=True)
+    cb.add_argument("--retain-hypothesis", action="store_true")
+    cb.add_argument("--no-memory", action="store_true")
     refs = actions.add_parser("references")
     refs.add_argument("--question", required=True)
     imported = actions.add_parser("import-memory")
@@ -211,6 +246,17 @@ def main() -> None:
         result = brain.cognitive_research(
             a.question, edition=a.edition, as_of=a.as_of,
             closed_facts=observations, run_id=a.run_id,
+            retain_hypothesis=a.retain_hypothesis,
+            use_memory=not a.no_memory)
+    elif a.action == "cognitive-bars":
+        from .private_lora import _private_file
+        path = _private_file(a.history)
+        if path.stat().st_size > 15_000_000:
+            raise ValueError("BOUNDED_PRIVATE_H1_H4_D1_HISTORY_REQUIRED")
+        history = json.loads(path.read_text(encoding="utf-8"))
+        result = brain.cognitive_from_closed_bars(
+            a.question,edition=a.edition,as_of=a.as_of,
+            historical_bars=history,run_id=a.run_id,
             retain_hypothesis=a.retain_hypothesis,
             use_memory=not a.no_memory)
     elif a.action == "references":
