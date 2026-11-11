@@ -51,6 +51,38 @@ class UnifiedMemory:
             db.execute("""CREATE TABLE IF NOT EXISTS actual_run_receipts(
                 name TEXT PRIMARY KEY,payload TEXT NOT NULL,payload_sha256 TEXT NOT NULL)""")
 
+    @property
+    def cognitive(self):
+        """Lazy v4 semantic/episodic/procedural store in the SAME private DB.
+
+        Existing study/private_remediation and book-index schemas remain
+        intact. No historical labels are silently imported or promoted.
+        """
+        if not hasattr(self, "_cognitive"):
+            from .cognitive_memory_v4 import CognitiveMemory
+            self._cognitive = CognitiveMemory(self.path)
+        return self._cognitive
+
+    def remember_research(self, *, kind, edition, source_ref, text, observed_at,
+                          model_id=None, run_id=None,
+                          embedding_encoder=None, embedding_model_id=None):
+        return self.cognitive.put(
+            kind=kind, edition=edition, source_ref=source_ref, text=text,
+            observed_at=observed_at, model_id=model_id, run_id=run_id,
+            embedding_encoder=embedding_encoder,
+            embedding_model_id=embedding_model_id)
+
+    def recall_research(self, question, *, edition, as_of, model_id=None,
+                        run_id=None, limit=5, embedding_encoder=None,
+                        embedding_model_id=None):
+        return self.cognitive.retrieve(
+            question, edition=edition, as_of=as_of, model_id=model_id,
+            run_id=run_id, limit=limit, embedding_encoder=embedding_encoder,
+            embedding_model_id=embedding_model_id)
+
+    def cognitive_inventory(self):
+        return self.cognitive.stats()
+
     def connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path, timeout=15)
         db.execute("PRAGMA synchronous=FULL")
