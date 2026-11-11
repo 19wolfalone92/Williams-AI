@@ -316,6 +316,48 @@ class CognitiveMemory:
                     break
         return output
 
+    def import_previous_coaching_errors(self, *, model_id, run_id, limit=150):
+        """Bring REAL model-scoped coach corrections into v4 as unverified notes.
+
+        Imported rows retain the exact source rule, but do NOT become trusted
+        gold; first v4 ingestion is recorded NOW and can never appear on an
+        older frozen candle. Reimport is idempotent by content hash.
+        """
+        if (not isinstance(model_id,str) or not 6<=len(model_id)<=128 or
+                not isinstance(run_id,str) or not 6<=len(run_id)<=128 or
+                type(limit) is not int or not 1<=limit<=500):
+            raise ValueError("SCOPED_BOUNDED_COACH_ERROR_IMPORT_REQUIRED")
+        from .book_rules import registry
+        rules={x["id"]:x for x in registry()["rule_cards"]
+               if x["status"]=="REVIEWED_PAGES"}
+        with self.connect() as db:
+            exists=db.execute("""SELECT 1 FROM sqlite_master WHERE type='table'
+                                 AND name='private_remediation'""").fetchone()
+            rows=(db.execute(
+                "SELECT edition,rule_id,source,explanation,updated_at "
+                "FROM private_remediation WHERE model_id=? "
+                "ORDER BY updated_at,edition,rule_id LIMIT ?",
+                (model_id,limit)).fetchall() if exists else [])
+        added=[]
+        skipped=0
+        for edition,rule_id,source,explanation,updated_at in rows:
+            card=rules.get(rule_id)
+            if (not card or card["source"]!=edition or
+                    not isinstance(source,str) or not source.startswith(edition+":RULE:") or
+                    not isinstance(explanation,str) or len(explanation)<12 or
+                    _as_utc(updated_at) is None or _as_utc(updated_at)>_as_utc(_now())):
+                skipped+=1
+                continue
+            entry=self.put(kind="RESEARCH_NOTE",edition=edition,
+                source_ref="COACH_REMEDIATION:"+rule_id,
+                text="Previously coached error for "+rule_id+": "+explanation,
+                observed_at=updated_at,model_id=model_id,run_id=run_id)
+            added.append(entry)
+        return {"rows_checked":len(rows),"eligible_scoped_lessons":len(added),
+                "skipped_unverified_or_invalid":skipped,
+                "entry_ids":added,"imported_as_expert_gold":False,
+                "historical_ingestion_backdated":False}
+
     def stats(self):
         with self.connect() as db:
             return {
