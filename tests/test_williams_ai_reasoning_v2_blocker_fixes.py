@@ -96,6 +96,56 @@ class BlockerFixes(unittest.TestCase):
             prepare_gpu_handoff([full_case()])
         with self.assertRaisesRegex(ValueError,"FROZEN_GPU"):
             validate_gpu_handoff([full_case()],{})
+    def test_source_provenance_does_not_disguise_ocr_as_verified_text(self):
+        from williams_ai.book_index import index_pages
+        from williams_ai.grounded_inference import verified_private_book_pages
+        from williams_ai.book_rules import registry
+        with tempfile.TemporaryDirectory() as folder:
+            db=Path(folder)/"private_books.sqlite3"
+            source=next(b for b in registry()["books"] if b["id"]=="COURSE")
+            pages=[""]*source["pages"]
+            pages[10]="Profitunity Course fractal Elliott scanned OCR is not an independently reviewed quote."
+            index_pages(db,"COURSE",source["sha256"],pages,
+                        declared_pages=source["pages"],
+                        source_type="PDF_TEXT_WITH_UNREVIEWED_OCR")
+            result=verified_private_book_pages(db,"COURSE",limit=1)
+            self.assertTrue(result)
+            self.assertEqual(result[0]["status"],
+                             "PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW")
+
+    def test_previous_rejected_hypothesis_keeps_source_and_time(self):
+        from williams_ai.book_rules import registry
+        book=next(b for b in registry()["books"] if b["id"]=="TC2")
+        with tempfile.TemporaryDirectory() as folder:
+            mem=HypothesisMemory(Path(folder)/"learning.db",
+                                 model_id="qwen-model-123",run_id="replay-rejected-123")
+            mem.append(case_id="hypothesis-001",symbol="BTCUSDT",
+                       cutoff="2026-11-01T01:00:00Z",
+                       available_at="2026-11-01T01:00:00Z",
+                       snapshot_sha256="a"*64,hypothesis="Possible setup is open",
+                       alternative="The setup may be invalid",
+                       evidence=["closed fractal"],counterevidence=["no wave confirmation"],
+                       invalidation="confirmed reversal",
+                       edition="TC2",rule_id="TC2.WM1.ANG",
+                       book_sha256=book["sha256"])
+            mem.review(case_id="hypothesis-001",
+                       reviewer_a="expert-alpha",reviewer_b="expert-bravo",
+                       reviewed_at="2026-11-04T00:00:00Z",
+                       verdict="REJECTED",
+                       rationale="The structure was unconfirmed and the alternative was missed.")
+            self.assertEqual(mem.reviewed_rejections_as_of(
+                symbol="BTCUSDT",edition="TC2",
+                timestamp="2026-11-03T00:00:00Z"),[])
+            past=mem.reviewed_rejections_as_of(
+                symbol="BTCUSDT",edition="TC2",
+                timestamp="2026-11-05T00:00:00Z")
+            self.assertEqual(len(past),1)
+            self.assertEqual(past[0]["rule_id"],"TC2.WM1.ANG")
+            self.assertEqual(past[0]["book_sha256"],book["sha256"])
+            self.assertEqual(mem.reviewed_rejections_as_of(
+                symbol="BTCUSDT",edition="NTD",
+                timestamp="2026-11-05T00:00:00Z"),[])
+
     def test_isolated_models_can_write_same_case_in_one_db(self):
         with tempfile.TemporaryDirectory() as root:
             a=HypothesisMemory(Path(root)/"memory.db",model_id="qwen-parent-aa",run_id="replay-0001")
