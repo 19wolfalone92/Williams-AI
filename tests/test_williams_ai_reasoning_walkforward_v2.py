@@ -22,6 +22,9 @@ class WalkForwardV2Tests(unittest.TestCase):
         second["bars"].append(extra)
         second["cutoff"] = extra["close_time"]
         second["visible_prefix_sha256"] = digest(second["bars"])
+        case_sha = digest({k: val for k, val in second.items() if k != "reviewers"})
+        for review in second["reviewers"]:
+            review["case_sha256"] = case_sha
         observations = []
 
         def reason(market, history):
@@ -44,6 +47,9 @@ class WalkForwardV2Tests(unittest.TestCase):
     def test_reject_fake_book_source(self):
         row = example()
         row["source_sha256"] = "a"*64
+        case_sha = digest({k: val for k, val in row.items() if k != "reviewers"})
+        for review in row["reviewers"]:
+            review["case_sha256"] = case_sha
         with self.assertRaisesRegex(ValueError, "BOOK_RULE"):
             verify_case(row)
 
