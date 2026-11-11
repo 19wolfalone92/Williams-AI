@@ -102,12 +102,18 @@ def course_visual_audit(database: str | Path) -> dict[str, Any]:
                     hashlib.sha256(img.read_bytes()).hexdigest()!=checksum):
                 raise ValueError("COURSE_PAGE_IMAGE_HASH_MISMATCH_OR_MISSING")
         annotated=db.execute("SELECT COUNT(*) FROM course_visuals").fetchone()[0]
-        statuses=db.execute("SELECT DISTINCT semantic_review_status FROM course_pages").fetchall()
-        if any(s[0] != "NOT_INDEPENDENTLY_VERIFIED" for s in statuses):
-            raise ValueError("UNEXPECTED_UNVERIFIED_VISUAL_AUDIT_STATUS")
-    return {"schema":"COURSE_VISUAL_PRIVATE_AUDIT_V1","edition":"COURSE",
+        states=db.execute(
+            "SELECT semantic_review_status,COUNT(*) FROM course_pages "
+            "GROUP BY semantic_review_status ORDER BY semantic_review_status"
+        ).fetchall()
+        status_counts={str(code):int(count) for code,count in states}
+        allowed={"NOT_INDEPENDENTLY_VERIFIED","HUMAN_CHECKED_TEXT_AND_DIAGRAMS"}
+        if not set(status_counts)<=allowed:
+            raise ValueError("UNEXPECTED_COURSE_PAGE_VISUAL_REVIEW_STATUS")
+    return {"schema":"COURSE_VISUAL_PRIVATE_AUDIT_V2","edition":"COURSE",
             "source_sha256":known["sha256"],"pages_with_images":122,
             "illustrated_page_annotations":annotated,
+            "page_review_status_counts":status_counts,
             "all_semantic_links_expert_verified":False,
             "retrieval_allowed":True,"use_as_verified_training_gold":False}
 
