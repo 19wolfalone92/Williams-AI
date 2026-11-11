@@ -120,6 +120,10 @@ class WilliamsAI:
         from .cognitive_engine_v4 import (
             CognitiveResearchEngine, LocalQwenResearchBackend,
         )
+        prior_coached=None
+        if use_memory:
+            prior_coached=self.memory.cognitive.import_previous_coaching_errors(
+                model_id=self.identity["model_id"],run_id=run_id)
         backend = (research_backend if research_backend is not None
                    else LocalQwenResearchBackend(self.model))
         engine = CognitiveResearchEngine(
@@ -138,6 +142,7 @@ class WilliamsAI:
             "legacy_study_analyze_practice_unchanged": True,
             "market_fact_provenance_asserted_by_caller_not_exchange_attested": True,
             "weight_training_performed": False,
+            "prior_coached_error_import": prior_coached,
             "execution_allowed": False}
         return result
 
@@ -145,7 +150,8 @@ class WilliamsAI:
             self, question: str, *, edition: str, as_of: str,
             historical_bars: dict[str, list[dict[str, Any]]], run_id: str,
             retain_hypothesis: bool = False, use_memory: bool = True,
-            research_backend: Callable[..., Any] | None = None) -> dict[str, Any]:
+            research_backend: Callable[..., Any] | None = None,
+            embedding_encoder=None, embedding_model_id=None) -> dict[str, Any]:
         """Actual deterministic observations, rather than LLM-tagged facts.
 
         The supplied historical OHLCV still needs independent exchange-feed
@@ -157,7 +163,9 @@ class WilliamsAI:
             question,edition=edition,as_of=as_of,
             closed_facts=packet["facts"],run_id=run_id,
             retain_hypothesis=retain_hypothesis,use_memory=use_memory,
-            research_backend=research_backend)
+            research_backend=research_backend,
+            embedding_encoder=embedding_encoder,
+            embedding_model_id=embedding_model_id)
         result["source_market_snapshot"]={
             "snapshot_sha256":packet["whole_snapshot_sha256"],
             "frames":packet["frames"],
@@ -210,6 +218,7 @@ def main() -> None:
     cb.add_argument("--run-id", required=True)
     cb.add_argument("--retain-hypothesis", action="store_true")
     cb.add_argument("--no-memory", action="store_true")
+    cb.add_argument("--embedding-model-dir",type=Path)
     refs = actions.add_parser("references")
     refs.add_argument("--question", required=True)
     imported = actions.add_parser("import-memory")
@@ -254,11 +263,19 @@ def main() -> None:
         if path.stat().st_size > 15_000_000:
             raise ValueError("BOUNDED_PRIVATE_H1_H4_D1_HISTORY_REQUIRED")
         history = json.loads(path.read_text(encoding="utf-8"))
+        encoder=None
+        fingerprint=None
+        if a.embedding_model_dir is not None:
+            from .cognitive_embeddings_v4 import LocalSentenceEmbedding
+            encoder=LocalSentenceEmbedding(a.embedding_model_dir)
+            fingerprint=encoder.model_id
         result = brain.cognitive_from_closed_bars(
             a.question,edition=a.edition,as_of=a.as_of,
             historical_bars=history,run_id=a.run_id,
             retain_hypothesis=a.retain_hypothesis,
-            use_memory=not a.no_memory)
+            use_memory=not a.no_memory,
+            embedding_encoder=encoder,
+            embedding_model_id=fingerprint)
     elif a.action == "references":
         result = brain.references(a.question)
     elif a.action == "import-memory":
