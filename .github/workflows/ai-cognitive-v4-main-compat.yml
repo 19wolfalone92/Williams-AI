@@ -1,6 +1,12 @@
 name: Williams AI cognitive v4 main compatibility
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'williams_ai/**'
+      - 'tests/test_williams_ai_*.py'
+      - '.github/workflows/ai-cognitive-v4-main-compat.yml'
   pull_request:
     branches: [main]
     paths:
@@ -50,8 +56,12 @@ jobs:
         run: |
           python - <<'PY'
           import subprocess
-          paths=subprocess.check_output(['git','diff','--name-only',
-              'origin/main...HEAD'],text=True).splitlines()
+          import os
+          event=os.environ.get("GITHUB_EVENT_NAME")
+          base=['HEAD^','HEAD'] if event=='push' else ['origin/main...HEAD']
+          paths=subprocess.check_output(['git','diff','--name-only']+
+              base,text=True).splitlines()
+          print('PRIVACY_DIFF_EVENT',event,'PATH_COUNT',len(paths))
           forbidden=('.pdf','.zip','.sqlite','.sqlite3','.gguf','.safetensors','.key')
           bad=[x for x in paths if x.lower().endswith(forbidden)]
           if bad: raise SystemExit('PRIVATE_USER_ASSET_IN_PUBLIC_BRANCH:'+str(bad))
