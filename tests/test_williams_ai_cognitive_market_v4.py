@@ -47,10 +47,12 @@ class CognitiveMarketBridgeV4Tests(unittest.TestCase):
         from copy import deepcopy
         for mutation,code in (
             (lambda h:h["H1"][-1].update({"closed":False}),"finalized"),
-            (lambda h:h["H4"].pop(55),"CONTIGUOUS"),
+            (lambda h:h["H4"][55].update({"close_time":(
+                datetime.fromisoformat(h["H4"][55]["close_time"])+timedelta(hours=1)
+                ).isoformat()}),"CONTIGUOUS"),
             (lambda h:[x.update({"close_time":(
                 datetime.fromisoformat(x["close_time"])+timedelta(hours=4)).isoformat()})
-                for x in h["H4"]],"STALE_OR_FUTURE"),
+                for x in h["H4"]],"NO_LOOKAHEAD"),
         ):
             damaged=deepcopy(hist)
             mutation(damaged)
