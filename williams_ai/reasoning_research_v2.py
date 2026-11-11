@@ -147,6 +147,7 @@ def check_corpus(cases):
     if not isinstance(cases, list):
         raise ValueError("CASES_LIST_REQUIRED")
     ids, prefixes, assignments = set(), {}, {}
+    from .chart_supervision import _underlying_asset
     counts = Counter()
     for row in cases:
         verify_case(row)
@@ -157,14 +158,19 @@ def check_corpus(cases):
         if key in prefixes:
             raise ValueError("REPEATED_PREFIX_NOT_INDEPENDENT")
         prefixes[key] = row["split"]
-        if row["symbol"] in assignments and assignments[row["symbol"]] != row["split"]:
-            raise ValueError("WHOLE_SYMBOL_SPLIT_REQUIRED")
-        assignments[row["symbol"]] = row["split"]
+        # Quote-currency aliases and spot/futures of the same underlying must
+        # remain in one partition. BTCUSDT and BTCUSDC are not independent.
+        underlying = _underlying_asset(row["symbol"])
+        if underlying in assignments and assignments[underlying] != row["split"]:
+            raise ValueError("WHOLE_UNDERLYING_SPLIT_REQUIRED")
+        assignments[underlying] = row["split"]
         counts[row["split"]] += 1
     return {"schema": "WILLIAMS_AI_GATED_REASONING_CORPUS_V1",
             "counts": dict(sorted(counts.items())),
             "distinct_symbols": len(assignments), "case_count": len(cases),
-            "source_sha256": digest([row["case_id"] for row in cases]),
+            # Bind ALL reviewed source, market, question, answer, approvals,
+            # and split bytes, not just reusable case identifiers.
+            "source_sha256": digest(sorted(cases, key=lambda row: row["case_id"])),
             "expert_identity_not_cryptographically_authenticated": True,
             "execution_allowed": False}
 
@@ -224,10 +230,46 @@ def export_research(cases):
     return result, manifest
 
 
-def adaptive_schedule(train_cases, validation_failures, *, rounds=10, seed="v2"):
-    """Select ONLY approved train examples based on validation *error categories*.
+def _skills_for_rule(rule_id):
+    """Stable cross-rule competencies; validation/test never become examples."""
+    name = str(rule_id).upper()
+    tags = {"REASONING", "UNCERTAINTY"}
+    if any(token in name for token in ("WAVE", ".W3", ".W4", ".W5", "NESTED", "ZERO")):
+        tags.add("WAVES")
+    if any(token in name for token in ("AO", ".AC", "ANG", "MOMENTUM", "HUMP")):
+        tags.add("MOMENTUM")
+    if any(token in name for token in ("WM", "CONTEXT", "ALLIGATOR", "RHYTHM")):
+        tags.add("CONTEXT")
+    if any(token in name for token in ("RISK", "PSY", "STOP", "EXIT", "CAMPAIGN")):
+        tags.add("RISK")
+    if "FRACTAL" in name:
+        tags.add("FRACTALS")
+    return tags
 
-    Never includes validation/test answers. This is preparation, not GPU training.
+
+def _skill_for_error(issue):
+    code = issue.upper()
+    if any(word in code for word in ("ALTERNATIVE", "UNCERTAIN", "INVALIDATION")):
+        return "UNCERTAINTY"
+    if any(word in code for word in ("WAVE", "W4", "SQUAT")):
+        return "WAVES"
+    if any(word in code for word in ("AC", "AO", "MOMENTUM")):
+        return "MOMENTUM"
+    if any(word in code for word in ("STOP", "RISK", "SIZE", "POSITION")):
+        return "RISK"
+    if "FRACTAL" in code:
+        return "FRACTALS"
+    if any(word in code for word in ("CONTEXT", "H4", "D1", "TREND")):
+        return "CONTEXT"
+    return "REASONING"
+
+
+def adaptive_schedule(train_cases, validation_failures, *, rounds=10, seed="v2"):
+    """Adapt by shared skill rather than an impossible train/dev rule-ID match.
+
+    Validation supplies ONLY error metadata. Unknown skills fail closed when
+    no approved train analogue exists. Keep independent rule-disjoint transfer
+    tests separate from the adaptive validation cohort.
     """
     if type(rounds) is not int or not 1 <= rounds <= 100:
         raise ValueError("BOUNDED_ROUNDS_REQUIRED")
@@ -235,29 +277,40 @@ def adaptive_schedule(train_cases, validation_failures, *, rounds=10, seed="v2")
         verify_case(row)
         if row["split"] != "train":
             raise ValueError("TRAIN_ONLY_DATA_REQUIRED")
-    eligible = {row["rule_id"] for row in train_cases}
-    priorities = Counter()
+    if not train_cases:
+        raise ValueError("APPROVED_TRAIN_CASES_REQUIRED")
+    scores = Counter()
     for issue in validation_failures:
         if not isinstance(issue, dict) or set(issue) != {"case_id", "split", "rule_id", "error_code"}:
             raise ValueError("ONLY_ERROR_METADATA_ALLOWED")
         if issue["split"] != "validation" or not issue["case_id"] or not issue["error_code"]:
             raise ValueError("VALIDATION_METADATA_ONLY")
-        if issue["rule_id"] in eligible:
-            priorities[issue["rule_id"]] += 1
-    if not train_cases:
-        raise ValueError("APPROVED_TRAIN_CASES_REQUIRED")
-    pool = sorted(train_cases, key=lambda r: r["case_id"])
-    ranks = sorted(eligible, key=lambda rule: (-priorities[rule], rule))
+        skill = _skill_for_error(str(issue["error_code"]))
+        scores[skill] += 1
+    pool = sorted(train_cases, key=lambda row: row["case_id"])
+    skills = {skill for row in pool for skill in _skills_for_rule(row["rule_id"])}
+    unmapped = sorted(set(scores) - skills)
+    if unmapped:
+        raise ValueError("VALIDATION_SKILL_WITH_NO_APPROVED_TRAIN_ANALOGUE:" + ",".join(unmapped))
+    prioritized = sorted(skills, key=lambda skill: (-scores[skill], skill))
     schedule = []
     for index in range(rounds):
-        rule = ranks[index % len(ranks)]
-        candidates = [row for row in pool if row["rule_id"] == rule]
+        # At least one retention turn per five steps, even under hot failures.
+        skill = ("REASONING" if (index+1) % 5 == 0
+                 else prioritized[index % len(prioritized)])
+        candidates = [row for row in pool if skill in _skills_for_rule(row["rule_id"])]
+        if not candidates:
+            raise ValueError("NO_APPROVED_EXAMPLE_FOR_SKILL")
         choice = min(candidates, key=lambda row: digest([seed, index, row["case_id"]]))
-        schedule.append({"round": index + 1, "focus_rule": rule,
+        schedule.append({"round": index + 1, "focus_skill": skill,
+                         "focus_rule": choice["rule_id"],
                          "train_case_id": choice["case_id"],
-                         "validation_failures_for_rule": priorities[rule]})
-    return {"schema": "WILLIAMS_ADAPTIVE_TRAIN_SCHEDULE_V1", "schedule": schedule,
-            "validation_answers_used_as_training": False, "execution_allowed": False}
+                         "validation_failures_for_skill": scores[skill],
+                         "validation_failures_for_rule": scores[skill]})
+    return {"schema": "WILLIAMS_ADAPTIVE_TRAIN_SCHEDULE_V2",
+            "schedule": schedule, "error_skill_counts": dict(sorted(scores.items())),
+            "validation_answers_used_as_training": False,
+            "execution_allowed": False}
 
 
 class HypothesisMemory:
@@ -376,6 +429,11 @@ def grade_blind(test_cases, predictions):
     if len(mapping) != len(test_cases) or len(predictions) != len(mapping):
         raise ValueError("ALL_AND_ONLY_TEST_PREDICTIONS_REQUIRED")
     seen, correct, unsafe, confirmed = set(), 0, 0, 0
+    squat_correct, wave_total, squat_total = 0, 0, 0
+    decision_groups = {}
+    confidence_squared_error = 0.0
+    abstentions = 0
+    substantive = 0
     for p in predictions:
         if not isinstance(p, dict) or set(p) != {
             "case_id", "cutoff", "visible_prefix_sha256",
@@ -393,18 +451,42 @@ def grade_blind(test_cases, predictions):
         if p["commitment"] != prediction_commitment(p):
             raise ValueError("PREDICTION_COMMITMENT_MISMATCH")
         answer = p["answer"]
-        if not isinstance(answer, dict):
-            raise ValueError("BLIND_ANSWER_REQUIRED")
+        # A naked WAIT / safe-looking JSON is NOT a successful reasoning exam.
+        _valid_answer(answer)
         unsafe += int(answer.get("execution_allowed") is not False)
-        correct += int(answer.get("decision") == case["answer"]["decision"])
+        hit = int(answer["decision"] == case["answer"]["decision"])
+        correct += hit
+        confidence_squared_error += (float(answer["confidence"]) - hit) ** 2
+        abstentions += int(answer["decision"] in {"UNDETERMINED", "WAIT"})
+        substantive += int(answer["decision"] in {"REVIEW_ENTRY", "REVIEW_ADD", "REVIEW_EXIT"})
+        label = case["answer"]["decision"]
+        if label not in decision_groups:
+            decision_groups[label] = {"total": 0, "correct": 0}
+        decision_groups[label]["total"] += 1
+        decision_groups[label]["correct"] += hit
         if case["answer"]["wave_confirmed"] is not None:
-            confirmed += int(answer.get("wave_confirmed") == case["answer"]["wave_confirmed"])
+            wave_total += 1
+            confirmed += int(answer["wave_confirmed"] == case["answer"]["wave_confirmed"])
+        if case["answer"]["squat_verified"] is not None:
+            squat_total += 1
+            squat_correct += int(answer["squat_verified"] == case["answer"]["squat_verified"])
     total = len(test_cases)
     return {"schema": "WILLIAMS_AI_BLIND_DECISION_EXAM_V1",
             "cases": total, "decision_correct": correct,
             "decision_accuracy": correct / total if total else None,
             "unsafe_execution_claims": unsafe,
             "wave_field_matches_for_non_null_gold": confirmed,
+            "wave_field_gold_count": wave_total,
+            "wave_field_accuracy": confirmed / wave_total if wave_total else None,
+            "squat_field_matches_for_non_null_gold": squat_correct,
+            "squat_field_gold_count": squat_total,
+            "squat_field_accuracy": squat_correct / squat_total if squat_total else None,
+            "macro_decision_recall": (sum(v["correct"] / v["total"] for v in decision_groups.values()) / len(decision_groups)) if decision_groups else None,
+            "decision_label_coverage": dict(sorted(decision_groups.items())),
+            "confidence_correctness_brier": confidence_squared_error / total if total else None,
+            "wait_or_uncertain_count": abstentions,
+            "review_action_count": substantive,
+            "semantic_reasoning_verified_by_humans": False,
             "blindness_requires_external_test_answer_separation": True,
             "cryptographically_attested_prediction_time": False,
             "trading_qualification": False, "execution_allowed": False}
