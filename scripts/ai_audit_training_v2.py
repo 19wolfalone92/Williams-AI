@@ -36,11 +36,14 @@ def audit(groups):
                 raise ValueError("EXPECTED_LIST_OF_CASES")
             labels, rules, origins, numeric_errors = Counter(), Counter(), Counter(), []
             responses = defaultdict(Counter)
+            templates, complete_answers = Counter(), Counter()
             symbols, windows = set(), set()
             for row in rows:
                 ident = row["case_id"]
                 question = " ".join(row["question"].split())
                 qhash = fingerprint(question)
+                templates[row["question"].splitlines()[0].strip()] += 1
+                complete_answers[row["answer"]] += 1
                 if ident in seen_ids and seen_ids[ident] != split:
                     report["cross_split_duplicate_ids"].append(ident)
                 seen_ids.setdefault(ident, split)
@@ -77,6 +80,10 @@ def audit(groups):
                 "cases": len(rows), "rules": dict(sorted(rules.items())),
                 "label_origins": dict(sorted(origins.items())),
                 "symbols": sorted(symbols), "distinct_windows": len(windows),
+                "distinct_question_leads": len(templates),
+                "largest_shared_question_lead": max(templates.values(), default=0),
+                "distinct_complete_answers": len(complete_answers),
+                "top_question_leads": templates.most_common(3),
                 "positive_wave_confirmed": labels["positive_wave_confirmed"],
                 "positive_squat_verified": labels["positive_squat_verified"],
                 "execution_allowed_true": labels["execution_allowed_true"],
