@@ -86,7 +86,7 @@ def verify_case(row):
     _valid_answer(row["answer"])
     cutoff = utc(row["cutoff"])
     bars = row["bars"]
-    if not isinstance(bars, list) or not 2 <= len(bars) <= 5000:
+    if not isinstance(bars, list) or not 220 <= len(bars) <= 5000:
         raise ValueError("CLOSED_PREFIX_BARS_REQUIRED")
     previous = None
     for candle in bars:
@@ -106,6 +106,14 @@ def verify_case(row):
             raise ValueError("INVALID_OHLCV")
     if previous != cutoff or digest(bars) != row["visible_prefix_sha256"]:
         raise ValueError("PREFIX_DIGEST_OR_CUTOFF_MISMATCH")
+    # Causally validated, contiguous bars; no future or partial candles.
+    from .chart_reader import TF_SECONDS, validate_closed_bars
+    candles, gaps = validate_closed_bars(bars, row["timeframe"], row["cutoff"])
+    seconds = TF_SECONDS[row["timeframe"]]
+    if gaps or len(candles) != len(bars) or any(
+            (right.at - left.at).total_seconds() != seconds
+            for left, right in zip(candles, candles[1:])):
+        raise ValueError("CONTIGUOUS_MARKET_PREFIX_REQUIRED")
     reviews = row["reviewers"]
     if not isinstance(reviews, list) or len(reviews) != 2:
         raise ValueError("TWO_INDEPENDENT_REVIEW_RECORDS_REQUIRED")
@@ -161,12 +169,37 @@ def check_corpus(cases):
 
 
 def question_only(row):
+    """Bounded numerical market observations, never a full-history token dump.
+
+    Full immutable history is verified and bound by its digest. Only visible
+    closed candles are used to calculate indicators. No gold label or
+    reviewer note is supplied to the model.
+    """
+    from .chart_reader import indicators, validate_closed_bars
+    candles, gaps = validate_closed_bars(row["bars"], row["timeframe"], row["cutoff"])
+    if gaps or len(candles) < 220 or digest(row["bars"]) != row["visible_prefix_sha256"]:
+        raise ValueError("RECHECKED_CLOSED_MARKET_PREFIX_REQUIRED")
+    lines = indicators(candles)
+
+    def num(value):
+        return None if value is None else float(f"{value:.8g}")
+
+    tail = []
+    for i in range(len(candles) - 8, len(candles)):
+        bar = candles[i]
+        tail.append({"close_time": row["bars"][i]["close_time"],
+                     "o": num(bar.open), "h": num(bar.high),
+                     "l": num(bar.low), "c": num(bar.close), "v": num(bar.volume),
+                     **{k: num(lines[k][i]) for k in ("jaw", "teeth", "lips", "ao", "ac")}})
     return {"case_id": row["case_id"], "symbol": row["symbol"],
             "timeframe": row["timeframe"], "cutoff": row["cutoff"],
             "visible_prefix_sha256": row["visible_prefix_sha256"],
             "rule_id": row["rule_id"], "edition": row["edition"],
             "pdf_page": row["pdf_page"], "source_sha256": row["source_sha256"],
-            "question": row["question"], "bars": row["bars"]}
+            "question": row["question"], "closed_bar_count": len(candles),
+            "visible_numeric_tail": tail,
+            "market_summary_not_full_wave_degree": True,
+            "no_position_or_stop_acknowledgment_supplied": True}
 
 
 def export_research(cases):
