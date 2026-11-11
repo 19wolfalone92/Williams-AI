@@ -155,8 +155,11 @@ class EvidenceGateTests(unittest.TestCase):
             historical = mem.as_of(symbol="BTCUSDT",
                                    timestamp="2026-11-03T00:00:00Z")
             self.assertEqual(historical[0]["status"], "UNVERIFIED_MODEL_HYPOTHESIS")
-            reviewed = mem.as_of(symbol="BTCUSDT",
+            retrospectively = mem.as_of(symbol="BTCUSDT",
                                  timestamp="2026-11-05T00:00:00Z")
+            self.assertEqual(retrospectively[0]["status"], "UNVERIFIED_MODEL_HYPOTHESIS")
+            reviewed = mem.as_of(symbol="BTCUSDT",
+                                 timestamp=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat())
             self.assertEqual(reviewed[0]["status"], "HUMAN_REVIEW_REJECTED")
             self.assertIn("contradicted", reviewed[0]["review_rationale"])
 
