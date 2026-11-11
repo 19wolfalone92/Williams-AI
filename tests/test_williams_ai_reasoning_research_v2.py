@@ -41,7 +41,7 @@ def example(case_id="case-001", split="train", symbol="BTCUSDT"):
         "answer": answer,
         "reviewers": [
             {"reviewer_id": "analyst-one", "approved_at": "2026-11-03T00:00:00Z", "case_sha256": "pending-review-seal"},
-            {"reviewer_id": "analyst-two", "approved_at": "2026-11-03T00:00:00Z", "answer_sha256": digest(answer)},
+            {"reviewer_id": "analyst-two", "approved_at": "2026-11-03T00:00:00Z", "case_sha256": "pending-review-seal"},
         ],
     }
     case_sha = digest({k: v for k, v in row.items() if k != "reviewers"})
