@@ -120,6 +120,10 @@ class WilliamsAI:
         from .cognitive_engine_v4 import (
             CognitiveResearchEngine, LocalQwenResearchBackend,
         )
+        prior_coached=None
+        if use_memory:
+            prior_coached=self.memory.cognitive.import_previous_coaching_errors(
+                model_id=self.identity["model_id"],run_id=run_id)
         backend = (research_backend if research_backend is not None
                    else LocalQwenResearchBackend(self.model))
         engine = CognitiveResearchEngine(
@@ -138,6 +142,7 @@ class WilliamsAI:
             "legacy_study_analyze_practice_unchanged": True,
             "market_fact_provenance_asserted_by_caller_not_exchange_attested": True,
             "weight_training_performed": False,
+            "prior_coached_error_import": prior_coached,
             "execution_allowed": False}
         return result
 
