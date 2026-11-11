@@ -7,6 +7,7 @@ cannot replace expert examination of author meaning.
 """
 from __future__ import annotations
 from pathlib import Path
+import hashlib
 import re
 import sqlite3
 
@@ -63,16 +64,26 @@ def check_private_expert_source_cases(rows,private_book_index):
                 if not {"course_pages","course_expert_case_reviews_v3"}<=tables:
                     raise ValueError("NO_INDEPENDENTLY_REVIEWED_COURSE_CASES")
                 page=db.execute(
-                    "SELECT page_image_sha256,semantic_review_status "
-                    "FROM course_pages WHERE pdf_page=?",(row["pdf_page"],)).fetchone()
-                if not page or page[1]!="HUMAN_CHECKED_TEXT_AND_DIAGRAMS":
+                    "SELECT page_image_path,page_image_sha256,source_sha256,"
+                    "semantic_review_status FROM course_pages WHERE pdf_page=?",
+                    (row["pdf_page"],)).fetchone()
+                if (not page or page[2]!=volume[0]
+                        or page[3]!="HUMAN_CHECKED_TEXT_AND_DIAGRAMS"):
                     raise ValueError("COURSE_PAGE_VISUAL_SEMANTICS_UNVERIFIED")
+                relative=Path(page[0])
+                if (relative.is_absolute() or ".." in relative.parts
+                        or not str(relative).startswith("page_images/")):
+                    raise ValueError("UNSAFE_PRIVATE_COURSE_PAGE_IMAGE")
+                original_image=path.parent/relative
+                if (not original_image.is_file() or original_image.is_symlink()
+                        or hashlib.sha256(original_image.read_bytes()).hexdigest()!=page[1]):
+                    raise ValueError("SIGNED_COURSE_IMAGE_BYTES_NOT_PINNED")
                 case_sha=digest({k:v for k,v in row.items() if k!="reviewers"})
                 reviewers={r["reviewer_id"] for r in row["reviewers"]}
                 from .signed_visual_reviews_v3 import verify_two_ed25519_course_approvals
                 verify_two_ed25519_course_approvals(
                     db,case_sha256=case_sha,
-                    pdf_page=row["pdf_page"],image_sha256=page[0],
+                    pdf_page=row["pdf_page"],image_sha256=page[1],
                     source_sha256=volume[0],expected_reviewers=reviewers)
                 signed_visual_case=True
             successful.append({"case_id":row["case_id"],
