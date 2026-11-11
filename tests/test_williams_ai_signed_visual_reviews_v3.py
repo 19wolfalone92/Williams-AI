@@ -70,6 +70,73 @@ class SignedCourseReviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.check()
 
+    def test_signed_visual_only_page_56_can_be_referenced_without_fake_ocr(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from copy import deepcopy
+        import hashlib
+        from cryptography.hazmat.primitives import serialization
+        from williams_ai.book_rules import registry
+        from williams_ai.book_index import index_pages
+        from williams_ai.source_provenance_gate_v3 import check_private_expert_source_cases
+        from tests.test_williams_ai_reasoning_v2_blocker_fixes import full_case,reseal
+        case=deepcopy(full_case())
+        course=next(b for b in registry()["books"] if b["id"]=="COURSE")
+        case["edition"]="COURSE"
+        case["pdf_page"]=56
+        case["rule_id"]="COURSE.VISUAL.NESTED_ABC"
+        case["source_sha256"]=course["sha256"]
+        case["book_evidence"].update(
+            {"edition":"COURSE","pdf_page":56,"source_sha256":course["sha256"],
+             "excerpt":"Expert-reviewed description of nested degree wave labels on the diagram."})
+        reseal(case)
+        case_sha=__import__("williams_ai.reasoning_research_v2",fromlist=["digest"]).digest(
+            {k:v for k,v in case.items() if k!="reviewers"})
+        with TemporaryDirectory() as folder:
+            root=Path(folder)
+            db_path=root/"private_course.sqlite3"
+            index_pages(db_path,"COURSE",course["sha256"],[""]*122,
+                        declared_pages=122,source_type="PDF_TEXT_WITH_UNREVIEWED_OCR")
+            (root/"page_images").mkdir()
+            rel="page_images/page_056.jpg"
+            raw=b"SYNTHETIC-WAVE-PAGE-56-NO-ORIGINAL-COPY"
+            (root/rel).write_bytes(raw)
+            image_sha=hashlib.sha256(raw).hexdigest()
+            with sqlite3.connect(db_path) as db:
+                db.execute("""CREATE TABLE course_pages(
+                    pdf_page INTEGER PRIMARY KEY,page_image_path TEXT,
+                    page_image_sha256 TEXT,source_sha256 TEXT,
+                    semantic_review_status TEXT)""")
+                db.execute("INSERT INTO course_pages VALUES(?,?,?,?,?)",
+                    (56,rel,image_sha,course["sha256"],
+                     "HUMAN_CHECKED_TEXT_AND_DIAGRAMS"))
+                db.execute("""CREATE TABLE trusted_reviewer_keys_v3(
+                    reviewer_id TEXT PRIMARY KEY,public_key_hex TEXT)""")
+                db.execute("""CREATE TABLE course_expert_case_reviews_v3(
+                    case_sha256 TEXT,pdf_page INTEGER,image_sha256 TEXT,
+                    source_sha256 TEXT,reviewer_id TEXT,reviewed_at TEXT,
+                    verdict TEXT,signature_hex TEXT)""")
+                for reviewer,key in (("expert-alpha",self.key1),("expert-bravo",self.key2)):
+                    public=key.public_key().public_bytes(
+                        serialization.Encoding.Raw,
+                        serialization.PublicFormat.Raw).hex()
+                    db.execute("INSERT INTO trusted_reviewer_keys_v3 VALUES (?,?)",
+                               (reviewer,public))
+                    msg=approval_message(
+                        case_sha256=case_sha,pdf_page=56,image_sha256=image_sha,
+                        source_sha256=course["sha256"],reviewer_id=reviewer,
+                        reviewed_at=self.at,verdict="APPROVED")
+                    db.execute("INSERT INTO course_expert_case_reviews_v3 VALUES(?,?,?,?,?,?,?,?)",
+                        (case_sha,56,image_sha,course["sha256"],
+                         reviewer,self.at,"APPROVED",key.sign(msg).hex()))
+            verified=check_private_expert_source_cases([case],db_path)
+            self.assertEqual(verified["verified_case_count"],1)
+            self.assertFalse(verified["case_receipts"][0]["page_text_found"])
+            self.assertTrue(verified["case_receipts"][0]["signed_visual_interpretation"])
+            (root/rel).write_bytes(b"TAMPERED")
+            with self.assertRaisesRegex(ValueError,"IMAGE_BYTES_NOT_PINNED"):
+                check_private_expert_source_cases([case],db_path)
+
     def test_future_fake_approval_is_rejected(self):
         with self.assertRaisesRegex(ValueError,"FUTURE_DATED"):
             approval_message(case_sha256=self.case,pdf_page=56,
