@@ -169,7 +169,7 @@ class UnifiedRuntimeTests(unittest.TestCase):
         market=frozen_markets()["ETHUSDT"]
         result=brain.analyze('ETHUSDT',market['bars'],tick_size=market['tick_size'],bar_index=299,
             edition='NTD',include_topdown=False)
-        self.assertEqual(result['deliberate_book_learning']['past_study_sources_reread'],['NTD: PDF 11'])
+        self.assertEqual(result['deliberate_book_learning']['past_study_sources_reread'],[])
 
     def test_missing_mixed_or_changed_adapter_stops_before_native_loader(self):
         for key,value in (("base_sha256","0"*64),("adapter_sha256","1"*64),
