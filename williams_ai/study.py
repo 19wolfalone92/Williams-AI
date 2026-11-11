@@ -42,6 +42,17 @@ def memory(path: str | Path):
             chunk_sha TEXT NOT NULL, model_id TEXT NOT NULL, result TEXT NOT NULL,
             learned_at TEXT NOT NULL,
             PRIMARY KEY(edition,source_sha,page,chunk_sha,model_id))""")
+        db.execute("""CREATE TABLE IF NOT EXISTS study_ingested_v4(
+            edition TEXT NOT NULL,source_sha TEXT NOT NULL,page INTEGER NOT NULL,
+            chunk_sha TEXT NOT NULL,model_id TEXT NOT NULL,ingested_at TEXT NOT NULL,
+            PRIMARY KEY(edition,source_sha,page,chunk_sha,model_id)
+        )""")
+        # Unknown historical DB ingestion timestamps are conservatively
+        # fixed at migration time rather than trusted from learned_at.
+        db.execute("""INSERT OR IGNORE INTO study_ingested_v4
+                   SELECT edition,source_sha,page,chunk_sha,model_id,?
+                   FROM study_notes""",
+                   (datetime.now(timezone.utc).isoformat(),))
         # Old study_errors was keyed only by chunk+model and could let
         # failing identical text in TC1 block Course/NTD/TC2. Keep legacy
         # table for non-destructive upgrades; all new retries are scoped.
@@ -175,7 +186,11 @@ def study_batch(book_db: str | Path, memory_db: str | Path, edition: str,
                     lesson = validate_lesson(raw, text)
                     lesson["cross_check"] = "REQUIRES_INDEPENDENT_RULE_AND_GRAPH_REVIEW"
                     lesson["rule_references"] = [x["rule_id"] for x in cards]
-                    dest.execute("INSERT INTO study_notes VALUES (?,?,?,?,?,?,?)", (*key, json.dumps(lesson, ensure_ascii=False), datetime.now(timezone.utc).isoformat()))
+                    learned_now=datetime.now(timezone.utc).isoformat()
+                    dest.execute("INSERT INTO study_notes VALUES (?,?,?,?,?,?,?)",
+                                 (*key, json.dumps(lesson, ensure_ascii=False), learned_now))
+                    dest.execute("INSERT INTO study_ingested_v4 VALUES (?,?,?,?,?,?)",
+                                 (*key, learned_now))
                     dest.execute(
                         "DELETE FROM scoped_study_errors "
                         "WHERE edition=? AND source_sha=? AND page=? AND chunk_sha=? AND model_id=?",
@@ -351,6 +366,14 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
         if as_of is not None:
             conditions.append("julianday(learned_at)<=julianday(?)")
             args.append(as_of)
+            conditions.append("""EXISTS(SELECT 1 FROM study_ingested_v4 AS ing
+              WHERE ing.edition=study_notes.edition
+                AND ing.source_sha=study_notes.source_sha
+                AND ing.page=study_notes.page
+                AND ing.chunk_sha=study_notes.chunk_sha
+                AND ing.model_id=study_notes.model_id
+                AND julianday(ing.ingested_at)<=julianday(?))""")
+            args.append(as_of)
         if conditions:
             query+=" WHERE "+" AND ".join(conditions)
         for book,page,content,student,source_sha,chunk_sha in db.execute(query,args):
@@ -396,6 +419,14 @@ def recalled_source_pages(book_index: str | Path, memory_db: str | Path, questio
         args=[edition,model_id,_known_book(edition)["sha256"]]
         if as_of is not None:
             base_query+=" AND julianday(learned_at)<=julianday(?)"
+            args.append(as_of)
+            base_query+=""" AND EXISTS (SELECT 1 FROM study_ingested_v4 AS ing
+                WHERE ing.edition=study_notes.edition
+                AND ing.source_sha=study_notes.source_sha
+                AND ing.page=study_notes.page
+                AND ing.chunk_sha=study_notes.chunk_sha
+                AND ing.model_id=study_notes.model_id
+                AND julianday(ing.ingested_at)<=julianday(?))"""
             args.append(as_of)
         studied={(int(page),digest) for page,digest in db.execute(
             base_query,args)}
