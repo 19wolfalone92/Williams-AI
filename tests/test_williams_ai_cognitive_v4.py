@@ -121,6 +121,47 @@ class CognitiveV4Tests(unittest.TestCase):
             as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat(),
             model_id="gguf-other-model-001",run_id=self.run_id),[])
 
+    def test_russian_inflection_fallback_is_scoped_and_explicitly_weak(self):
+        self.memory.put(kind="HYPOTHESIS",edition="TC2",
+            source_ref="RESEARCH:past-fractal-setup",
+            text="Неподтверждённая геометрия фракталов на закрытых H1 свечах.",
+            observed_at=earlier(),model_id=self.model_id,run_id=self.run_id)
+        old_cutoff=self.memory.retrieve(
+            "фрактала",edition="TC2",as_of=earlier(),
+            model_id=self.model_id,run_id=self.run_id)
+        self.assertEqual(old_cutoff,[])
+        now_cutoff=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat()
+        result=self.memory.retrieve(
+            "фрактала",edition="TC2",as_of=now_cutoff,
+            model_id=self.model_id,run_id=self.run_id)
+        self.assertEqual(len(result),1)
+        self.assertTrue(result[0]["lexical_match"])
+        self.assertEqual(result[0]["lexical_match_type"],
+                         "LOW_CONFIDENCE_INFLECTION_PREFIX")
+        self.assertFalse(result[0]["semantic_match"])
+        self.assertFalse(result[0]["expert_gold"])
+        wrong_model=self.memory.retrieve(
+            "фрактала",edition="TC2",as_of=now_cutoff,
+            model_id="gguf-another-model-100",run_id=self.run_id)
+        self.assertEqual(wrong_model,[])
+
+    def test_exact_matches_beats_prefix_only_when_both_recall(self):
+        self.memory.put(kind="RESEARCH_NOTE",edition="TC2",
+            source_ref="RESEARCH:exact-spell",
+            text="Fractals may be candidate structures without confirmed fills.",
+            observed_at=earlier())
+        self.memory.put(kind="RESEARCH_NOTE",edition="TC2",
+            source_ref="RESEARCH:plural-prefix",
+            text="Fractal observations also need historical validation.",
+            observed_at=earlier())
+        results=self.memory.retrieve("fractals",edition="TC2",
+            as_of=(datetime.now(timezone.utc)+timedelta(seconds=5)).isoformat(),
+            limit=5)
+        self.assertEqual(len(results),2)
+        self.assertEqual(results[0]["lexical_match_type"],"EXACT_FTS_TERM")
+        self.assertEqual(results[1]["lexical_match_type"],
+                         "LOW_CONFIDENCE_INFLECTION_PREFIX")
+
     def test_semantic_recall_finds_paraphrase_no_word_overlap(self):
         self.memory.put(kind="RESEARCH_NOTE",edition="TC2",
             source_ref="RESEARCH:learning-0001",

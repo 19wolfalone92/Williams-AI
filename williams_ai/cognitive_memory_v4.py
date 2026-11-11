@@ -205,6 +205,7 @@ class CognitiveMemory:
         # Do not interpolate unsanitized user text into SQL or FTS MATCH.
         match = " OR ".join('"' + x.replace('"', '""') + '"' for x in terms)
         lexical_rank = {}
+        weak_prefix_matches = set()
         with self.connect() as db:
             # Apply temporal and model/run isolation BEFORE limiting results.
             # Ranking all future/foreign-model FTS hits first can starve the
@@ -223,6 +224,28 @@ class CognitiveMemory:
                     """ ORDER BY bm25(cognitive_fts_v4) LIMIT 512""",
                     (match,)+scope)):
                     lexical_rank[ident] = 1.0 / (1 + rank)
+            # Inflection fallback for Russian declensions and simple English
+            # plurals when a local embedding model is not installed. The
+            # fallback is explicitly lower-confidence than exact FTS: it
+            # does NOT perform semantic understanding or mark expert gold.
+            if len(lexical_rank) < limit:
+                stems = list(dict.fromkeys(
+                    (term[:-2] if len(term) >= 8 else term[:-1])
+                    for term in terms if len(term) >= 7))
+                stems = [stem for stem in stems if len(stem) >= 5]
+                if stems:
+                    prefix_query = " OR ".join(
+                        '"' + stem.replace('"', '""') + '"*'
+                        for stem in stems)
+                    for rank, (ident,) in enumerate(db.execute(
+                        """SELECT f.entry_id FROM cognitive_fts_v4 AS f
+                           JOIN cognitive_entries_v4 AS e ON e.entry_id=f.entry_id
+                           WHERE cognitive_fts_v4 MATCH ? AND """+allowed+
+                        """ ORDER BY bm25(cognitive_fts_v4) LIMIT 512""",
+                        (prefix_query,)+scope)):
+                        if ident not in lexical_rank:
+                            lexical_rank[ident] = 0.25 / (1 + rank)
+                            weak_prefix_matches.add(ident)
             # Bounded local scan: no ANN dependency; after 5,000 eligible
             # episodes a dedicated vector index may be needed.
             rows = db.execute("""SELECT e.entry_id,e.kind,e.edition,e.model_id,e.run_id,
@@ -266,6 +289,9 @@ class CognitiveMemory:
                 "observed_at": seen, "recorded_at": recorded,
                 "status": status, "model_scoped": model is not None,
                 "lexical_match": lexical > 0,
+                "lexical_match_type": (
+                    "LOW_CONFIDENCE_INFLECTION_PREFIX" if ident in weak_prefix_matches
+                    else "EXACT_FTS_TERM" if lexical > 0 else "NO_LEXICAL_MATCH"),
                 "semantic_match": semantic is not None and semantic > 0,
                 "expert_gold": False, "execution_allowed": False}))
         results.sort(key=lambda x: (-x[0], x[1]))
