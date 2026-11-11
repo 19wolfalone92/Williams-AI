@@ -135,6 +135,8 @@ def run_reasoning_gpu(*, reviewed_train_validation, handoff_manifest,
                       model_dir, output, source_revision,
                       total_steps=200, session_steps=20, max_tokens=4096,
                       rank=8, learning_rate=5e-5, seed=42,
+                      private_book_index=None, reviewed_error_journal=None,
+                      feedback_run_id=None,feedback_model_id=None,feedback_as_of=None,
                       authorized_private_data=False):
     """Actual opt-in, local CUDA QLoRA path using existing resumable trainer.
 
@@ -145,6 +147,23 @@ def run_reasoning_gpu(*, reviewed_train_validation, handoff_manifest,
         raise ValueError("EXPLICIT_PRIVATE_DATA_GPU_PERMISSION_REQUIRED")
     rows, manifest, verified = load_private_gpu_inputs(
         reviewed_train_validation, handoff_manifest)
+    if private_book_index is None:
+        raise ValueError("PINNED_ORIGINAL_PRIVATE_BOOK_INDEX_REQUIRED")
+    from .source_provenance_gate_v3 import check_private_expert_source_cases
+    checked_sources=check_private_expert_source_cases(rows,private_book_index)
+    train_rows=[row for row in rows if row["split"]=="train"]
+    feedback_receipt=None
+    if reviewed_error_journal is not None:
+        if not all((feedback_run_id,feedback_model_id,feedback_as_of)):
+            raise ValueError("FEEDBACK_MODEL_RUN_AND_AS_OF_REQUIRED")
+        from .reasoning_feedback_v2 import ReviewedFailureJournal
+        from .adaptive_training_v3 import adaptive_training_cases
+        journal=ReviewedFailureJournal(
+            reviewed_error_journal,run_id=feedback_run_id,model_id=feedback_model_id)
+        train_rows,feedback_receipt=adaptive_training_cases(
+            train_rows,journal,as_of=feedback_as_of,seed=seed)
+    elif any((feedback_run_id,feedback_model_id,feedback_as_of)):
+        raise ValueError("FEEDBACK_JOURNAL_REQUIRED_FOR_EXPLICIT_ADAPTATION")
     from .private_lora import _private_file
     from .lora_integrity import local_hf_identity
     from .qlora_gpu_research import (
@@ -167,12 +186,23 @@ def run_reasoning_gpu(*, reviewed_train_validation, handoff_manifest,
     if actual != source_revision or clean.returncode != 0:
         raise ValueError("PINNED_CLEAN_TRAINING_SOURCE_REQUIRED")
     identity = local_hf_identity(hf)
-    spec = contract(dataset_sha=verified["source_sha256"],
+    # A resumed optimizer may only reuse the EXACT same training exposure
+    # schedule and frozen source receipts.
+    contract_dataset_sha=digest({
+        "train_validation":verified["source_sha256"],
+        "source_cases":checked_sources["case_receipts"],
+        "feedback_schedule":feedback_receipt,
+    })
+    spec = contract(dataset_sha=contract_dataset_sha,
                     base_sha=identity["sha256"], revision=source_revision,
                     max_steps=total_steps, max_tokens=max_tokens, rank=rank,
                     rate=float(learning_rate), seed=seed,
                     runtime=_runtime_identity(), source_only_research=False)
     spec["reviewed_reasoning_schema"] = manifest["schema"]
+    spec["private_source_case_count"]=checked_sources["verified_case_count"]
+    spec["reviewed_error_curriculum"]=feedback_receipt
+    spec["book_excerpt_fidelity_verified_on_private_index"]=True
+    spec["expert_meaning_cryptographically_proven"]=False
     from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, set_seed
     from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
     set_seed(seed)
@@ -182,8 +212,8 @@ def run_reasoning_gpu(*, reviewed_train_validation, handoff_manifest,
         if tokenizer.eos_token is None:
             raise ValueError("QWEN_EOS_TOKEN_REQUIRED")
         tokenizer.pad_token = tokenizer.eos_token
-    train = tokenize_verified([row for row in rows if row["split"] == "train"],
-                              tokenizer, max_tokens=max_tokens)
+    # This is ACTUAL gradient exposure to reviewed-error-prioritized cases.
+    train = tokenize_verified(train_rows,tokenizer,max_tokens=max_tokens)
     validation = {edition: tokenize_verified(
         [row for row in rows if row["split"] == "validation" and row["edition"] == edition],
         tokenizer, max_tokens=max_tokens) for edition in ("TC1", "NTD", "TC2", "COURSE")}
@@ -224,6 +254,12 @@ def main():
     p.add_argument("--rank", type=int, default=8)
     p.add_argument("--learning-rate", type=float, default=5e-5)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--private-book-index",type=Path,required=True,
+                   help="Pinned private four-book SQLite, outside Git")
+    p.add_argument("--reviewed-error-journal",type=Path)
+    p.add_argument("--feedback-run-id")
+    p.add_argument("--feedback-model-id")
+    p.add_argument("--feedback-as-of")
     p.add_argument("--authorize-private-data-gpu", action="store_true")
     args=p.parse_args()
     result = run_reasoning_gpu(
@@ -233,6 +269,11 @@ def main():
         total_steps=args.max_steps, session_steps=args.session_steps,
         max_tokens=args.max_tokens, rank=args.rank,
         learning_rate=args.learning_rate, seed=args.seed,
+        private_book_index=args.private_book_index,
+        reviewed_error_journal=args.reviewed_error_journal,
+        feedback_run_id=args.feedback_run_id,
+        feedback_model_id=args.feedback_model_id,
+        feedback_as_of=args.feedback_as_of,
         authorized_private_data=args.authorize_private_data_gpu)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
