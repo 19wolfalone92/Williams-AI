@@ -67,7 +67,7 @@ class BlockerFixes(unittest.TestCase):
         from williams_ai.book_rules import registry
         case=full_case()
         with tempfile.TemporaryDirectory() as directory:
-            index=Path(directory)/"private_books.sqlite"
+            index=Path(directory)/"private_books.sqlite3"
             pages=[""]*224
             pages[123]=case["book_evidence"]["excerpt"]
             index_pages(index,"TC2",case["source_sha256"],pages,
