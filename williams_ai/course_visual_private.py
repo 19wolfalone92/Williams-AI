@@ -99,3 +99,75 @@ def course_visual_audit(database: str | Path) -> dict[str, Any]:
             "illustrated_page_annotations":annotated,
             "all_semantic_links_expert_verified":False,
             "retrieval_allowed":True,"use_as_verified_training_gold":False}
+
+
+def combine_with_existing_private_books(existing_database: str | Path,
+                                        course_database: str | Path,
+                                        *, destination: str | Path
+                                       ) -> dict[str, Any]:
+    """Create an atomic COPY of an existing multi-book index + scanned Course.
+
+    NEVER edits the original books DB or commits copyrighted data to Git.
+    Destination MUST live beside the private Course images, because visual
+    references are pinned to page_images/ paths in that private directory.
+    """
+    import os
+    from .book_rules import registry
+    source = _private_database(existing_database)
+    course = _private_database(course_database)
+    target = _private_database(destination)
+    if (not source.is_file() or not course.is_file()
+            or source == course or target in (source,course)
+            or target.exists() or target.is_symlink()
+            or target.parent != course.parent):
+        raise ValueError("NEW_COMBINED_INDEX_BESIDE_PRIVATE_IMAGES_REQUIRED")
+    course_visual_audit(course)
+    known = {b["id"]: b for b in registry()["books"]}
+    with sqlite3.connect(f"file:{source}?mode=ro",uri=True) as original:
+        source_rows = original.execute(
+            "SELECT book,sha256,total_pages FROM volumes"
+        ).fetchall()
+        for edition,sha,pages in source_rows:
+            if (edition not in known or sha!=known[edition]["sha256"]
+                    or pages!=known[edition]["pages"]):
+                raise ValueError("EXISTING_BOOK_SOURCE_IDENTITY_MISMATCH")
+        fd=os.open(target,os.O_CREAT|os.O_EXCL|os.O_RDWR,0o600)
+        os.close(fd)
+        try:
+            with sqlite3.connect(str(target)) as result:
+                original.backup(result)
+            with sqlite3.connect(str(target)) as result:
+                result.execute("ATTACH DATABASE ? AS scanned",
+                               (f"file:{course}?mode=ro",))
+                # Copy only the pinned Course's source and page-visual tables.
+                with result:
+                    result.execute("DELETE FROM excerpts WHERE book='COURSE'")
+                    result.execute("DELETE FROM volumes WHERE book='COURSE'")
+                    result.execute("INSERT INTO volumes SELECT * FROM scanned.volumes "
+                                   "WHERE book='COURSE'")
+                    result.execute("INSERT INTO excerpts SELECT * FROM scanned.excerpts "
+                                   "WHERE book='COURSE'")
+                    for name in ("course_pages","course_visuals","course_paragraphs"):
+                        if name not in {r[0] for r in result.execute(
+                            "SELECT name FROM scanned.sqlite_master WHERE type='table'")}:
+                            raise ValueError("MISSING_PRIVATE_VISUAL_TABLE")
+                        # Compound copy only, not a destructive mutation of originals.
+                        result.execute(f"DROP TABLE IF EXISTS {name}")
+                        result.execute(f"CREATE TABLE {name} AS "
+                                       f"SELECT * FROM scanned.{name}")
+                result.execute("DETACH DATABASE scanned")
+                if result.execute("PRAGMA quick_check").fetchone()[0]!="ok":
+                    raise ValueError("COMBINED_INDEX_SQLITE_INTEGRITY_FAILURE")
+            merged=course_visual_audit(target)
+            with sqlite3.connect(f"file:{target}?mode=ro",uri=True) as result:
+                output_editions={r[0] for r in result.execute(
+                    "SELECT book FROM volumes")}
+            return {"schema":"WILLIAMS_PRIVATE_COURSE_COMBINED_INDEX_V1",
+                    "combined_database":str(target),
+                    "editions":sorted(output_editions),
+                    "existing_index_untouched":True,
+                    "course_page_images_verified":merged["pages_with_images"],
+                    "private_ocr_not_training_gold":True}
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
