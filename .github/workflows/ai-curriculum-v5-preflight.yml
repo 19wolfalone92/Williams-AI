@@ -5,6 +5,8 @@ on:
     paths:
       - 'williams_ai/knowledge_curriculum_v5.py'
       - 'williams_ai/knowledge_training_v5.py'
+      - 'williams_ai/v5_postfit_exam.py'
+      - '.github/workflows/ai-v5-actual-qlora-and-exam.yml'
       - 'scripts/ai_submit_v5_qlora_kaggle.py'
       - 'tests/test_williams_ai_kaggle_v5.py'
       - 'tests/test_williams_ai_knowledge_curriculum_v5.py'
@@ -31,7 +33,7 @@ jobs:
           python-version: '3.11'
       - name: Syntax and complete no-test-leak curriculum contract
         run: |
-          python -m py_compile williams_ai/knowledge_curriculum_v5.py williams_ai/knowledge_training_v5.py scripts/ai_submit_v5_qlora_kaggle.py
+          python -m py_compile williams_ai/knowledge_curriculum_v5.py williams_ai/knowledge_training_v5.py williams_ai/v5_postfit_exam.py scripts/ai_submit_v5_qlora_kaggle.py
           python -m pip install --disable-pip-version-check 'cryptography>=44,<48'
           python -m unittest tests.test_williams_ai_knowledge_curriculum_v5 tests.test_williams_ai_kaggle_v5 -v
       - name: Build real versioned SQLite with four books and sealed train/dev/test
