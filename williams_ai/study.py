@@ -376,7 +376,8 @@ def recall(memory_db: str | Path, question: str, *, edition: str | None = None,
 
 
 def recalled_source_pages(book_index: str | Path, memory_db: str | Path, question: str, *,
-                          edition: str, model_id: str, limit: int = 1) -> list[dict[str, Any]]:
+                          edition: str, model_id: str, limit: int = 1,
+                          as_of: str | None = None) -> list[dict[str, Any]]:
     """Reread current originals selected by this model's retained study pointers.
 
     A generated summary is used only by recall as a search hint. It is never
@@ -385,14 +386,19 @@ def recalled_source_pages(book_index: str | Path, memory_db: str | Path, questio
     if type(limit) is not int or not 1 <= limit <= 2:
         raise ValueError("BOUNDED_STUDIED_SOURCE_REREAD_REQUIRED")
     hints = recall(memory_db, question, edition=edition, limit=limit,
-                   model_id=model_id, book_index=book_index)
+                   model_id=model_id, book_index=book_index, as_of=as_of)
     pages = {int(x["source"].rsplit(" ", 1)[1]) for x in hints}
     if not pages:
         return []
     with memory(memory_db) as db:
-        studied = {(int(page), digest) for page, digest in db.execute(
-            "SELECT page,chunk_sha FROM study_notes WHERE edition=? AND model_id=? AND source_sha=?",
-            (edition, model_id, _known_book(edition)["sha256"]))}
+        base_query=("SELECT page,chunk_sha FROM study_notes "
+                    "WHERE edition=? AND model_id=? AND source_sha=?")
+        args=[edition,model_id,_known_book(edition)["sha256"]]
+        if as_of is not None:
+            base_query+=" AND julianday(learned_at)<=julianday(?)"
+            args.append(as_of)
+        studied={(int(page),digest) for page,digest in db.execute(
+            base_query,args)}
     terms = set(re.findall(r"[^\W_]{3,}", question.casefold()))
     ranked = []
     source = _source(book_index, edition)
