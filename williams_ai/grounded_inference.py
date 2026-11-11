@@ -49,9 +49,9 @@ def verified_private_book_pages(
     conn=sqlite3.connect(f"file:{db_path}?mode=ro",uri=True)
     try:
         row=conn.execute(
-            "SELECT sha256,total_pages FROM volumes WHERE book=?",
+            "SELECT sha256,total_pages,source_type FROM volumes WHERE book=?",
             (edition,)).fetchone()
-        if row!=(known["sha256"],known["pages"]):
+        if (not row or row[:2] != (known["sha256"],known["pages"]) or row[2] not in {"PDF_TEXT", "PDF_TEXT_WITH_UNREVIEWED_OCR"}):
             raise ValueError("Private book edition/fingerprint does not match reference")
         if rule_ids:
             # A demonstrated gap must go to its actual reviewed pages,
@@ -88,7 +88,9 @@ def verified_private_book_pages(
                     continue
                 seen.add((page,text))
                 selected.append({"source":f"{edition}: PDF {page}","excerpt":text,
-                    "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
+                    "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
+                               if row[2] == "PDF_TEXT_WITH_UNREVIEWED_OCR"
+                               else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"),
                     "pdf_page":page,"chunk_sha256":chunk_sha})
                 if len(selected)==limit:
                     break
@@ -114,7 +116,9 @@ def verified_private_book_pages(
     return [{
         "source":result["source"],
         "excerpt":result["excerpt"][:650],
-        "status":"PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
+        "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
+                               if row[2] == "PDF_TEXT_WITH_UNREVIEWED_OCR"
+                               else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED"),
         "pdf_page":result["page"],
         "chunk_sha256":result["chunk_sha256"],
     } for result in results]
