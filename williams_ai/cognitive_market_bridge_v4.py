@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from .chart_reader import TF_SECONDS, indicators, validate_closed_bars
 from .cognitive_memory_v4 import _sha
+from .cognitive_timeframe_coherence_v5 import verify_closed_timeframe_coherence
 from .decision_contract import _as_utc
 
 _FRAMES=("H1","H4","D1")
@@ -21,6 +22,7 @@ def market_facts_from_closed_history(history, *, as_of):
     seen={}
     facts=[]
     hashes={}
+    closed_frames={}
     for tf in _FRAMES:
         bars=history[tf]
         if not isinstance(bars,list) or not 220<=len(bars)<=5000:
@@ -30,6 +32,7 @@ def market_facts_from_closed_history(history, *, as_of):
             (b.at-a.at).total_seconds()!=TF_SECONDS[tf]
             for a,b in zip(closed,closed[1:])):
             raise ValueError("CONTIGUOUS_CLOSED_TIMEFRAME_REQUIRED")
+        closed_frames[tf]=closed
         last=closed[-1]
         staleness=_as_utc(as_of)-last.at.timestamp()
         if staleness<0 or staleness>=TF_SECONDS[tf]:
@@ -60,9 +63,11 @@ def market_facts_from_closed_history(history, *, as_of):
             add("MFI_CONTEXT",f"{tf} raw MFI cannot be calculated reliably: zero volume; verified Squat status UNKNOWN")
         seen[tf]={"closed_at":bars[-1]["close_time"],
                   "source_prefix_sha256":hashes[tf],"closed_bars":len(closed)}
+    coherence=verify_closed_timeframe_coherence(closed_frames)
     return {"schema":"WILLIAMS_CAUSAL_MARKET_FACTS_V4",
             "as_of":as_of,
             "frames":seen,
+            "causal_timeframe_integrity":coherence,
             "facts":facts,
             "whole_snapshot_sha256":_sha(hashes),
             "input_exchange_authenticity_independently_verified":False,
