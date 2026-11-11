@@ -14,9 +14,9 @@ from williams_ai.reasoning_research_v2 import (
 
 
 def example(case_id="case-001", split="train", symbol="BTCUSDT"):
-    start = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 1, tzinfo=timezone.utc)
     bars = []
-    for i in range(2):
+    for i in range(220):
         bars.append({"close_time": (start + timedelta(hours=i)).isoformat(),
                      "open": 100.0 + i, "high": 102.0 + i,
                      "low": 99.0 + i, "close": 101.0 + i,
