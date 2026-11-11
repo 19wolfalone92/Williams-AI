@@ -1,0 +1,139 @@
+name: Williams AI REAL ORIGINAL TRAINED Qwen3-4B LoRA knowledge exam
+on:
+  push:
+    branches: [research/real-qwen4b-knowledge-exam-20261111]
+    paths:
+      - '.github/workflows/ai-real-trained-serial50-knowledge.yml'
+      - 'williams_ai/recovered_serial50_exam.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: actual-trained-williams-book-exam-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  real-original-trained-qwen4b:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams_training_private_hf
+      GGUF_FILE: Qwen3-4B-Q4_K_M.gguf
+      BASE_SHA256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate original trained adapter and exam scripts
+        run: |
+          python -m py_compile scripts/ai_recover_serial50_for_knowledge_exam.py
+          python -m py_compile williams_ai/recovered_serial50_exam.py
+          python -m unittest tests.test_williams_ai_knowledge_abc_exam_v1 -v
+      - name: Download original GitHub sealed Qwen3-4B training archive
+        run: |
+          mkdir -p "$RUNNER_TEMP/serial50_sealed"
+          gh run download 42882670406 --repo "${{ github.repository }}" \
+            --name Williams_AI_Serial_50_QLoRA_20261110_Research_Encrypted \
+            --dir "$RUNNER_TEMP/serial50_sealed"
+      - name: Restore original checkpoint 500 privately with account-owned secret
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<47'
+          python scripts/ai_recover_serial50_for_knowledge_exam.py \
+            --sealed "$RUNNER_TEMP/serial50_sealed/Williams_Qwen3_4B_SERIAL_50_20261110.zip.sealed" \
+            --audit "$RUNNER_TEMP/serial50_sealed/independent_market_decision_audit.json" \
+            --private-output "$RUNNER_TEMP/serial50_private_checkpoint"
+          test -s "$RUNNER_TEMP/serial50_private_checkpoint/adapter_model.safetensors"
+      - name: Install pinned official model tokenizers and gguf converter dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'huggingface_hub>=0.29,<2' 'transformers>=4.57,<5' \
+            'gguf>=0.17' 'safetensors>=0.5' 'sentencepiece>=0.2' \
+            'protobuf>=4.25,<7' 'numpy>=1.26,<3'
+          git clone --quiet --filter=blob:none https://github.com/ggml-org/llama.cpp.git "$RUNNER_TEMP/llama-converter"
+          git -C "$RUNNER_TEMP/llama-converter" checkout --quiet 970b51ce7c9ba5fff0726c5e9994f1c2f0e4eedc
+          test -f "$RUNNER_TEMP/llama-converter/convert_lora_to_gguf.py"
+      - name: Download ONLY Qwen3-4B pinned base CONFIG and tokenizer, NOT 8-GB HF base weights
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          from pathlib import Path
+          root=Path(snapshot_download(
+              repo_id="Qwen/Qwen3-4B",
+              revision="3fb356690bbdae7353c94efb3eecdce276e6ed1c",
+              allow_patterns=[
+                  "config.json","generation_config.json","tokenizer.json",
+                  "tokenizer_config.json","special_tokens_map.json",
+                  "added_tokens.json","vocab.json","merges.txt",
+                  "tokenizer.model","*.tiktoken"],
+              local_dir="/tmp/williams_hf_source_qwen3_4b"))
+          assert (root/"config.json").is_file()
+          print("TRAINING_PINNED_HF_CONFIG_READY_NO_MODEL_WEIGHTS",flush=True)
+          PY
+      - name: Convert authenticated REAL research PEFT LoRA to local GGUF LoRA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/llama-converter/convert_lora_to_gguf.py" \
+            --base /tmp/williams_hf_source_qwen3_4b \
+            --outtype f16 \
+            --outfile "$RUNNER_TEMP/trained_serial50_adapter.gguf" \
+            "$RUNNER_TEMP/serial50_private_checkpoint" \
+            > "$RUNNER_TEMP/convert.log" 2>&1 || {
+              grep -E '(Traceback|Error|error|ModuleNotFoundError|ImportError)' \
+                "$RUNNER_TEMP/convert.log" | tail -n 12 || true
+              exit 1
+            }
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"trained_serial50_adapter.gguf"
+          assert p.stat().st_size > 1000000 and p.read_bytes()[:4] == b"GGUF"
+          print("ACTUAL_ORIGINAL_QWEN3_4B_LORA_CONVERTED",p.stat().st_size,flush=True)
+          PY
+      - name: Download and verify SAME public Qwen3-4B GGUF as baseline
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          model=hf_hub_download(repo_id="unsloth/Qwen3-4B-GGUF",
+              filename=os.environ["GGUF_FILE"],
+              local_dir="/tmp/williams_public_base_4b")
+          print("BASE_WEIGHTS_SHA256_VERIFIED",
+                actual_gguf_sha256(model,os.environ["BASE_SHA256"])["model_sha256"],
+                flush=True)
+          PY
+      - name: Install real CPU llama.cpp and infer genuine 50-cycle Williams trained model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python
+          python -m williams_ai.recovered_serial50_exam \
+            --base "/tmp/williams_public_base_4b/${GGUF_FILE}" \
+            --base-sha256 "${BASE_SHA256}" \
+            --adapter "$RUNNER_TEMP/trained_serial50_adapter.gguf" \
+            --original-safetensors "$RUNNER_TEMP/serial50_private_checkpoint/adapter_model.safetensors" \
+            --recovery-receipt "$RUNNER_TEMP/serial50_private_checkpoint/recovery_receipt.json" \
+            --per-edition 4 \
+            --output "$RUNNER_TEMP/williams-real-original-trained-serial50-knowledge.json"
+      - name: Publish only choice scores, NEVER private adapter, plaintext archive or books
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: REAL-TRAINED-Williams-Qwen3-4B-serial50-16case-book-knowledge
+          path: ${{ runner.temp }}/williams-real-original-trained-serial50-knowledge.json
+          if-no-files-found: ignore
+          retention-days: 14
