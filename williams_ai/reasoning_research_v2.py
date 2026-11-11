@@ -314,9 +314,18 @@ def adaptive_schedule(train_cases, validation_failures, *, rounds=10, seed="v2")
 
 
 class HypothesisMemory:
-    """Research-only as-of journal; no autonomous promotion of ideas to facts."""
+    """Versioned private research journal keyed by experiment AND model.
 
-    def __init__(self, path):
+    Legacy v1 tables are left untouched, not silently remapped to a current
+    model. The caller must explicitly specify a stable model fingerprint and
+    unique run identity. Reviews appear only when they actually became known.
+    """
+
+    def __init__(self, path, *, run_id, model_id):
+        if any(not isinstance(v, str) or not 6 <= len(v) <= 120
+               for v in (run_id, model_id)):
+            raise ValueError("EXPLICIT_MODEL_FINGERPRINT_AND_RUN_ID_REQUIRED")
+        self.run_id, self.model_id = run_id, model_id
         path = Path(path).expanduser()
         if path.is_symlink() or (path.exists() and
                                 (not path.is_file() or path.stat().st_mode & 0o077)):
@@ -327,18 +336,25 @@ class HypothesisMemory:
             os.close(fd)
         self.path = path
         with sqlite3.connect(self.path) as db:
-            db.execute("""CREATE TABLE IF NOT EXISTS hypotheses (
-                case_id TEXT PRIMARY KEY, symbol TEXT NOT NULL, cutoff TEXT NOT NULL,
-                available_at TEXT NOT NULL, snapshot_sha256 TEXT NOT NULL,
+            db.execute("""CREATE TABLE IF NOT EXISTS research_hypotheses_v2 (
+                run_id TEXT NOT NULL, model_id TEXT NOT NULL,
+                case_id TEXT NOT NULL, symbol TEXT NOT NULL,
+                cutoff TEXT NOT NULL, available_at TEXT NOT NULL,
+                snapshot_sha256 TEXT NOT NULL,
                 hypothesis TEXT NOT NULL, alternative TEXT NOT NULL,
                 evidence_json TEXT NOT NULL, counter_json TEXT NOT NULL,
-                invalidation TEXT NOT NULL, status TEXT NOT NULL
+                invalidation TEXT NOT NULL,
+                PRIMARY KEY (run_id, model_id, case_id)
             )""")
-            db.execute("""CREATE TABLE IF NOT EXISTS hypothesis_reviews (
-                case_id TEXT PRIMARY KEY REFERENCES hypotheses(case_id),
+            db.execute("""CREATE TABLE IF NOT EXISTS research_hypothesis_reviews_v2 (
+                run_id TEXT NOT NULL, model_id TEXT NOT NULL,
+                case_id TEXT NOT NULL,
                 reviewer_a TEXT NOT NULL, reviewer_b TEXT NOT NULL,
                 reviewed_at TEXT NOT NULL, verdict TEXT NOT NULL,
-                rationale TEXT NOT NULL
+                rationale TEXT NOT NULL,
+                PRIMARY KEY (run_id, model_id, case_id),
+                FOREIGN KEY (run_id,model_id,case_id)
+                REFERENCES research_hypotheses_v2(run_id,model_id,case_id)
             )""")
 
     def append(self, *, case_id, symbol, cutoff, available_at, snapshot_sha256,
@@ -354,19 +370,14 @@ class HypothesisMemory:
         if not isinstance(evidence, list) or not isinstance(counterevidence, list):
             raise ValueError("EVIDENCE_LIST_REQUIRED")
         with sqlite3.connect(self.path) as db:
-            db.execute("INSERT INTO hypotheses VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                       (case_id, symbol, cutoff, available_at, snapshot_sha256,
-                        hypothesis, alternative, canonical(evidence),
-                        canonical(counterevidence), invalidation,
-                        "UNVERIFIED_MODEL_HYPOTHESIS"))
+            db.execute("""INSERT INTO research_hypotheses_v2 VALUES
+                       (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       (self.run_id, self.model_id, case_id, symbol, cutoff,
+                        available_at, snapshot_sha256, hypothesis, alternative,
+                        canonical(evidence), canonical(counterevidence), invalidation))
 
     def review(self, *, case_id, reviewer_a, reviewer_b,
                reviewed_at, verdict, rationale):
-        """A separate two-reviewer *declaration*. Not self-certification.
-
-        The independent review becomes visible ONLY at its real
-        reviewed_at timestamp; cannot rewrite older as-of model memory.
-        """
         if (not isinstance(reviewer_a, str) or not isinstance(reviewer_b, str)
                 or reviewer_a == reviewer_b or
                 not (5 <= len(reviewer_a) <= 100 and 5 <= len(reviewer_b) <= 100)):
@@ -377,36 +388,46 @@ class HypothesisMemory:
             raise ValueError("SUBSTANTIVE_REVIEW_EVIDENCE_REQUIRED")
         reviewed = utc(reviewed_at)
         with sqlite3.connect(self.path) as db:
-            row = db.execute("SELECT cutoff,available_at FROM hypotheses WHERE case_id=?",
-                             (case_id,)).fetchone()
+            row = db.execute("""SELECT cutoff,available_at
+                                FROM research_hypotheses_v2
+                                WHERE run_id=? AND model_id=? AND case_id=?""",
+                             (self.run_id, self.model_id, case_id)).fetchone()
             if row is None:
                 raise ValueError("UNKNOWN_HYPOTHESIS")
             if reviewed < utc(row[0]) or reviewed < utc(row[1]):
                 raise ValueError("REVIEW_CANNOT_PRECEDE_CASE_OR_ITS_PUBLICATION")
-            db.execute("INSERT INTO hypothesis_reviews VALUES(?,?,?,?,?,?)",
-                       (case_id, reviewer_a, reviewer_b, reviewed_at, verdict, rationale))
+            db.execute("""INSERT INTO research_hypothesis_reviews_v2
+                          VALUES(?,?,?,?,?,?,?,?)""",
+                       (self.run_id, self.model_id, case_id, reviewer_a,
+                        reviewer_b, reviewed_at, verdict, rationale))
 
-    def as_of(self, *, symbol, timestamp):
+    def as_of(self, *, symbol, timestamp, strict_before=False):
         cutoff = utc(timestamp)
         with sqlite3.connect(self.path) as db:
-            rows = db.execute("""SELECT h.case_id,h.cutoff,h.available_at,h.hypothesis,
-                             h.alternative,h.evidence_json,h.counter_json,h.invalidation,
-                             r.reviewed_at,r.verdict,r.rationale
-                             FROM hypotheses AS h LEFT JOIN hypothesis_reviews AS r
-                             ON r.case_id=h.case_id
-                             WHERE h.symbol=? ORDER BY h.cutoff,h.case_id""",
-                             (symbol,)).fetchall()
+            rows = db.execute("""SELECT h.case_id,h.cutoff,h.available_at,
+                             h.hypothesis,h.alternative,h.evidence_json,
+                             h.counter_json,h.invalidation,r.reviewed_at,
+                             r.verdict,r.rationale
+                             FROM research_hypotheses_v2 AS h
+                             LEFT JOIN research_hypothesis_reviews_v2 AS r
+                             ON r.run_id=h.run_id AND r.model_id=h.model_id
+                                AND r.case_id=h.case_id
+                             WHERE h.run_id=? AND h.model_id=? AND h.symbol=?
+                             ORDER BY h.cutoff,h.case_id""",
+                             (self.run_id, self.model_id, symbol)).fetchall()
+        visible = lambda t: utc(t) < cutoff if strict_before else utc(t) <= cutoff
         return [{"case_id": row[0], "cutoff": row[1], "available_at": row[2],
+                 "model_id": self.model_id, "run_id": self.run_id,
                  "hypothesis": row[3], "alternative": row[4],
                  "evidence": json.loads(row[5]), "counterevidence": json.loads(row[6]),
                  "invalidation": row[7],
                  "status": ("HUMAN_REVIEW_" + row[9]
-                            if row[8] is not None and utc(row[8]) <= cutoff
+                            if row[8] is not None and visible(row[8])
                             else "UNVERIFIED_MODEL_HYPOTHESIS"),
                  "review_rationale": (row[10]
-                            if row[8] is not None and utc(row[8]) <= cutoff
+                            if row[8] is not None and visible(row[8])
                             else None)}
-                for row in rows if utc(row[1]) <= cutoff and utc(row[2]) <= cutoff]
+                for row in rows if visible(row[1]) and visible(row[2])]
 
 
 def prediction_commitment(response):
