@@ -1,140 +1,111 @@
-"""Read-only reproducible failure-mode probes for Williams AI 2.0 research.
+"""After-fix strategy regression probes against real Williams AI v2 code.
 
-The probes intentionally demonstrate weaknesses. A passing audit script means
-the probes ran as expected; it does NOT mean the learning strategy is ready.
-No GPU, no API keys, no books, no trading, no new expert labels.
+These are software correctness checks, NOT evidence of learned market skill,
+human expert verification, independent model evaluation or trading safety.
 """
 from __future__ import annotations
-
 from copy import deepcopy
 import json
 from pathlib import Path
-import sqlite3
 import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0,str(ROOT))
 
-from tests.test_williams_ai_reasoning_research_v2 import example
-from williams_ai.private_lora import _REQUIRED as EXISTING_QLORA_REQUIRED
+from tests.test_williams_ai_reasoning_v2_blocker_fixes import full_case, reseal, ToyTokenizer
 from williams_ai.reasoning_research_v2 import (
-    HypothesisMemory, adaptive_schedule, check_corpus, digest, export_research,
-    grade_blind, prediction_commitment, question_only,
+    HypothesisMemory, adaptive_schedule, check_corpus, digest, grade_blind,
+    prediction_commitment, question_only,
 )
+from williams_ai.reasoning_qlora_bridge_v2 import prepare_gpu_handoff, tokenize_verified
+from williams_ai.reasoning_training_readiness_v2 import readiness
 
 
-def reapprove(row):
-    whole_case = digest({k: v for k, v in row.items() if k != "reviewers"})
-    for reviewer in row["reviewers"]:
-        reviewer["case_sha256"] = whole_case
+def refuses(call):
+    try: call()
+    except ValueError: return True
+    return False
 
 
-def probes():
-    problems = []
-    def finding(code, reproduced, evidence, severity="P0"):
-        problems.append({"id": code, "severity": severity,
-                         "reproduced": bool(reproduced), "evidence": evidence})
-
-    baseline = example("audit-original", "train", "BTCUSDT")
-    modified = deepcopy(baseline)
-    modified["question"] += " Additional different training question with identical case ID."
-    reapprove(modified)
-    old = check_corpus([baseline])["source_sha256"]
-    new = check_corpus([modified])["source_sha256"]
-    finding("CORPUS_HASH_NOT_CONTENT_BOUND", old == new,
-            "Change an approved question; source_sha256 still equals " + old[:12] + "...")
-
-    heldout = example("audit-blind", "test", "SOLUSDT")
-    prediction = {
-        "case_id": heldout["case_id"], "cutoff": heldout["cutoff"],
-        "visible_prefix_sha256": heldout["visible_prefix_sha256"],
-        "prediction_at": heldout["cutoff"],
-        "answer": {"decision": heldout["answer"]["decision"],
-                   "execution_allowed": False}}
-    prediction["commitment"] = prediction_commitment(prediction)
-    grade = grade_blind([heldout], [prediction])
-    finding("BLIND_GRADER_ACCEPTS_NO_REASONING", grade["decision_accuracy"] == 1.0
-            and grade["unsafe_execution_claims"] == 0,
-            "Decision-only prediction scored 100% and zero unsafe claims; no evidence or counterhypothesis graded.")
-
-    train, _ = export_research([baseline])
-    exported = train["train_sft"][0]
-    missing = sorted(EXISTING_QLORA_REQUIRED - set(exported))
-    finding("NEW_SFT_INCOMPATIBLE_WITH_EXISTING_QLORA", bool(missing),
-            "SFT keys=" + ",".join(sorted(exported)) +
-            "; missing old reviewed-data fields=" + ",".join(missing))
-
-    no_overlap_failure = [{"case_id": "validation-001",
-                           "split": "validation", "rule_id": "NTD.AC",
-                           "error_code": "MISUNDERSTOOD_AC"}]
-    schedule = adaptive_schedule([baseline], no_overlap_failure, rounds=3)
-    lost = all(x["validation_failures_for_rule"] == 0 for x in schedule["schedule"])
-    finding("ADAPTIVE_FEEDBACK_DROPPED_BY_RULE_SPLIT", lost,
-            "Validation error NTD.AC does not influence train rule TC2.WM1.ANG. "
-            "GPU readiness meanwhile forbids the same rule ID crossing splits.")
-
-    quoted = example("quote-a", "train", "BTCUSDT")
-    alias = example("quote-b", "test", "BTCUSDC")
-    accepted = True
-    try: check_corpus([quoted, alias])
-    except ValueError: accepted = False
-    finding("QUOTE_ALIAS_LEAKAGE_NOT_BLOCKED", accepted,
-            "BTCUSDT in train and BTCUSDC in test are accepted as separate symbols; "
-            "legacy chart_supervision.check_market_partitions does alias grouping.")
-
-    market = question_only(baseline)
-    missing_market = [key for key in ("h4", "d1", "confirmed_swings",
-                                     "book_excerpt") if key not in market]
-    finding("NO_H4_D1_SWINGS_OR_BOOK_EVIDENCE_IN_PROMPT",
-            len(missing_market) == 4 and len(market["visible_numeric_tail"]) == 8,
-            "Model prompt exposes only 8 H1 candles and their derived indicators; "
-            "omits H4/D1, confirmed swings and actual cited book passage.")
-
-    with tempfile.TemporaryDirectory() as dirname:
-        mem = HypothesisMemory(Path(dirname) / "research.sqlite")
-        with sqlite3.connect(mem.path) as db:
-            cols = {row[1] for row in db.execute("PRAGMA table_info(hypotheses)")}
-        mem.append(case_id="same-market-case", symbol="BTCUSDT",
-                   cutoff="2026-11-01T01:00:00Z",
-                   available_at="2026-11-01T01:00:00Z",
-                   snapshot_sha256="a" * 64,
-                   hypothesis="Unconfirmed first hypothesis",
-                   alternative="Unconfirmed alternative",
-                   evidence=["observed"], counterevidence=["uncertain"],
-                   invalidation="break of support")
-        duplicate_blocked = False
-        try:
-            mem.append(case_id="same-market-case", symbol="BTCUSDT",
+def audit():
+    issues=[]
+    def record(problem,passed,evidence,scope="SOFTWARE_CONTRACT"):
+        issues.append({"blocker":problem,"regression_check_passed":bool(passed),
+                       "evidence":evidence,"scope":scope})
+    basic=full_case()
+    edited=deepcopy(basic);edited["question"]+=" Alternate study phrase.";reseal(edited)
+    record("A1_FULL_CONTENT_CORPUS_SHA",
+           check_corpus([basic])["source_sha256"]!=check_corpus([edited])["source_sha256"],
+           "Case content, approved answer and market prefix now enter the digest.")
+    held=deepcopy(basic);held["split"]="test";reseal(held)
+    p={"case_id":held["case_id"],"cutoff":held["cutoff"],
+       "visible_prefix_sha256":held["visible_prefix_sha256"],
+       "prediction_at":held["cutoff"],
+       "answer":{"decision":"WAIT","execution_allowed":False}}
+    p["commitment"]=prediction_commitment(p)
+    record("A2_FULL_REASONING_ANSWER_REQUIRED",
+           refuses(lambda: grade_blind([held],[p])),
+           "A naked WAIT answer is rejected; schema and reasoning fields required.")
+    tokens=tokenize_verified([basic],ToyTokenizer(),max_tokens=8192)
+    record("A3_REVIEWED_REASONING_TO_QLORA_TOKEN_BRIDGE",
+           len(tokens)==1 and -100 in tokens[0]["labels"] and
+           any(x!=-100 for x in tokens[0]["labels"]) and
+           refuses(lambda: prepare_gpu_handoff([basic])),
+           "Real QLoRA adapter generates answer-only tensor labels, while incomplete reviewed corpora cannot start.",
+           scope="CPU_TOKENIZATION_AND_GATE_ONLY_GPU_NOT_RUN")
+    feedback=adaptive_schedule([basic],
+        [{"case_id":"valid-001","split":"validation","rule_id":"NTD.AC",
+          "error_code":"MISUNDERSTOOD_AC"}],rounds=4)
+    record("A4_SKILL_ADAPTATION_ACROSS_RULE_HOLDOUT",
+           feedback["error_skill_counts"].get("MOMENTUM")==1 and
+           any(x["focus_skill"]=="MOMENTUM" and x["validation_failures_for_skill"]>=1
+               for x in feedback["schedule"]),
+           "An NTD.AC validation error prioritizes a compatible train-side skill.")
+    alias=deepcopy(basic);alias["symbol"]="BTCUSDC";alias["split"]="test"
+    alias["case_id"]="alias-fixture";reseal(alias)
+    record("A5_QUOTE_ALIAS_NO_CROSS_SPLIT",
+           refuses(lambda: check_corpus([basic,alias])),
+           "BTCUSDT vs BTCUSDC cannot occupy different splits.")
+    prompt=question_only(basic)
+    incomplete=deepcopy(basic)
+    incomplete.pop("higher_timeframes");incomplete.pop("book_evidence");reseal(incomplete)
+    record("A6_CAUSAL_THREE_FRAME_BOOK_EVIDENCE_GATE",
+           prompt["complete_h1_h4_d1_context"] and
+           bool(prompt["book_evidence"]) and
+           not readiness([incomplete])["ready_for_gpu_experiment"],
+           "H1/H4/D1 closed histories, strict confirmed fractals and source page evidence; missing context blocks GPU.")
+    with tempfile.TemporaryDirectory() as tmp:
+        path=Path(tmp)/"learning.sqlite"
+        parent=HypothesisMemory(path,run_id="trial-001",model_id="qwen-parent-a")
+        cand=HypothesisMemory(path,run_id="trial-001",model_id="qwen-candidate-b")
+        for mem,thought in ((parent,"parent"),(cand,"candidate")):
+            mem.append(case_id="same-case",symbol="BTCUSDT",
                        cutoff="2026-11-01T01:00:00Z",
                        available_at="2026-11-01T01:00:00Z",
-                       snapshot_sha256="a" * 64,
-                       hypothesis="Second model alternative",
-                       alternative="Second other alternative",
-                       evidence=["observed"], counterevidence=["uncertain"],
-                       invalidation="retest")
-        except sqlite3.IntegrityError:
-            duplicate_blocked = True
-        finding("NO_MODEL_ISOLATION_IN_HYPOTHESIS_MEMORY",
-                "model_id" not in cols and duplicate_blocked,
-                "hypotheses PK=case_id only; two models replaying same case collide "
-                "and hypotheses cannot be separated by checkpoint/model fingerprint.")
-
-    return {
-        "schema": "WILLIAMS_AI_2_STRATEGY_BLOCKER_REPRODUCTIONS_V1",
-        "finding_count": len(problems),
-        "reproduced_count": sum(x["reproduced"] for x in problems),
-        "findings": problems,
-        "NOT_MODEL_QUALITY_EXAM": True,
-        "execution_allowed": False,
-    }
+                       snapshot_sha256="a"*64,hypothesis=thought,
+                       alternative="another path",evidence=["close"],
+                       counterevidence=["unknown"],invalidation="stop")
+        pa=parent.as_of(symbol="BTCUSDT",timestamp="2026-11-02T00:00:00Z")
+        ca=cand.as_of(symbol="BTCUSDT",timestamp="2026-11-02T00:00:00Z")
+        record("A7_ISOLATED_EXPERIMENT_AND_MODEL_MEMORY",
+               pa[0]["hypothesis"]!=ca[0]["hypothesis"],
+               "Two models share SQLite without state leakage or primary-key collision.")
+    return {"schema":"WILLIAMS_AI_2_STRATEGY_BLOCKER_POSTFIX_AUDIT_V2",
+            "checked":len(issues),
+            "software_contracts_passed":sum(x["regression_check_passed"] for x in issues),
+            "regressions":issues,
+            "new_expert_labels_supplied":False,
+            "real_gpu_training_performed":False,
+            "semantic_quality_evaluated":False,
+            "trade_execution_allowed":False}
 
 
-if __name__ == "__main__":
-    result = probes()
-    report = ROOT / "audit_output/strategy_blockers.json"
-    report.parent.mkdir(exist_ok=True)
-    report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    if result["reproduced_count"] != result["finding_count"]:
-        raise SystemExit("AUDIT_PROBE_NOT_REPRODUCED")
+if __name__=="__main__":
+    report=audit()
+    output=ROOT/"audit_output/strategy_blockers_after_fixes.json"
+    output.parent.mkdir(exist_ok=True)
+    output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    print(json.dumps(report,ensure_ascii=False,indent=2))
+    if report["checked"] != report["software_contracts_passed"]:
+        raise SystemExit("UNRESOLVED_STRATEGY_SOFTWARE_REGRESSION")
