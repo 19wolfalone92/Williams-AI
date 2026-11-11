@@ -82,12 +82,11 @@ class BookToChartLearningTests(unittest.TestCase):
             bar_index=299,edition="TC2",model=spy,
             model_id="gguf-alpha",study_memory=self.memory)
         learned=spy.kwargs["study_lessons"]
-        self.assertEqual(len(learned),1)
-        self.assertTrue(learned[0]["excerpt"].startswith(
-            "Непроверенный учебный вывод:"))
+        # The study happened after this historical candle: no look-ahead
+        # through the model's freshly written research notes.
+        self.assertEqual(learned,[])
         self.assertEqual(spy.kwargs["model_id"],"gguf-alpha")
-        self.assertEqual(result["same_model_unverified_book_lessons_used"],
-                         ["STUDY:TC2: PDF 123"])
+        self.assertEqual(result["same_model_unverified_book_lessons_used"],[])
         self.assertFalse(result["execution_allowed"])
         spy2=InspectingStudent()
         evaluate_historical_thought(
