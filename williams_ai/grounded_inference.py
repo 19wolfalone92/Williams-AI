@@ -130,7 +130,7 @@ def verified_private_book_pages(
         for card in cards[:2]:
             terms+=" "+card["excerpt"][:200]
     results=search_pages(db_path,terms[:1400],edition=edition,limit=limit)
-    return [_with_private_course_visuals({
+    pages = [_with_private_course_visuals({
         "source":result["source"],
         "excerpt":result["excerpt"][:650],
         "status": ("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
@@ -139,3 +139,19 @@ def verified_private_book_pages(
         "pdf_page":result["page"],
         "chunk_sha256":result["chunk_sha256"],
     },db_path,edition) for result in results]
+    if edition == "COURSE":
+        from .course_visual_private import search_course_visual_descriptions
+        figures = search_course_visual_descriptions(db_path,terms,limit=2)
+        explicit_visual_query = any(word in terms.casefold() for word in (
+            "diagram","figure","chart","illustration","wave count",
+            "composite","elliott degree","диаграмм","рисунок","график"))
+        for figure in figures:
+            if figure["pdf_page"] in {page["pdf_page"] for page in pages}:
+                continue
+            if len(pages)>=limit and not explicit_visual_query:
+                break
+            if len(pages)>=limit:
+                pages.pop()
+            pages.append(figure)
+            break
+    return pages
