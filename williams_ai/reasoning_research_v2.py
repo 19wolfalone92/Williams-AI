@@ -68,7 +68,7 @@ def _valid_answer(answer):
 
 
 def verify_case(row):
-    if not isinstance(row, dict) or set(row) != ROW_FIELDS:
+    if not isinstance(row, dict) or set(row) not in (ROW_FIELDS, ROW_FIELDS | {"higher_timeframes", "book_evidence"}):
         raise ValueError("EXACT_EXPERT_REASONING_CASE_SCHEMA_REQUIRED")
     if row["split"] not in SPLITS or row["edition"] not in ED or row["timeframe"] not in {"H1", "H4", "D1"}:
         raise ValueError("EXPLICIT_EDITION_SPLIT_AND_TIMEFRAME")
@@ -140,7 +140,52 @@ def verify_case(row):
             or row["pdf_page"] not in rule["pdf_pages"]
             or row["source_sha256"] != books[row["edition"]]["sha256"]):
         raise ValueError("UNVERIFIED_OR_MISMATCHED_BOOK_RULE_REFERENCE")
+    if "higher_timeframes" in row:
+        _validate_full_research_context(row)
     return row
+
+
+def _validate_full_research_context(row):
+    """Use only externally supplied, already closed H4 and D1 prefixes.
+
+    Missing context is not manufactured from the H1 slice. Human source
+    evidence is a declaration; original book fidelity still needs review.
+    """
+    frames = row.get("higher_timeframes")
+    evidence = row.get("book_evidence")
+    if not isinstance(frames, dict) or set(frames) != {"H4", "D1"}:
+        raise ValueError("CLOSED_H4_D1_CONTEXT_REQUIRED")
+    if not isinstance(evidence, dict) or set(evidence) != {
+            "edition", "pdf_page", "source_sha256", "excerpt", "checked_by_reviewers"}:
+        raise ValueError("BOOK_PAGE_EVIDENCE_REQUIRED")
+    if (evidence["edition"] != row["edition"]
+            or evidence["pdf_page"] != row["pdf_page"]
+            or evidence["source_sha256"] != row["source_sha256"]
+            or evidence["checked_by_reviewers"] is not True
+            or not isinstance(evidence["excerpt"], str)
+            or not 24 <= len(evidence["excerpt"]) <= 600):
+        raise ValueError("BOOK_EVIDENCE_SOURCE_MISMATCH")
+    from .chart_reader import TF_SECONDS, validate_closed_bars
+    cutoff = utc(row["cutoff"])
+    for timeframe in ("H4", "D1"):
+        frame = frames[timeframe]
+        if not isinstance(frame, dict) or set(frame) != {
+                "bars", "visible_prefix_sha256"}:
+            raise ValueError("EXACT_HIGHER_TIMEFRAME_PREFIX_REQUIRED")
+        bars = frame["bars"]
+        if not isinstance(bars, list) or not 220 <= len(bars) <= 5000:
+            raise ValueError("HIGHER_TIMEFRAME_WARMUP_REQUIRED")
+        if digest(bars) != frame["visible_prefix_sha256"]:
+            raise ValueError("HIGHER_TIMEFRAME_SHA256_MISMATCH")
+        if utc(bars[-1]["close_time"]) > cutoff:
+            raise ValueError("HIGHER_TIMEFRAME_FUTURE_LEAKAGE")
+        candles, gaps = validate_closed_bars(
+            bars, timeframe, bars[-1]["close_time"])
+        seconds = TF_SECONDS[timeframe]
+        if gaps or len(candles) != len(bars) or any(
+                (b.at - a.at).total_seconds() != seconds
+                for a, b in zip(candles, candles[1:])):
+            raise ValueError("HIGHER_TIMEFRAME_CLOSED_CONTIGUOUS_REQUIRED")
 
 
 def check_corpus(cases):
@@ -175,37 +220,65 @@ def check_corpus(cases):
             "execution_allowed": False}
 
 
-def question_only(row):
-    """Bounded numerical market observations, never a full-history token dump.
-
-    Full immutable history is verified and bound by its digest. Only visible
-    closed candles are used to calculate indicators. No gold label or
-    reviewer note is supplied to the model.
-    """
+def _frame_observations(bars, timeframe):
+    """Compute strict confirmed pivots using only observed closed candles."""
     from .chart_reader import indicators, validate_closed_bars
-    candles, gaps = validate_closed_bars(row["bars"], row["timeframe"], row["cutoff"])
-    if gaps or len(candles) < 220 or digest(row["bars"]) != row["visible_prefix_sha256"]:
-        raise ValueError("RECHECKED_CLOSED_MARKET_PREFIX_REQUIRED")
+    candles, gaps = validate_closed_bars(bars, timeframe, bars[-1]["close_time"])
+    if gaps or len(candles) < 220:
+        raise ValueError("UNVERIFIED_CLOSED_FRAME")
     lines = indicators(candles)
-
-    def num(value):
-        return None if value is None else float(f"{value:.8g}")
-
+    def num(v):
+        return None if v is None else float(f"{v:.8g}")
     tail = []
-    for i in range(len(candles) - 8, len(candles)):
-        bar = candles[i]
-        tail.append({"close_time": row["bars"][i]["close_time"],
-                     "o": num(bar.open), "h": num(bar.high),
-                     "l": num(bar.low), "c": num(bar.close), "v": num(bar.volume),
+    for i in range(len(candles) - 24, len(candles)):
+        b = candles[i]
+        tail.append({"close_time": bars[i]["close_time"],
+                     "o": num(b.open), "h": num(b.high), "l": num(b.low),
+                     "c": num(b.close), "v": num(b.volume),
                      **{k: num(lines[k][i]) for k in ("jaw", "teeth", "lips", "ao", "ac")}})
+    pivots = []
+    for i in range(2, len(candles)-2):
+        left_right = [candles[k] for k in (i-2, i-1, i+1, i+2)]
+        if all(candles[i].high > x.high for x in left_right):
+            pivots.append({"type":"HIGH", "price":num(candles[i].high),
+                           "pivot_at": bars[i]["close_time"],
+                           "confirmed_at": bars[i+2]["close_time"]})
+        if all(candles[i].low < x.low for x in left_right):
+            pivots.append({"type":"LOW", "price":num(candles[i].low),
+                           "pivot_at": bars[i]["close_time"],
+                           "confirmed_at": bars[i+2]["close_time"]})
+    return {"timeframe": timeframe, "last_closed_at": bars[-1]["close_time"],
+            "closed_bar_count": len(candles),
+            "tail": tail, "strict_confirmed_fractals": pivots[-12:],
+            "prior_ranges": {str(n): {"high":num(max(b.high for b in candles[-n:])),
+                                      "low":num(min(b.low for b in candles[-n:]))}
+                             for n in (34, 100, 220)},
+            "wave_degree_not_deduced_from_fractals": True}
+
+
+def question_only(row):
+    """Gold-free, causally validated multi-timeframe features plus book evidence."""
+    if row.get("higher_timeframes") is not None:
+        _validate_full_research_context(row)
+    if digest(row["bars"]) != row["visible_prefix_sha256"]:
+        raise ValueError("RECHECKED_CLOSED_MARKET_PREFIX_REQUIRED")
+    frames = {row["timeframe"]: _frame_observations(row["bars"], row["timeframe"])}
+    if "higher_timeframes" in row:
+        for tf in ("H4", "D1"):
+            if tf not in frames:
+                frames[tf] = _frame_observations(row["higher_timeframes"][tf]["bars"], tf)
     return {"case_id": row["case_id"], "symbol": row["symbol"],
             "timeframe": row["timeframe"], "cutoff": row["cutoff"],
             "visible_prefix_sha256": row["visible_prefix_sha256"],
             "rule_id": row["rule_id"], "edition": row["edition"],
             "pdf_page": row["pdf_page"], "source_sha256": row["source_sha256"],
-            "question": row["question"], "closed_bar_count": len(candles),
-            "visible_numeric_tail": tail,
-            "market_summary_not_full_wave_degree": True,
+            "question": row["question"],
+            "timeframe_observations": frames,
+            "complete_h1_h4_d1_context": all(tf in frames for tf in ("H1", "H4", "D1")),
+            "book_evidence": ({k: row["book_evidence"][k]
+                               for k in ("edition", "pdf_page", "source_sha256", "excerpt")}
+                              if "book_evidence" in row else None),
+            "human_source_expertise_not_cryptographically_proven": True,
             "no_position_or_stop_acknowledgment_supplied": True}
 
 
