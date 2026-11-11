@@ -17,6 +17,9 @@ import subprocess
 import sys
 import tempfile
 import time
+# Direct `python scripts/*.py` is launched with scripts/ as sys.path[0].
+# Explicitly locate the repository root before importing project modules.
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from zipfile import ZipFile,ZIP_STORED
 from urllib.request import urlopen
 
