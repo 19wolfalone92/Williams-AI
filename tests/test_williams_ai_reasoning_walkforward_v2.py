@@ -35,7 +35,7 @@ class WalkForwardV2Tests(unittest.TestCase):
             return deepcopy(first["answer"])
 
         with tempfile.TemporaryDirectory() as tmp:
-            memory = HypothesisMemory(Path(tmp) / "study.sqlite")
+            memory = HypothesisMemory(Path(tmp) / "study.sqlite", run_id="test-replay-0001", model_id="test-model-parent")
             report = run_blind_replay([second, first], reason, memory)
             self.assertEqual(observations, [0, 1])
             self.assertEqual(report["grade"]["cases"], 2)
