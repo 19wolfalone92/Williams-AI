@@ -21,7 +21,8 @@ from .real_gguf_acceptance import actual_gguf_sha256
 
 
 def assess_model(model, *, model_sha256: str, adapter_sha256: str | None = None,
-                 per_edition: int = 4, seed: int = 20261024) -> dict:
+                 per_edition: int = 4, seed: int = 20261024,
+                 model_verified_by_loader: bool = False) -> dict:
     if not isinstance(model_sha256, str) or len(model_sha256) != 64 or any(
             letter not in "0123456789abcdef" for letter in model_sha256):
         raise ValueError("ACTUAL_PINNED_GGUF_SHA256_REQUIRED")
@@ -64,7 +65,7 @@ def assess_model(model, *, model_sha256: str, adapter_sha256: str | None = None,
         "same_questions_in_both_conditions":True,
         "correct_answer_never_provided_to_inference":True,
         "test_questions_source_derived_not_independent_market_gold":True,
-        "real_model_inference_performed":True,
+        "real_model_inference_performed":model_verified_by_loader,
         "book_visual_comprehension_tested":False,
         "market_future_sealed_exam_completed":False,
         "user_trained_model_benchmarked":adapter_sha256 is not None,
@@ -109,7 +110,8 @@ def main():
     report=assess_model(
         model,model_sha256=verified["model_sha256"],
         adapter_sha256=adapter_sha,
-        per_edition=args.per_edition,seed=args.seed)
+        per_edition=args.per_edition,seed=args.seed,
+        model_verified_by_loader=True)
     output=args.output.expanduser().resolve()
     from .book_index import ROOT
     if output.exists() or output==ROOT or ROOT in output.parents:
