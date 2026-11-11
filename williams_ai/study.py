@@ -447,9 +447,16 @@ def recalled_source_pages(book_index: str | Path, memory_db: str | Path, questio
     finally:
         source.close()
     ranked.sort(key=lambda x: (-x[0], x[1], x[2]))
+    with _source(book_index, edition) as pinned:
+        row=pinned.execute("SELECT source_type FROM volumes WHERE book=?",
+                           (edition,)).fetchone()
+    if row is None or row[0] not in {"PDF_TEXT","PDF_TEXT_WITH_UNREVIEWED_OCR"}:
+        raise ValueError("MISSING_SOURCE_OR_OCR_PROVENANCE")
+    status=("PRIVATE_OCR_UNVERIFIED_NEEDS_PAGE_IMAGE_REVIEW"
+            if row[0]=="PDF_TEXT_WITH_UNREVIEWED_OCR"
+            else "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED")
     return [{"source": f"{edition}: PDF {page}", "excerpt": text,
-             "status": "PRIVATE_INDEXED_PDF_TEXT_NOT_INDEPENDENTLY_INTERPRETED",
-             "pdf_page": page, "chunk_sha256": digest}
+             "status": status, "pdf_page": page, "chunk_sha256": digest}
             for _, page, digest, text in ranked[:limit]]
 
 
