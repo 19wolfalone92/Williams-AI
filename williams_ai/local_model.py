@@ -743,9 +743,21 @@ class LocalWilliamsModel:
                                      "visual_status":"UNVERIFIED_DESCRIPTIVE_ONLY",
                                      "image_sha256":figure["image_sha256"],
                                      "image_not_seen_by_text_only_model":True})
+                source_role=None
+                blank_form=False
+                if edition=="COURSE":
+                    from .course_page_semantics_v3 import private_course_page_role
+                    try:
+                        page_number=int(source.rsplit(" ",1)[1])
+                    except (ValueError,IndexError) as exc:
+                        raise ValueError("Bad Course PDF source page number") from exc
+                    source_role=private_course_page_role(page_number)
+                    blank_form=bool(source_role.get("blank_form_not_a_trading_rule"))
                 pages.append({"source":source,"excerpt":excerpt,
                               "source_status":evidence_status,
                               "visual_refs":excerpts,
+                              "source_page_role":source_role,
+                              "blank_form_is_not_trading_rule":blank_form,
                               "not_expert_verified":True})
         corrections=[]
         if prior_lessons is not None:
