@@ -101,7 +101,9 @@ def research_quality_gate(observed:dict)->dict:
         issues.append("SOURCE_ASSISTED_EXCESSIVE_ABSTENTIONS")
     if hold["correct"]<base_hold["correct"]:
         issues.append("RULE_DISJOINT_28_WORSE_THAN_EQUAL_CONDITIONS_BASE")
-    for edition in ("TC2","NTD"):
+    # Every book stays independent; a gain in TC2 must NOT conceal a
+    # Course/TC1 regression, and neither can erase NTD regressions.
+    for edition in ("TC1","NTD","TC2","COURSE"):
         if (src["by_edition"][edition]["correct"]<
             base_src["by_edition"][edition]["correct"]):
             issues.append("SOURCE_ASSISTED_"+edition+"_REGRESSION_VS_BASE")
