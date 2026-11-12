@@ -147,7 +147,9 @@ def evaluate(base:Path,gguf_lora:Path,receipt:dict,*,out:Path):
                 "by_edition":b["by_edition"],
                 "abstentions":sum(x["abstained"] for x in b["results"])},
             "new_rule_disjoint_28_case_exam":frozen,
-            "weights_trained_in_this_run":adapter is not None,
+            "weights_trained_in_this_run":False,
+            "previously_gpu_trained_lora_loaded_for_inference":adapter is not None,
+            "new_GPU_training_steps_in_this_run":0,
         }
         del model
         gc.collect()
