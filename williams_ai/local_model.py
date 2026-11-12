@@ -55,7 +55,7 @@ def _final_learning_json(raw: str) -> str:
             raise ValueError("GGUF_INVALID_FINAL_JSON")
         final = "\n".join(lines[1:-1]).strip()
     try:
-        obj = json.loads(final)
+        obj = _strict_chart_json(final)
     except (ValueError, TypeError) as exc:
         raise ValueError("GGUF_INVALID_FINAL_JSON") from exc
     if not isinstance(obj, dict):
@@ -181,13 +181,15 @@ class LocalWilliamsModel:
         self.latest_stop_review_call: dict[str, Any] | None = None
 
     def _learning_completion(self, *, messages: list[dict[str, Any]],
-                             schema: dict[str, Any], max_tokens: int) -> dict[str, Any]:
-        """Qwen3 needs room to reason BEFORE choosing a schema-constrained letter.
+                             schema: dict[str, Any], max_tokens: int,
+                             retry_exam_only: bool = False) -> dict[str, Any]:
+        """Qwen3 reasoning, with a bounded, auditable JSON-only exam recovery.
 
-        The preceding constant-letter failure was reproduced with real weights.
-        No answer key, future prices, calculator result or second model is used.
-        Qwen's recommended non-greedy thinking parameters are pinned; thinking
-        is never returned to callers or reused as learned book authority.
+        Evidence from the V5 exam: most source-assisted replies abstained. An
+        unfinished thinking trace must never be treated as a valid answer.
+        Retry only the read-only MCQ JSON schema, once, without new evidence or
+        access to any hidden answer. This is a new INFERENCE protocol, not
+        evidence of better trained weights. Record fallback usage for exams.
         """
         self.latest_learning_call = None
         if not self._learning_reasoning:
@@ -205,18 +207,67 @@ class LocalWilliamsModel:
         choices = response.get("choices", [])
         if not choices or not isinstance(choices[0].get("message"), dict):
             raise ValueError("GGUF_INVALID_LEARNING_RESPONSE")
+        initial_finish = choices[0].get("finish_reason")
         self.latest_learning_call = {
             "mode": "QWEN3_REASON_THEN_FINAL_JSON", "seed": 1942,
-            "finish_reason": choices[0].get("finish_reason"),
+            "finish_reason": initial_finish,
             "usage": response.get("usage", {}),
-            "weights_modified": False,
+            "weights_modified": False, "fallback_used": False,
         }
-        if choices[0].get("finish_reason") == "length":
-            # The caller's existing length checks must reject partial answers.
-            return {"choices": [{"finish_reason": "length", "message": {"content": ""}}]}
-        final = _final_learning_json(choices[0]["message"].get("content"))
-        return {"choices": [{"finish_reason": choices[0].get("finish_reason"),
-                              "message": {"content": final}}]}
+        if initial_finish == "length":
+            failure = "GGUF_EXAM_REASONING_TRUNCATED"
+            final = None
+        else:
+            try:
+                final = _final_learning_json(choices[0]["message"].get("content"))
+                failure = None
+            except ValueError:
+                final = None
+                failure = "GGUF_EXAM_REASONING_MALFORMED"
+        if final is not None:
+            return {"choices": [{"finish_reason": initial_finish,
+                                 "message": {"content": final}}]}
+        if not retry_exam_only:
+            if initial_finish == "length":
+                return {"choices": [{"finish_reason": "length",
+                                     "message": {"content": ""}}]}
+            raise ValueError("GGUF_INVALID_FINAL_JSON")
+        # Only the bounded exam schema is allowed a fallback. Never retry
+        # trading decisions, study passages, or model-authored tool calls.
+        if (set(schema.get("properties", {})) != {"choice", "reason"} or
+            set(schema.get("required", [])) != {"choice", "reason"} or
+            schema.get("additionalProperties") is not False):
+            raise ValueError("INVALID_READONLY_EXAM_RECOVERY_SCHEMA")
+        fallback_messages = [dict(m) for m in messages]
+        fallback_messages[0]["content"] += (
+            " /no_think. Для данного книжного вопроса отвечай сразу "
+            "ОДНИМ JSON-объектом только choice и reason, без рассуждения, "
+            "без команд или ордеров. Используй только уже переданные данные."
+        )
+        fallback = self._model.create_chat_completion(
+            messages=fallback_messages,
+            response_format={"type": "json_object", "schema": schema},
+            temperature=0.0, max_tokens=max_tokens, stream=False)
+        alternatives = fallback.get("choices", [])
+        retry_finish = alternatives[0].get("finish_reason") if alternatives else None
+        self.latest_learning_call.update({
+            "mode": "QWEN3_EXAM_JSON_RECOVERY",
+            "fallback_used": True,
+            "fallback_reason": failure,
+            "fallback_finish_reason": retry_finish,
+        })
+        if (not alternatives or retry_finish == "length" or
+            not isinstance(alternatives[0].get("message"), dict)):
+            return {"choices": [{"finish_reason": "length",
+                                 "message": {"content": ""}}]}
+        try:
+            final = _final_learning_json(alternatives[0]["message"].get("content"))
+        except ValueError:
+            self.latest_learning_call["fallback_reason"] = "GGUF_EXAM_JSON_RECOVERY_MALFORMED"
+            return {"choices": [{"finish_reason": "length",
+                                 "message": {"content": ""}}]}
+        return {"choices": [{"finish_reason": retry_finish,
+                             "message": {"content": final}}]}
 
     def study_passage(self, passage: str, *, edition: str, page: int,
                       rule_cards: list[dict[str, Any]]) -> str:
@@ -288,26 +339,26 @@ class LocalWilliamsModel:
                     "choice": {"type": "string", "enum": ["A", "B", "C"]},
                     "reason": {"type": "string", "minLength": 1, "maxLength": 180},
                 }, "required": ["choice", "reason"], "additionalProperties": False,
-            }, max_tokens=240,
+            }, max_tokens=240, retry_exam_only=self._learning_reasoning,
         )
         options = response.get("choices", [])
         if options and options[0].get("finish_reason") == "length":
             return {"choice": "", "reason": "GGUF_EXAM_OUTPUT_TRUNCATED"}
         raw = options[0].get("message", {}).get("content", "") if options else ""
         try:
-            result = json.loads(raw) if isinstance(raw, str) else {}
+            result = _strict_chart_json(raw) if isinstance(raw, str) else {}
         except json.JSONDecodeError:
             result = {}
         if not isinstance(result, dict):
             result = {}
         if set(result) != {"choice", "reason"}:
             result = {}
-        if not isinstance(result.get("reason"), str) or not 1 <= len(result["reason"]) <= 500:
+        if not isinstance(result.get("reason"), str) or not 1 <= len(result["reason"]) <= 180:
             result = {}
         choice = result.get("choice")
         reason = result.get("reason")
         return {"choice": choice if choice in {"A", "B", "C"} else "",
-                "reason": reason[:500] if isinstance(reason, str) else "Ответ не распознан"}
+                "reason": reason if isinstance(reason, str) else "Ответ не распознан"}
 
     def propose_chart_reasoning(
         self, chart_analysis: dict[str, Any], *, edition: str = "TC2",
