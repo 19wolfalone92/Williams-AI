@@ -206,6 +206,7 @@ def grade_four_book_model(model: Any, *, seed: int=20261024,
     grades=[]
     for task in tasks:
         public=task["public"]
+        answer={}
         try:
             if autonomous_source_retrieval:
                 from .unprompted_source_application import answer_with_self_retrieval
