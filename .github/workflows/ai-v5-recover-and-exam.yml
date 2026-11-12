@@ -104,6 +104,27 @@ jobs:
             --trained-lora-gguf "$RUNNER_TEMP/williams-v5-new-adapter.gguf" \
             --training-receipt "$RUNNER_TEMP/williams_v5_private_runtime/training_receipt.json" \
             --output "$RUNNER_TEMP/williams_v5_knowledge_exam.json"
+      - name: Verify exam provenance, reject promotion on any quality regression
+        if: success()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"williams_v5_knowledge_exam.json").read_text())
+          assert report["execution_allowed"] is False
+          assert report["trading_qualification"] is False
+          assert report["user_model_automatically_promoted"] is False
+          assert report["genuine_gpu_weights_updated"] is True
+          assert report["no_answer_key_or_case_id_given_to_model"] is True
+          assert report["same_v5_inference_protocol_used_for_candidate_and_base"] is True
+          gate=report["research_quality_gate"]
+          print("V5_SOURCE_RELIABILITY_QUALITY_GATE",
+                json.dumps(gate,sort_keys=True),flush=True)
+          if not gate["accepted_for_further_research"]:
+              print("::warning::Trained model failed RESEARCH quality gate; it MUST NOT be promoted.")
+          print("V5_RESEARCH_ONLY_NO_LIVE_TRADE",flush=True)
+          PY
       - name: Keep only encrypted model, audit, public curriculum and numeric exam
         if: always()
         uses: actions/upload-artifact@v4
