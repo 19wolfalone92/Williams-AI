@@ -53,14 +53,13 @@ class V5ExamDecodeAudit(unittest.TestCase):
         self.assertNotIn("expected",str(call))
         self.assertNotIn("trade_action",str(call["response_format"]["schema"]))
 
-    def test_malformed_reasoning_recovered_without_key_or_tool(self):
+    def test_completed_malformed_reasoning_never_retried_or_laundered(self):
         model=student(result('garbled output'),
                       result('{"choice":"C","reason":"Проверка исходных правил"}'))
-        answer=model.answer_exam_case(self.case)
-        self.assertEqual(answer["choice"],"C")
-        self.assertEqual(model.latest_learning_call["fallback_reason"],
-                         "GGUF_EXAM_REASONING_MALFORMED")
-        self.assertEqual(model._model.create_chat_completion.call_count,2)
+        with self.assertRaisesRegex(ValueError,"GGUF_INVALID_FINAL_JSON"):
+            model.answer_exam_case(self.case)
+        self.assertFalse(model.latest_learning_call["fallback_used"])
+        self.assertEqual(model._model.create_chat_completion.call_count,1)
 
     def test_normal_reasoning_never_retries(self):
         model=student(result('<think>private thought</think>{"choice":"B","reason":"Цитата"}'))
