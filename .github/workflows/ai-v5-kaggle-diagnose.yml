@@ -33,13 +33,30 @@ jobs:
           data=r.stdout+"\n"+r.stderr
           print("FORENSIC_LOG_COMMAND_EXIT",r.returncode,flush=True)
           print("FORENSIC_LOG_LINE_COUNT",len(data.splitlines()),flush=True)
-          pattern=re.compile(r"(Traceback|^\s*File \"|(?:Error|Exception|FAILED|Killed|OOM|out of memory|cuda|not found|No module named|No such file|package conflict|missing|failed|fatal|ERROR):)",re.I)
-          selected=[line.strip() for line in data.splitlines() if pattern.search(line)]
-          for line in selected[-45:]:
-              line=re.sub(r'https?://\S+','[URL]',line)
-              line=re.sub(r'[A-Za-z0-9_\-]{36,}','[REDACTED]',line)
-              line=re.sub(r'\S+@\S+','[REDACTED_EMAIL]',line)
-              print("FORENSIC_LOG",line[:400],flush=True)
+          import json
+          records=[]
+          for raw in r.stdout.splitlines():
+              try:
+                  item=json.loads(raw.strip().lstrip(",").strip())
+                  if isinstance(item,dict) and isinstance(item.get("data"),str): records.append(item)
+              except (ValueError, TypeError):
+                  continue
+          print("FORENSIC_PARSED_RECORDS",len(records),flush=True)
+          chunks=[str(x.get("data","")) for x in records]
+          if not chunks:
+              chunks=[r.stdout]
+          raw_lines="\n".join(chunks).splitlines()
+          pattern=re.compile(r"(Traceback|Error|Exception|FAILED|Killed|OOM|out of memory|cuda|not found|No module named|No such file|missing|failed|fatal|signal|step|progress|WILLIAMS_V5)",re.I)
+          selected=[line.strip() for line in raw_lines if pattern.search(line)]
+          print("FORENSIC_PARSED_LOG_LINE_COUNT",len(raw_lines),flush=True)
+          for line in selected[-75:]:
+              line=re.sub(r"https?://\S+","[URL]",line)
+              line=re.sub(r"[A-Za-z0-9_\-]{36,}","[REDACTED]",line)
+              line=re.sub(r"\S+@\S+","[REDACTED_EMAIL]",line)
+              print("FORENSIC_LOG",line[:500],flush=True)
+          if not selected:
+              print("FORENSIC_SELECTED_LOGS_NONE",flush=True)
+              for line in raw_lines[-12:]: print("FORENSIC_LOG_TAIL",re.sub(r"https?://\S+","[URL]",line.strip())[:250],flush=True)
           if not data.strip(): print("FORENSIC_LOG_EMPTY",flush=True)
           if r.returncode: raise RuntimeError("KAGGLE_LOG_FETCH_FAILED_NO_DIAGNOSIS")
           PY
