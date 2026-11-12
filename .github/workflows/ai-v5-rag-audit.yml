@@ -2,7 +2,12 @@ name: Williams AI v5 source retrieval forensic audit (CPU no model)
 on:
   push:
     branches: [research/williams-ai-curriculum-v5-20261111]
-    paths: ['.github/workflows/ai-v5-rag-audit.yml']
+    paths:
+      - '.github/workflows/ai-v5-rag-audit.yml'
+      - 'scripts/ai_v5_source_audit.py'
+      - 'williams_ai/source_ranker_v2.py'
+      - 'williams_ai/unprompted_source_application.py'
+      - 'tests/test_williams_ai_source_ranker_v2.py'
 permissions:
   contents: read
 jobs:
@@ -18,7 +23,7 @@ jobs:
           python-version: '3.11'
       - name: Revalidate source isolation and no hidden choice leakage
         run: |
-          python -m unittest tests.test_williams_ai_unprompted_source_application tests.test_williams_ai_four_book_mastery -v
+          python -m unittest tests.test_williams_ai_unprompted_source_application tests.test_williams_ai_four_book_mastery tests.test_williams_ai_source_ranker_v2 -v
       - name: Measure actual top-two source-rule retrieval coverage
         run: |
           python -m scripts.ai_v5_source_audit --output "$RUNNER_TEMP/williams-v5-rag-audit.json"

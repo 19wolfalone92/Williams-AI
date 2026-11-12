@@ -20,11 +20,17 @@ def audit() -> dict:
         question=case["public"]["question"]
         edition=case["public"]["edition"]
         found=self_retrieve_source(question,edition,max_cards=2)
+        weighted=self_retrieve_source(question,edition,max_cards=2,
+                                      retriever="weighted_v2")
         ids=[x["rule_id"] for x in found["retrieved"]]
         if any(not x.startswith(edition+".") for x in ids):
             raise ValueError("CROSS_EDITION_SOURCE_RETRIEVAL")
         groups[edition].append({
             "case_id":case["public"]["id"],"retrieved":ids,
+            "experimental_v2_top2":[x["rule_id"] for x in weighted["retrieved"]],
+            "experimental_v2_expected_rule_in_top2":(
+                case["source_rule_id"] in
+                [x["rule_id"] for x in weighted["retrieved"]]),
             "expected_source_present":case["source_rule_id"] in ids,
             "no_card_found":not ids,
             "gold_answer_not_used_in_search":True,
@@ -34,6 +40,8 @@ def audit() -> dict:
         per_book[ed]={
             "total":len(rows),
             "correct_rule_in_top2":sum(x["expected_source_present"] for x in rows),
+            "experimental_v2_rule_in_top2":sum(
+                x["experimental_v2_expected_rule_in_top2"] for x in rows),
             "retrieval_missing":sum(x["no_card_found"] for x in rows),
             "details":rows,
         }
@@ -41,6 +49,11 @@ def audit() -> dict:
             "case_count":len(cases),
             "target_rule_top2_hit":sum(x["expected_source_present"]
                                       for rows in groups.values() for x in rows),
+            "experimental_v2_rule_top2_hit":sum(
+                x["experimental_v2_expected_rule_in_top2"]
+                for rows in groups.values() for x in rows),
+            "experimental_v2_not_default":True,
+            "repeated_diagnostic_cases_not_prospective_holdout":True,
             "per_book":per_book,
             "no_model_inference":True,
             "no_test_label_to_training":True,
@@ -61,8 +74,11 @@ def main():
     print("WILLIAMS_V5_SOURCE_RETRIEVAL_AUDIT",
           json.dumps({"total":report["case_count"],
                       "source_top2_hits":report["target_rule_top2_hit"],
+                      "experimental_v2_top2_hits":report["experimental_v2_rule_top2_hit"],
+                      "v2_not_production":True,
                       "by_book":{k:{"hits":v["correct_rule_in_top2"],
-                                    "missing":v["retrieval_missing"]}
+                                    "missing":v["retrieval_missing"],
+                                    "experimental_v2_hits":v["experimental_v2_rule_in_top2"]}
                                  for k,v in report["per_book"].items()}},
                      sort_keys=True),flush=True)
 

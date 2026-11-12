@@ -14,10 +14,11 @@ from __future__ import annotations
 from typing import Any
 
 from .book_rules import lookup_rules,registry
+from .source_ranker_v2 import rank_reviewed_rules
 
 
 def self_retrieve_source(question: str, edition: str, *,
-                         max_cards: int=2) -> dict[str,Any]:
+                         max_cards: int=2, retriever: str="legacy") -> dict[str,Any]:
     if (not isinstance(question,str) or not 10<=len(question)<=1200
             or edition not in {"TC1","NTD","TC2","COURSE"}
             or isinstance(max_cards,bool) or not isinstance(max_cards,int)
@@ -25,7 +26,11 @@ def self_retrieve_source(question: str, edition: str, *,
         raise ValueError("INVALID_UNPROMPTED_SOURCE_QUERY")
     # Keyword search is intentionally *question-only*: wrong answers
     # frequently contain seductive keywords from a different book.
-    found=lookup_rules(question,edition=edition,max_cards=12)
+    if retriever not in {"legacy","weighted_v2"}:
+        raise ValueError("INVALID_RETRIEVAL_ALGORITHM")
+    found=(lookup_rules(question,edition=edition,max_cards=12)
+           if retriever=="legacy" else
+           rank_reviewed_rules(question,edition=edition,max_cards=12))
     registered={x["id"]:x for x in registry()["rule_cards"]
                 if x["source"]==edition and x["status"]=="REVIEWED_PAGES"}
     used=[]
@@ -43,6 +48,7 @@ def self_retrieve_source(question: str, edition: str, *,
     return {
         "mode":"AUTONOMOUS_BOOK_QUESTION_ONLY_SOURCE_DISCOVERY",
         "edition":edition,"retrieved":used,
+        "retrieval_algorithm":retriever,
         "no_human_supplied_rule_id":True,
         "no_answer_options_used_in_retrieval":True,
         "no_answer_key_used":True,
@@ -54,7 +60,7 @@ def self_retrieve_source(question: str, edition: str, *,
 
 
 def answer_with_self_retrieval(model:Any,case:dict[str,Any],
-                               *,max_cards:int=2)->dict[str,Any]:
+                               *,max_cards:int=2,retriever:str="legacy")->dict[str,Any]:
     """One-pass model answer, with automatic book lookup if relevant.
 
     No oracle-like fallback: we never provide the model's own wrong answer,
@@ -66,7 +72,7 @@ def answer_with_self_retrieval(model:Any,case:dict[str,Any],
             or set(case["choices"])!={"A","B","C"}):
         raise ValueError("INVALID_BLIND_EXAM_CASE")
     search=self_retrieve_source(case["question"],case["edition"],
-                                max_cards=max_cards)
+                                max_cards=max_cards,retriever=retriever)
     usable=[{"source":x["source"],"excerpt":x["excerpt"]}
             for x in search["retrieved"]]
     # The model will still need to interpret the question + evidence.
@@ -81,6 +87,7 @@ def answer_with_self_retrieval(model:Any,case:dict[str,Any],
         "source_ids_used":[x["rule_id"] for x in search["retrieved"]],
         "source_pages_used":[x["pdf_pages"] for x in search["retrieved"]],
         "retrieval_invoked_automatically":True,
+        "retrieval_algorithm":retriever,
         "independent_success_unknown_without_hidden_key":True,
         "model_weights_updated":False,"trade_action":None,
         "execution_allowed":False,
