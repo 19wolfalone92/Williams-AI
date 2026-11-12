@@ -31,6 +31,8 @@ jobs:
         run: |
           python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
           python -m unittest tests.test_williams_ai_knowledge_curriculum_v5 tests.test_williams_ai_kaggle_v5 -v
+          # Regression: recovery entrypoint must resolve sibling scripts as a package.
+          python -c 'import importlib.util; assert importlib.util.find_spec("scripts.ai_recover_v5_qlora_kaggle") is not None; import scripts.ai_recover_v5_qlora_kaggle'
           python -m williams_ai.knowledge_curriculum_v5 \
             --database "$RUNNER_TEMP/williams-v5-train-dev-test.sqlite3" \
             --manifest "$RUNNER_TEMP/williams-v5-train-dev-test-manifest.json"
