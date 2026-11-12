@@ -59,4 +59,22 @@ jobs:
               for line in raw_lines[-12:]: print("FORENSIC_LOG_TAIL",re.sub(r"https?://\S+","[URL]",line.strip())[:250],flush=True)
           if not data.strip(): print("FORENSIC_LOG_EMPTY",flush=True)
           if r.returncode: raise RuntimeError("KAGGLE_LOG_FETCH_FAILED_NO_DIAGNOSIS")
+          import tempfile
+          from pathlib import Path
+          print("FORENSIC_RECORDED_MODEL_SHA",next((m.group(1) for line in raw_lines if (m:=re.search(r'"adapter_sha256"\\s*:\\s*"([a-f0-9]{64})"',line))),"UNAVAILABLE"),flush=True)
+          files=subprocess.run(["kaggle","kernels","files",kernel],capture_output=True,text=True,timeout=90)
+          print("FORENSIC_FILES_COMMAND_EXIT",files.returncode,flush=True)
+          for line in files.stdout.splitlines()[-35:]:
+              if "http" in line.lower(): continue
+              print("FORENSIC_REMOTE_FILE",line[:200],flush=True)
+          with tempfile.TemporaryDirectory() as wd:
+              result=subprocess.run(["kaggle","kernels","output",kernel,"-p",wd,"-o"],capture_output=True,text=True,timeout=120)
+              print("FORENSIC_DOWNLOAD_EXIT",result.returncode,flush=True)
+              print("FORENSIC_DOWNLOAD_FILE_COUNT",len([x for x in Path(wd).rglob("*") if x.is_file()]),flush=True)
+              for file in list(Path(wd).rglob("*"))[:100]:
+                  if file.is_file():
+                      print("FORENSIC_DOWNLOAD_FILE",str(file.relative_to(wd))[:150],"BYTES",file.stat().st_size,flush=True)
+              for line in result.stdout.splitlines()[-12:]:
+                  print("FORENSIC_DOWNLOAD_MESSAGE",re.sub(r"https?://\\S+","[URL]",line.strip())[:180],flush=True)
+          
           PY
