@@ -1,0 +1,44 @@
+name: Williams AI v5 Kaggle forensic diagnosis (no GPU)
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths: ['.github/workflows/ai-v5-kaggle-diagnose.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose-previous-kaggle-training:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kaggle client
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7,<2' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Inspect old worker without submitting any GPU job
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,re,subprocess
+          from kaggle.api.kaggle_api_extended import KaggleApi
+          from kagglehub.auth import get_username
+          api=KaggleApi();api.authenticate()
+          kernel=get_username()+"/williams-ai-v5-book-sft-20261111"
+          state=api.kernels_status(kernel)
+          print("FORENSIC_PREVIOUS_GPU_STATE",state.status,flush=True)
+          r=subprocess.run(["kaggle","kernels","logs",kernel],capture_output=True,text=True,timeout=120)
+          data=r.stdout+"\n"+r.stderr
+          print("FORENSIC_LOG_COMMAND_EXIT",r.returncode,flush=True)
+          print("FORENSIC_LOG_LINE_COUNT",len(data.splitlines()),flush=True)
+          pattern=re.compile(r"(Traceback|^\s*File \"|(?:Error|Exception|FAILED|Killed|OOM|out of memory|cuda|not found|No module named|No such file|package conflict|missing|failed|fatal|ERROR):)",re.I)
+          selected=[line.strip() for line in data.splitlines() if pattern.search(line)]
+          for line in selected[-45:]:
+              line=re.sub(r'https?://\S+','[URL]',line)
+              line=re.sub(r'[A-Za-z0-9_\-]{36,}','[REDACTED]',line)
+              line=re.sub(r'\S+@\S+','[REDACTED_EMAIL]',line)
+              print("FORENSIC_LOG",line[:400],flush=True)
+          if not data.strip(): print("FORENSIC_LOG_EMPTY",flush=True)
+          PY
