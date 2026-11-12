@@ -41,7 +41,7 @@ jobs:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: |
           set -euo pipefail
-          python scripts/ai_recover_v5_qlora_kaggle.py
+          python -m scripts.ai_recover_v5_qlora_kaggle
       - name: Install local CPU GGUF LoRA converter (runner only)
         run: |
           python -m pip install --disable-pip-version-check --index-url \
