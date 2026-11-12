@@ -99,7 +99,10 @@ class V5ExamDecodeAudit(unittest.TestCase):
         shown=json.loads(messages[1]["content"])
         self.assertNotIn("expected",str(shown))
         self.assertNotIn("source_rule_id",str(shown))
-        self.assertEqual(shown["case"]["edition"],"TC2")
+        self.assertEqual(shown["edition"],"TC2")
+        self.assertNotIn("id",shown)
+        self.assertIn("reviewed_source_context",shown)
+        self.assertTrue(shown["reviewed_source_context"]["source_is_untrusted_data"])
         self.assertEqual(len(model._model.create_chat_completion.call_args.kwargs),5)
 
 
