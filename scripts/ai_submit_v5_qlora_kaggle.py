@@ -98,13 +98,29 @@ def _seal_data(data:bytes,secret:str)->bytes:
     return b"WILLIAMSV5A1"+salt+nonce+AESGCM(key).encrypt(nonce,data,DOMAIN)
 
 
+def _select_final_adapter(files:Path):
+    """Select the actual final QLoRA export, never intermediate checkpoints.
+
+    Kaggle returns all /kaggle/working files, including checkpoint-* and
+    the cloned source repository. A global rglob('adapter_model.safetensors')
+    incorrectly rejects a *successful* training run with checkpoints.
+    """
+    root=files/"williams_v5_model"
+    receipt=root/"training_receipt.json"
+    weights=root/"adapter"/"adapter_model.safetensors"
+    config=root/"adapter"/"adapter_config.json"
+    if (not root.is_dir() or root.is_symlink() or
+        any(x.is_symlink() or not x.is_file()
+            for x in (receipt,weights,config))):
+        raise ValueError("FINAL_KAGGLE_LORA_EXPORT_FILES_MISSING")
+    if weights.stat().st_size<1000000:
+        raise ValueError("FINAL_KAGGLE_LORA_ADAPTER_TOO_SMALL")
+    return receipt,weights,config
+
+
 def _verify_and_archive(files:Path,secret:str,dest:Path,source_sha:str):
-    receipt_files=list(files.rglob("training_receipt.json"))
-    weights=list(files.rglob("adapter_model.safetensors"))
-    config=list(files.rglob("adapter_config.json"))
-    if len(receipt_files)!=1 or len(weights)!=1 or len(config)!=1:
-        raise ValueError("ACTUAL_GENUINE_GPU_TRAINED_ADAPTER_FILES_REQUIRED")
-    receipt=json.loads(receipt_files[0].read_bytes())
+    receipt_file,weight,configuration=_select_final_adapter(files)
+    receipt=json.loads(receipt_file.read_bytes())
     if (receipt.get("schema")!="WILLIAMS_V5_GENUINE_QWEN3_4B_SOURCE_ONLY_LORA" or
         receipt.get("base_model")!=MODEL or receipt.get("model_commit")!=REV or
         receipt.get("test_cases_provided_to_trainer")!=0 or
@@ -114,9 +130,9 @@ def _verify_and_archive(files:Path,secret:str,dest:Path,source_sha:str):
         receipt.get("optimizer_steps",0)<10 or
         receipt.get("execution_allowed") is not False):
         raise ValueError("INCOMPATIBLE_OR_UNSAFE_GPU_TRAINING_RECEIPT")
-    if sha256(weights[0].read_bytes()).hexdigest()!=receipt["adapter_sha256"]:
+    if sha256(weight.read_bytes()).hexdigest()!=receipt["adapter_sha256"]:
         raise ValueError("PUBLIC_SFT_ADAPTER_DIGEST_DOES_NOT_MATCH_GPU_RECEIPT")
-    cfg=json.loads(config[0].read_bytes())
+    cfg=json.loads(configuration.read_bytes())
     if cfg.get("peft_type")!="LORA":
         raise ValueError("ACTUAL_PEFT_LORA_CONFIGURATION_REQUIRED")
     cards,manifest=build()
@@ -128,8 +144,8 @@ def _verify_and_archive(files:Path,secret:str,dest:Path,source_sha:str):
     # any GitHub artifact; raw weights NEVER leave the runner unsealed.
     buf=io.BytesIO()
     with ZipFile(buf,"w",compression=ZIP_STORED) as z:
-        z.writestr("adapter_model.safetensors",weights[0].read_bytes())
-        z.writestr("adapter_config.json",config[0].read_bytes())
+        z.writestr("adapter_model.safetensors",weight.read_bytes())
+        z.writestr("adapter_config.json",configuration.read_bytes())
         z.writestr("training_receipt.json",json.dumps(receipt,sort_keys=True))
         z.writestr("provenance.json",json.dumps(
             {"trainer_source_sha":source_sha,
@@ -141,8 +157,8 @@ def _verify_and_archive(files:Path,secret:str,dest:Path,source_sha:str):
     runtime=Path(os.environ["RUNNER_TEMP"])/"williams_v5_private_runtime"
     runtime.mkdir(mode=0o700,exist_ok=False)
     for name,material in (
-        ("adapter_model.safetensors",weights[0].read_bytes()),
-        ("adapter_config.json",config[0].read_bytes()),
+        ("adapter_model.safetensors",weight.read_bytes()),
+        ("adapter_config.json",configuration.read_bytes()),
         ("training_receipt.json",json.dumps(receipt,sort_keys=True).encode()),
     ):
         fd=os.open(runtime/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
