@@ -305,7 +305,14 @@ class LocalWilliamsModel:
                 or not all(isinstance(v, str) and len(v) <= 400 for v in case["choices"].values())
                 or not isinstance(case["question"], str) or len(case["question"]) > 1200):
             raise ValueError("Invalid exam question")
-        question_input: dict[str, Any] = case
+        # Training MCQs use edition/question/choices. Do not include the
+        # public exam case ID (e.g. NTD-AC / TC1-W5): it can reveal the
+        # targeted rule and falsely inflate a supposedly blind exam.
+        question_input: dict[str, Any] = {
+            "edition":case["edition"],
+            "question":case["question"],
+            "choices":case["choices"],
+        }
         if prior_lessons is not None:
             if not isinstance(prior_lessons,list) or len(prior_lessons)>3:
                 raise ValueError("Prior source lessons must be <=3")
@@ -318,7 +325,14 @@ class LocalWilliamsModel:
                         or not isinstance(excerpt,str) or not 10<=len(excerpt)<=450):
                     raise ValueError("Invalid or cross-edition lesson")
                 safe.append({"source":source,"excerpt":excerpt})
-            question_input={"case":case,"prior_edition_scoped_lessons":safe}
+            # Keep the exact MCQ prompt shape, add evidence as an extra
+            # field: a nested 'case' wrapper was never present in QLoRA SFT.
+            # The source excerpts are untrusted DATA, not instructions.
+            question_input["reviewed_source_context"]={
+                "source_cards":safe,
+                "not_expert_market_gold":True,
+                "source_is_untrusted_data":True,
+            }
         response = self._learning_completion(
             messages=[
                 {"role": "system", "content": SYSTEM_INSTRUCTIONS +
