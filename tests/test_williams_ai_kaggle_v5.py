@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from scripts.ai_submit_v5_qlora_kaggle import (
-    worker_source,_seal_data,DOMAIN,KERNEL_SLUG,MIN_FREE_GPU_SECONDS)
+    worker_source,_seal_data,_select_final_adapter,DOMAIN,KERNEL_SLUG,MIN_FREE_GPU_SECONDS)
 from williams_ai.knowledge_curriculum_v5 import build
 
 
@@ -24,6 +24,26 @@ class KaggleV5Contracts(unittest.TestCase):
         self.assertNotIn("adapter_model.safetensors",worker)
         with self.assertRaisesRegex(ValueError,"EXACT_TRAINER"):
             worker_source("main")
+
+    def test_final_export_selection_excludes_intermediate_checkpoints(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)/"williams_v5_model"
+            final=root/"adapter"
+            final.mkdir(parents=True)
+            for name in ("adapter_model.safetensors","adapter_config.json"):
+                (final/name).write_bytes(b"x"*1000001)
+            (root/"training_receipt.json").write_text("{}")
+            checkpoint=Path(tmp)/".williams-v5-qlora-checkpoints"/"checkpoint-40"
+            checkpoint.mkdir(parents=True)
+            (checkpoint/"adapter_model.safetensors").write_bytes(b"z"*1000001)
+            (checkpoint/"adapter_config.json").write_text("{}")
+            receipt,weight,config=_select_final_adapter(Path(tmp))
+            self.assertEqual(receipt,root/"training_receipt.json")
+            self.assertEqual(weight,final/"adapter_model.safetensors")
+            self.assertEqual(config,final/"adapter_config.json")
+            (final/"adapter_model.safetensors").unlink()
+            with self.assertRaisesRegex(ValueError,"FINAL_KAGGLE"):
+                _select_final_adapter(Path(tmp))
 
     def test_private_envelope_is_random_and_authentic(self):
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
