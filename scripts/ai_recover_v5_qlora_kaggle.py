@@ -10,6 +10,10 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
+
+# Direct execution sets sys.path[0] to scripts/, not repository root.
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from scripts.ai_submit_v5_qlora_kaggle import (
     KERNEL_SLUG, _verify_and_archive,
