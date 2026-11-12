@@ -79,6 +79,43 @@ def _heldout_exam(model,rows,*,mode):
             "independent_expert_wave_market_labels":False}
 
 
+def research_quality_gate(observed:dict)->dict:
+    """Research-only gate, never a trading authorization.
+
+    This gate catches a technically successful GGUF run that nevertheless
+    regresses in book source use. The previous checkpoint500 comparison uses
+    a DIFFERENT decoding/input protocol and is reference-only.
+    """
+    trained=observed["candidate_v5"]
+    original=observed["public_base_control"]
+    src=trained["prior_16_case_with_source"]
+    base_src=original["prior_16_case_with_source"]
+    hold=trained["new_rule_disjoint_28_case_exam"]
+    base_hold=original["new_rule_disjoint_28_case_exam"]
+    issues=[]
+    if src["correct"]<8:
+        issues.append("SOURCE_ASSISTED_BELOW_8_OF_16")
+    if src["correct"]<base_src["correct"]:
+        issues.append("SOURCE_ASSISTED_WORSE_THAN_EQUAL_CONDITIONS_BASE")
+    if src["abstentions"]>8:
+        issues.append("SOURCE_ASSISTED_EXCESSIVE_ABSTENTIONS")
+    if hold["correct"]<base_hold["correct"]:
+        issues.append("RULE_DISJOINT_28_WORSE_THAN_EQUAL_CONDITIONS_BASE")
+    for edition in ("TC2","NTD"):
+        if (src["by_edition"][edition]["correct"]<
+            base_src["by_edition"][edition]["correct"]):
+            issues.append("SOURCE_ASSISTED_"+edition+"_REGRESSION_VS_BASE")
+        if (hold["by_edition"][edition]["correct"]<
+            base_hold["by_edition"][edition]["correct"]):
+            issues.append("HELDOUT_"+edition+"_REGRESSION_VS_BASE")
+    return {"accepted_for_further_research":not issues,
+            "reasons":issues,
+            "checkpoint500_different_decoder_not_directly_comparable":True,
+            "not_a_live_trading_gate":True,
+            "execution_allowed":False,
+            "trading_qualification":False}
+
+
 def evaluate(base:Path,gguf_lora:Path,receipt:dict,*,out:Path):
     if (not isinstance(receipt,dict) or
         receipt.get("schema")!="WILLIAMS_V5_GENUINE_QWEN3_4B_SOURCE_ONLY_LORA" or
@@ -134,7 +171,13 @@ def evaluate(base:Path,gguf_lora:Path,receipt:dict,*,out:Path):
             observed["candidate_v5"]["prior_16_case_with_source"]["correct"]-
             observed["candidate_v5"]["prior_16_case_closed_book"]["correct"]),
         "old_model_serial50_16case_reference":{"without_sources":9,"with_sources":8,
-            "exam_run_id":43085091992},
+            "exam_run_id":43085091992,
+            "warning":"Reference only: decoder and prompt inputs differ from this v5 run"},
+        "research_quality_gate":research_quality_gate(observed),
+        "v5_inference_contract":"BOOK_QUESTION_NO_CASE_ID_FLAT_SCHEMA_REASONING_TRUNCATION_RECOVERY_V1",
+        "no_answer_key_or_case_id_given_to_model":True,
+        "old_checkpoint500_not_same_inference_protocol":True,
+        "same_v5_inference_protocol_used_for_candidate_and_base":True,
         "genuine_gpu_weights_updated":True,
         "old_16_case_exam_previously_observed_not_new_untouched_test":True,
         "new_28_case_is_developer_synthetic_not_expert_chart_gold":True,
