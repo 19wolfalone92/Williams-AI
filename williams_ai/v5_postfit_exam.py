@@ -56,7 +56,14 @@ def _heldout_exam(model,rows,*,mode):
         pred=model.answer_exam_case(safe)
         choice=pred.get("choice") if isinstance(pred,dict) else ""
         choice=choice if choice in ("A","B","C") else ""
+        trace=getattr(model,"latest_learning_call",None)
+        trace=trace if isinstance(trace,dict) else {}
         answers.append({"id":row["case_id"],"edition":row["edition"],
+                        "model_decoding_mode":trace.get("mode"),
+                        "initial_finish_reason":trace.get("finish_reason"),
+                        "json_fallback_used":trace.get("fallback_used",False),
+                        "json_fallback_reason":trace.get("fallback_reason"),
+                        "json_fallback_finish_reason":trace.get("fallback_finish_reason"),
                         "chosen":choice,"correct":choice==expected,
                         "abstained":not bool(choice),
                         "answer_key_hidden_from_model":True})
