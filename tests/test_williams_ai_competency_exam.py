@@ -57,7 +57,8 @@ class BookKnowledgeExamTests(unittest.TestCase):
             self.assertEqual(call["temperature"],0)
             self.assertNotIn("tools",call)
             prompt=json.loads(call["messages"][1]["content"])
-            self.assertEqual(set(prompt),{"id","edition","question","choices"})
+            self.assertEqual(set(prompt),{"edition","question","choices"})
+            self.assertNotIn("id",prompt)
             self.assertNotIn("correct",prompt)
             with self.assertRaises(ValueError):
                 model.answer_exam_case({**safe,"correct":"B"})
