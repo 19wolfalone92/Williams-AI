@@ -8,27 +8,29 @@ def fixture(src=9,abstentions=5,hold=16):
     def per(src_ntd,src_tc2,hold_ntd,hold_tc2):
         return {"prior_16_case_with_source":{
             "correct":src,"abstentions":abstentions,
-            "by_edition":{"NTD":{"correct":src_ntd},"TC2":{"correct":src_tc2}}},
+            "by_edition":{"TC1":{"correct":2},"NTD":{"correct":src_ntd},
+                          "TC2":{"correct":src_tc2},"COURSE":{"correct":2}}},
             "new_rule_disjoint_28_case_exam":{
-                "correct":hold,"by_edition":{"NTD":{"correct":hold_ntd},
-                                             "TC2":{"correct":hold_tc2}}}}
+                "correct":hold,"by_edition":{"TC1":{"correct":2},"NTD":{"correct":hold_ntd},
+                                             "TC2":{"correct":hold_tc2},"COURSE":{"correct":2}}}}
     return {
         "candidate_v5":per(3,2,5,4),
         "public_base_control":{
             "prior_16_case_with_source":{
                 "correct":2,"abstentions":14,
-                "by_edition":{"NTD":{"correct":0},"TC2":{"correct":1}}},
+                "by_edition":{"TC1":{"correct":1},"NTD":{"correct":0},
+                              "TC2":{"correct":1},"COURSE":{"correct":1}}},
             "new_rule_disjoint_28_case_exam":{
-                "correct":8,"by_edition":{"NTD":{"correct":1},
-                                         "TC2":{"correct":3}}}},
+                "correct":8,"by_edition":{"TC1":{"correct":1},"NTD":{"correct":1},
+                                         "TC2":{"correct":3},"COURSE":{"correct":1}}}},
     }
 
 
 class QualityGateAudit(unittest.TestCase):
     def test_bad_rag_does_not_pass_even_when_training_loss_improves(self):
         report=fixture(src=1,abstentions=15,hold=11)
-        report["candidate_v5"]["prior_16_case_with_source"]["by_edition"]={
-            "NTD":{"correct":0},"TC2":{"correct":0}}
+        report["candidate_v5"]["prior_16_case_with_source"]["by_edition"]["NTD"]["correct"]=0
+        report["candidate_v5"]["prior_16_case_with_source"]["by_edition"]["TC2"]["correct"]=0
         decision=research_quality_gate(report)
         self.assertFalse(decision["accepted_for_further_research"])
         self.assertIn("SOURCE_ASSISTED_BELOW_8_OF_16",decision["reasons"])
