@@ -214,24 +214,17 @@ class LocalWilliamsModel:
             "usage": response.get("usage", {}),
             "weights_modified": False, "fallback_used": False,
         }
-        if initial_finish == "length":
-            failure = "GGUF_EXAM_REASONING_TRUNCATED"
-            final = None
-        else:
-            try:
-                final = _final_learning_json(choices[0]["message"].get("content"))
-                failure = None
-            except ValueError:
-                final = None
-                failure = "GGUF_EXAM_REASONING_MALFORMED"
-        if final is not None:
+        if initial_finish != "length":
+            # A COMPLETE malformed or untrusted response is a contract
+            # violation. Preserve strict rejection; never let a retry
+            # launder extra keys or injected instructions into a valid vote.
+            final = _final_learning_json(choices[0]["message"].get("content"))
             return {"choices": [{"finish_reason": initial_finish,
                                  "message": {"content": final}}]}
         if not retry_exam_only:
-            if initial_finish == "length":
-                return {"choices": [{"finish_reason": "length",
-                                     "message": {"content": ""}}]}
-            raise ValueError("GGUF_INVALID_FINAL_JSON")
+            return {"choices": [{"finish_reason": "length",
+                                 "message": {"content": ""}}]}
+        failure = "GGUF_EXAM_REASONING_TRUNCATED"
         # Only the bounded exam schema is allowed a fallback. Never retry
         # trading decisions, study passages, or model-authored tool calls.
         if (set(schema.get("properties", {})) != {"choice", "reason"} or
