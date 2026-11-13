@@ -1,0 +1,53 @@
+{
+  "schema": "WILLIAMS_V6_STAGE3_EXPERT_EXAM_READINESS_V1",
+  "as_of_utc": "2026-11-13",
+  "branch": "research/williams-ai-curriculum-v5-20261111",
+  "run_source_sha": "e3f1b4d34059f10adb1b2791267bb11b79ec67c1",
+  "exam_protocol_file": "williams_ai/independent_exam_v6.py",
+  "exam_tests_file": "tests/test_williams_ai_independent_exam_v6.py",
+  "protocol_doc": "research/WILLIAMS_V6_STAGE3_INDEPENDENT_EXPERT_EXAM_20261113_RU.md",
+  "cpu_checks": {
+    "dedicated": {
+      "run_id": 43371085708,
+      "conclusion": "success",
+      "tests_run": 9,
+      "passed": 9
+    },
+    "all_readonly": {
+      "run_id": 43371085755,
+      "conclusion": "success",
+      "tests_run": 803,
+      "passed": 803
+    }
+  },
+  "evidence": {
+    "real_external_independent_chart_cases_received": 0,
+    "independently_signed_expert_gold_cases_received": 0,
+    "v5_vs_same_base_actual_expert_exam_completed": false,
+    "model_semantic_accuracy_on_new_expert_data": null,
+    "old_28_case_benchmark_untouched": false,
+    "does_not_certify_market_execution": true
+  },
+  "gates": {
+    "experts_required": 2,
+    "original_editions_required": [
+      "TC1",
+      "NTD",
+      "TC2",
+      "COURSE"
+    ],
+    "min_initial_cases": 32,
+    "min_independent_dates": 8,
+    "minimum_per_edition": 8,
+    "private_chart_ohlcv_verified_against_cutoff": true,
+    "exact_matching_protocol_for_v5_and_base": true,
+    "statistical_wilson_95pct_lower_threshold": 0.95,
+    "critical_false_entries_allowed": 0,
+    "source_overlap_independence_requires_external_audit": true,
+    "main_merge": false,
+    "automatic_GPU_retraining": false,
+    "trade_execution": false
+  },
+  "stage_status": "INFRASTRUCTURE_COMPLETE_EXPERT_DATA_UNAVAILABLE_BLOCKED",
+  "next_action": "Obtain and independently review genuinely unseen external closed-bar charts from 2 qualified experts, freeze dataset before inference, compare v5 LoRA and Qwen base on identical pinned protocol; no old-case tuning."
+}
