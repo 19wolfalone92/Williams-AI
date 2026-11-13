@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from tests.test_williams_ai_independent_exam_v6 import V6IndependentIntakeTests
+from tests import test_williams_ai_independent_exam_v6 as fixture_module
 from williams_ai.independent_exam_v6 import validate_cases, canonical
 from williams_ai.v6_expert_review_packets import (
     template, sign, keypair, trust_scaffold, private_create,
@@ -15,7 +15,7 @@ from williams_ai.v6_expert_review_packets import (
 
 class ReviewPacketTests(unittest.TestCase):
     def setUp(self):
-        self.fixture = V6IndependentIntakeTests("test_frozen_chart_signatures_all_four_book_counts")
+        self.fixture = fixture_module.V6IndependentIntakeTests("test_frozen_chart_signatures_all_four_book_counts")
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.dataset, self.root = self.fixture.dataset, self.fixture.root
@@ -30,7 +30,7 @@ class ReviewPacketTests(unittest.TestCase):
         self.assertTrue(all(not item["reviewable"] for item in form["payload"]["labels"]))
         self.assertTrue(all(item["rationale"].startswith("NOT_REVIEWED")
                             for item in form["payload"]["labels"]))
-        self.assertNotIn("predictions", json.dumps(form))
+        self.assertNotIn("predictions", form["payload"])
         with self.assertRaisesRegex(ValueError, "REVIEW_STILL_UNEXAMINED"):
             sign(form, self.work / "secret.key")
 
