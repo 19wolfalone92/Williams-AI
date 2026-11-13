@@ -81,9 +81,21 @@ class ReadOnlyV6ResearchPipeline(unittest.TestCase):
         self.assertIsNone(report["trade_action"])
 
     def test_unretrieved_rule_citation_blocked_even_if_critic_accepts(self):
+        # Pin the retrieved source independently of changing lexical ranks;
+        # exercise the citation boundary, not a test-specific top-3 ranking.
+        from unittest.mock import patch
+        cards = {c["id"]: c for c in registry()["rule_cards"]}
+        matched = cards["TC2.WM3"]
+        source = {"rule_id": "TC2.WM3", "edition": "TC2",
+                  "pdf_pages": matched["pdf_pages"],
+                  "source_pdf_sha256": next(b["sha256"] for b in registry()["books"]
+                                            if b["id"] == "TC2"),
+                  "review_status": "REVIEWED_PAGES", "excerpt": matched["summary"]}
         m = FakeResearchModel(proposal(rule_ids=["TC2.CAMPAIGN"]))
-        report = review_chart(chart(), edition="TC2",
-            question="TC2 третий мудрец пятибарный фрактал пробой зубы Teeth", model=m)
+        with patch("williams_ai.v6_research_pipeline._frozen_sources",
+                   return_value=[source]):
+            report = review_chart(chart(), edition="TC2",
+                question="TC2 третий мудрец пятибарный фрактал пробой зубы Teeth", model=m)
         self.assertIn("MODEL_CITES_UNRETRIEVED_RULE", report["blockers"])
         self.assertEqual(report["state"], "BLOCKED_UNSUPPORTED_RESEARCH_CLAIM")
         self.assertIsNone(report["trade_action"])
