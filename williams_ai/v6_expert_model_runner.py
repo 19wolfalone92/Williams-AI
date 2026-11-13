@@ -14,6 +14,7 @@ from typing import Any
 
 from .independent_exam_v6 import BOOKS, FAMILIES, canonical, digest, validate_cases
 from .local_model import _strict_chart_json
+from .v6_history_context import causal_context
 from .source_ranker_v2 import rank_reviewed_rules
 from .v6_research_pipeline import _pinned_registry_bytes, _verified_file_sha256
 
@@ -23,6 +24,7 @@ PROTOCOL = {
     "purpose": "EXPERT_EXAM_RESEARCH_NOT_A_TRADING_ENGINE",
     "model": "Qwen3-4B GGUF (optionally pinned real GGUF LoRA)",
     "observed_closed_bars_max": 96,
+    "closed_H1_H4_D1_ao_ac_context": "v6_history_context_v1",
     "rag": "weighted_v2_question_only_same_edition_max_3_reviewed_paraphrases",
     "temperature": 0.0, "max_tokens": 256, "context_tokens": 8192,
     "seed": 1942, "gpu_layers": 0,
@@ -64,8 +66,10 @@ def _need(ok: bool, why: str) -> None:
 def protocol_sha256() -> str:
     """Binds prompts, RAG code and FOUR-BOOK frozen registry to both models."""
     source = (ROOT / "williams_ai" / "source_ranker_v2.py").read_bytes()
+    aggregation = (ROOT / "williams_ai" / "v6_history_context.py").read_bytes()
     return digest({"config": PROTOCOL, "system": SYS, "task_prompts": PROMPTS,
                    "source_ranker_sha256": sha256(source).hexdigest(),
+                   "causal_multiscale_context_sha256": sha256(aggregation).hexdigest(),
                    "frozen_source_registry_sha256": _pinned_registry_bytes()})
 
 
@@ -93,6 +97,8 @@ def prompt_for_case(case: dict, chart: dict) -> tuple[list[dict], dict]:
             [b["open_utc"], b["open"], b["high"], b["low"], b["close"], b["volume"]]
             for b in series],
         "book_source_cards_not_expert_gold": sources,
+        "causal_H1_H4_D1_indicators_not_book_signals": causal_context(
+            chart, cutoff_utc=case["cutoff_utc"]),
         "broker_position_not_verified": True, "only_research": True,
     }
     # A deterministic prompt hash is more useful than leaking raw chart history
