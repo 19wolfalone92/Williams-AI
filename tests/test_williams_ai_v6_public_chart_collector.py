@@ -9,6 +9,7 @@ from zipfile import ZipFile
 
 from williams_ai.v6_public_chart_collector import (
     MS, BARS, check_plan, collect, normalized_chart, build_archive,
+    verify_precommitted_plan_bytes,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,16 @@ class ForwardUnreviewedChartTests(unittest.TestCase):
                                datetime(2026, 11, 13, tzinfo=timezone.utc))
         with self.assertRaisesRegex(ValueError, "PROSPECTIVE_CANDLE_NOT_YET_CLOSED"):
             check_plan(future, now=datetime(2026, 11, 13, tzinfo=timezone.utc))
+
+    def test_precommitted_pilot_and_final_sources_cannot_be_reselected(self):
+        final = ROOT / "research" / "williams_v6_full_forward_expert_plan_20261228_20270104.json"
+        for path in (PLAN, final):
+            with self.subTest(path=path.name):
+                unchanged = verify_precommitted_plan_bytes(path.read_bytes())
+                self.assertEqual(len(unchanged), 64)
+                tampered = path.read_bytes().replace(b"BTCUSDT", b"BTCUSDT ", 1)
+                with self.assertRaisesRegex(ValueError, "UNCOMMITTED_PLAN_EDIT"):
+                    verify_precommitted_plan_bytes(tampered)
 
     def test_scheduled_cutoffs_not_ready_today(self):
         with self.assertRaisesRegex(ValueError, "PROSPECTIVE_CANDLE_NOT_YET_CLOSED"):
