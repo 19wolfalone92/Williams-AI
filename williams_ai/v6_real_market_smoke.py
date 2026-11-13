@@ -47,7 +47,12 @@ def smoke(fetcher=read_only_public_klines, *, now=None):
             raise ValueError("SMOKE_REAL_MULTIFRAME_CAUSAL_OR_COVERAGE_MISMATCH")
         chart_blob = canonical(chart)
         chart_blobs[f"charts/{symbol}_H1_1024_NON_HOLDOUT.json"] = chart_blob
+        transport = (getattr(fetcher, "last_transport",
+                              "INJECTED_FETCHER_NOT_OFFICIAL_VERIFIED")
+                     if fetcher is read_only_public_klines else
+                     "INJECTED_FETCHER_NOT_OFFICIAL_VERIFIED")
         receipts[symbol] = {
+            "transport": transport,
             "chart_sha256": sha256(chart_blob).hexdigest(),
             "raw_exchange_response_sha256": sha256(canonical(raw)).hexdigest(),
             "completed_H1_bars": frames["H1"]["closed_bars"],
@@ -68,7 +73,14 @@ def smoke(fetcher=read_only_public_klines, *, now=None):
         "purpose": LABEL,
         "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
         "endpoint": URL, "cutoff_utc": "2026-11-12T00:00:00Z",
-        "source_is_live_public_api_not_replayed_mock": True,
+        "source_is_live_public_api_not_replayed_mock":
+            all(r["transport"] == "BINANCE_PUBLIC_REST_H1" for r in receipts.values()),
+        "official_verified_binance_archive_used":
+            any(r["transport"] == "BINANCE_OFFICIAL_PUBLIC_ARCHIVE_SHA256"
+                for r in receipts.values()),
+        "official_public_data_integrity_checked":
+            all(r["transport"] in ("BINANCE_PUBLIC_REST_H1",
+                "BINANCE_OFFICIAL_PUBLIC_ARCHIVE_SHA256") for r in receipts.values()),
         "four_book_expert_gold": False,
         "new_unseen_heldout_market_data": False,
         "future_final_cohort_touched": False,
