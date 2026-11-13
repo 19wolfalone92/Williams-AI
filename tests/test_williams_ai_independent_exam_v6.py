@@ -92,6 +92,33 @@ class V6IndependentIntakeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "FUTURE_OR_NONMONOTONIC_BAR"):
             validate_cases(bad, self.root)
 
+    def test_gapped_hourly_history_is_rejected_even_if_only_past_bars(self):
+        bad = copy.deepcopy(self.dataset)
+        chart_path = self.root / bad["cases"][0]["chart_file"]
+        chart = __import__("json").loads(chart_path.read_text(encoding="utf-8"))
+        # Delete a single earlier hour without altering the final cutoff.
+        del chart["bars"][25]
+        import json
+        from hashlib import sha256
+        raw = canonical(chart)
+        chart_path.write_bytes(raw)
+        bad["cases"][0]["chart_sha256"] = sha256(raw).hexdigest()
+        with self.assertRaisesRegex(ValueError, "NONCONTIGUOUS_H1_BARS"):
+            validate_cases(bad, self.root)
+
+    def test_stale_last_bar_cannot_be_a_frozen_as_of_snapshot(self):
+        bad = copy.deepcopy(self.dataset)
+        chart_path = self.root / bad["cases"][0]["chart_file"]
+        import json
+        from hashlib import sha256
+        chart = json.loads(chart_path.read_text(encoding="utf-8"))
+        chart["bars"] = chart["bars"][:-1]
+        raw = canonical(chart)
+        chart_path.write_bytes(raw)
+        bad["cases"][0]["chart_sha256"] = sha256(raw).hexdigest()
+        with self.assertRaisesRegex(ValueError, "CHART_DOES_NOT_END_AT_FROZEN_CUTOFF"):
+            validate_cases(bad, self.root)
+
     def test_duplicate_snapshots_are_rejected(self):
         bad = copy.deepcopy(self.dataset)
         bad["cases"][1]["chart_sha256"] = bad["cases"][0]["chart_sha256"]
