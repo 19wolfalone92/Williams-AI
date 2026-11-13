@@ -83,6 +83,16 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"SHA256_MISMATCH"):
                 arc.official_archive_klines("BTCUSDT",START,END-1)
 
+    def test_modified_zip_bytes_fail_even_with_original_checksum(self):
+        def corrupted_request(url, *, max_bytes):
+            raw=self.fake_request(url,max_bytes=max_bytes)
+            if not url.endswith(".CHECKSUM"):
+                raw=raw[:-1]+bytes([raw[-1] ^ 1])
+            return raw
+        with patch.object(arc,"_request",side_effect=corrupted_request):
+            with self.assertRaisesRegex(ValueError,"SHA256_MISMATCH"):
+                arc.official_archive_klines("BTCUSDT",START,END-1)
+
     def test_unapproved_symbol_and_nonhour_window_rejected(self):
         for sym,begin,end in (("FAKEUSDT",START,END-1),
                               ("BTCUSDT",START+1,END-1),
