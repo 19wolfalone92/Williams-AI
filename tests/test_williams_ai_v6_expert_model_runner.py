@@ -3,7 +3,7 @@ import copy
 import json
 import unittest
 
-from tests.test_williams_ai_independent_exam_v6 import V6IndependentIntakeTests
+from tests import test_williams_ai_independent_exam_v6 as fixture_module
 from williams_ai.v6_expert_model_runner import (
     PROTOCOL, combine, decide, infer, prompt_for_case, protocol_sha256,
 )
@@ -29,7 +29,7 @@ class StubLlama:
 
 class MatchedNoGoldResearchTests(unittest.TestCase):
     def setUp(self):
-        self.fixture = V6IndependentIntakeTests("test_frozen_chart_signatures_all_four_book_counts")
+        self.fixture = fixture_module.V6IndependentIntakeTests("test_frozen_chart_signatures_all_four_book_counts")
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.cases, self.root = self.fixture.dataset, self.fixture.root
