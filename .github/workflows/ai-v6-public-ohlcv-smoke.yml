@@ -5,11 +5,15 @@ on:
     paths:
       - scripts/ai_v6_public_ohlcv_smoke.py
       - tests/test_ai_v6_public_ohlcv_smoke.py
+      - williams_ai/v6_official_archive_collector.py
+      - tests/test_williams_ai_v6_official_archive_collector.py
       - .github/workflows/ai-v6-public-ohlcv-smoke.yml
   pull_request:
     paths:
       - scripts/ai_v6_public_ohlcv_smoke.py
       - tests/test_ai_v6_public_ohlcv_smoke.py
+      - williams_ai/v6_official_archive_collector.py
+      - tests/test_williams_ai_v6_official_archive_collector.py
       - .github/workflows/ai-v6-public-ohlcv-smoke.yml
 permissions:
   contents: read
@@ -30,7 +34,14 @@ jobs:
       - name: Compile and verify official-archive reader against offline adversarial fixtures
         run: |
           python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py tests/test_ai_v6_public_ohlcv_smoke.py
-          python -m unittest tests.test_ai_v6_public_ohlcv_smoke -v
+          python -m unittest tests.test_ai_v6_public_ohlcv_smoke tests.test_williams_ai_v6_official_archive_collector -v
+          python - <<'PY'
+          from datetime import date
+          from williams_ai.v6_official_archive_collector import verified_daily
+          rows, receipt = verified_daily("BTCUSDT", date(2026, 11, 11))
+          assert len(rows) == 24 and receipt["official_checksum_verified"] is True
+          print("REAL_OFFICIAL_BINANCE_DAILY_ARCHIVE_VERIFIED", receipt["utc_date"], receipt["sha256"])
+          PY
       - name: Verify official Binance USD-M daily archive checksum and 1h CSV schema
         run: |
           python - <<'PY'
