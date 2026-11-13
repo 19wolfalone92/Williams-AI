@@ -27,6 +27,22 @@ jobs:
           python-version: '3.11'
       - name: Python compile no dependencies
         run: python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py
+      - name: Probe official Binance public archive for lawful market-data fallback
+        run: |
+          python - <<'PY'
+          from urllib.request import Request,urlopen
+          from urllib.error import HTTPError, URLError
+          from re import fullmatch
+          url="https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip.CHECKSUM"
+          try:
+              with urlopen(Request(url,headers={"User-Agent":"Williams-AI-v6-readonly"}),timeout=15) as r:
+                  raw=r.read(512).decode("ascii","replace").strip()
+                  print("OFFICIAL_BINANCE_ARCHIVE_CHECKSUM_PROBE",
+                        "status="+str(r.status),"valid_checksum="+str(bool(fullmatch(r"[0-9a-fA-F]{64}\\s+\\S+\\.zip",raw))),flush=True)
+          except (HTTPError,URLError,TimeoutError) as e:
+              print("OFFICIAL_BINANCE_ARCHIVE_CHECKSUM_NOT_ACCESSIBLE",type(e).__name__,
+                    str(e)[:120],flush=True)
+          PY
       - name: Download actual 1024 closed H1 candles for four symbols (Binance public GET)
         run: |
           python -m scripts.ai_v6_public_ohlcv_smoke \
