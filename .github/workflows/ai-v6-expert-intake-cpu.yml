@@ -6,6 +6,8 @@ on:
       - 'williams_ai/independent_exam_v6.py'
       - 'tests/test_williams_ai_independent_exam_v6.py'
       - 'williams_ai/v6_expert_model_runner.py'
+      - 'williams_ai/v6_v5_lora_binding.py'
+      - 'tests/test_williams_ai_v6_v5_lora_binding.py'
       - 'williams_ai/v6_history_context.py'
       - 'tests/test_williams_ai_v6_history_context.py'
       - 'williams_ai/v6_public_chart_collector.py'
@@ -21,6 +23,8 @@ on:
       - 'williams_ai/independent_exam_v6.py'
       - 'tests/test_williams_ai_independent_exam_v6.py'
       - 'williams_ai/v6_expert_model_runner.py'
+      - 'williams_ai/v6_v5_lora_binding.py'
+      - 'tests/test_williams_ai_v6_v5_lora_binding.py'
       - 'williams_ai/v6_history_context.py'
       - 'tests/test_williams_ai_v6_history_context.py'
       - 'williams_ai/v6_public_chart_collector.py'
@@ -56,8 +60,8 @@ jobs:
       - name: Compile static analysis
         run: |
           python -m py_compile williams_ai/independent_exam_v6.py tests/test_williams_ai_independent_exam_v6.py
-          python -m py_compile williams_ai/v6_expert_model_runner.py williams_ai/v6_public_chart_collector.py williams_ai/v6_expert_review_packets.py williams_ai/v6_history_context.py
-          python -m py_compile tests/test_williams_ai_v6_expert_model_runner.py tests/test_williams_ai_v6_public_chart_collector.py tests/test_williams_ai_v6_expert_review_packets.py tests/test_williams_ai_v6_history_context.py
+          python -m py_compile williams_ai/v6_expert_model_runner.py williams_ai/v6_public_chart_collector.py williams_ai/v6_expert_review_packets.py williams_ai/v6_history_context.py williams_ai/v6_v5_lora_binding.py
+          python -m py_compile tests/test_williams_ai_v6_expert_model_runner.py tests/test_williams_ai_v6_public_chart_collector.py tests/test_williams_ai_v6_expert_review_packets.py tests/test_williams_ai_v6_history_context.py tests/test_williams_ai_v6_v5_lora_binding.py
       - name: Offline adversarial contract tests (synthetic fixtures only)
         run: |
-          python -m unittest tests.test_williams_ai_independent_exam_v6 tests.test_williams_ai_v6_expert_model_runner tests.test_williams_ai_v6_public_chart_collector tests.test_williams_ai_v6_expert_review_packets tests.test_williams_ai_v6_history_context -v
+          python -m unittest tests.test_williams_ai_independent_exam_v6 tests.test_williams_ai_v6_expert_model_runner tests.test_williams_ai_v6_public_chart_collector tests.test_williams_ai_v6_expert_review_packets tests.test_williams_ai_v6_history_context tests.test_williams_ai_v6_v5_lora_binding -v
