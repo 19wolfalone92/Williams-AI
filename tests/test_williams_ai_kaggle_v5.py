@@ -62,8 +62,14 @@ class KaggleV5Contracts(unittest.TestCase):
         key=HKDF(algorithm=hashes.SHA256(),length=32,
                  salt=salt,info=DOMAIN).derive(secret.encode())
         self.assertEqual(AESGCM(key).decrypt(nonce,ciphertext,DOMAIN),plaintext)
-        with self.assertRaises(Exception):
-            AESGCM(key).decrypt(nonce,ciphertext[:-1]+b"0",DOMAIN)
+        # Always flip an actual authentication-tag bit. Replacing the
+        # final byte with literal b"0" was a flaky no-op whenever the
+        # original last byte happened to equal 0x30 (~1/256 runs).
+        tampered=bytearray(ciphertext)
+        tampered[-1]^=1
+        from cryptography.exceptions import InvalidTag
+        with self.assertRaises(InvalidTag):
+            AESGCM(key).decrypt(nonce,bytes(tampered),DOMAIN)
 
     def test_only_training_paraphrases_available_to_gpu_trainer(self):
         rows,manifest=build()
