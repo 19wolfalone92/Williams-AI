@@ -1,9 +1,15 @@
 """Read-only v6 Qwen+RAG+algorithm_guard integration and adversarial fixtures."""
 from __future__ import annotations
 import copy
+import json
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+import sys
 import unittest
 
-from williams_ai.v6_research_pipeline import review_chart
+from williams_ai.v6_research_pipeline import review_chart, main, _verified_file_sha256
 from williams_ai.book_rules import registry
 
 
@@ -188,6 +194,43 @@ class ReadOnlyV6ResearchPipeline(unittest.TestCase):
             with self.subTest(edition=edition):
                 with self.assertRaises(ValueError):
                     review_chart(chart(), edition=edition, question=question)
+
+
+    def test_offline_source_only_cli_writes_safe_report(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = root / "chart.json"
+            out = root / "report.json"
+            data.write_text(json.dumps(chart()), encoding="utf-8")
+            with patch.object(sys, "argv", [
+                    "v6_research_pipeline", "--chart", str(data),
+                    "--edition", "TC2", "--question",
+                    "TC2 третий мудрец пятибарный фрактал пробой зубы Teeth",
+                    "--out", str(out)]):
+                main()
+            report = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(report["state"], "SOURCE_ONLY_REVIEW_REQUIRED")
+            self.assertIsNone(report["trade_action"])
+            self.assertFalse(report["execution_allowed"])
+            with patch.object(sys, "argv", [
+                    "v6_research_pipeline", "--chart", str(data),
+                    "--edition", "TC2", "--question",
+                    "TC2 третий мудрец пятибарный фрактал пробой зубы Teeth",
+                    "--out", str(out)]):
+                with self.assertRaisesRegex(ValueError, "DO_NOT_OVERWRITE_REPORT"):
+                    main()
+
+    def test_model_file_must_have_gguf_magic_and_exact_sha(self):
+        with TemporaryDirectory() as tmp:
+            file = Path(tmp) / "candidate.gguf"
+            file.write_bytes(b"GGUF" + b"test-small-mock-not-real-weights")
+            checked = _verified_file_sha256(file, sha256(file.read_bytes()).hexdigest())
+            self.assertEqual(checked, file.resolve())
+            with self.assertRaisesRegex(ValueError, "MODEL_WEIGHTS_SHA256_MISMATCH"):
+                _verified_file_sha256(file, "0" * 64)
+            file.write_bytes(b"JUNK" + b"test-small-mock-not-real-weights")
+            with self.assertRaisesRegex(ValueError, "INVALID_GGUF_HEADER"):
+                _verified_file_sha256(file, sha256(file.read_bytes()).hexdigest())
 
 
 if __name__ == "__main__":
