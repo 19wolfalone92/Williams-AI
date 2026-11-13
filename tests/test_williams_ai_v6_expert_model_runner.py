@@ -113,6 +113,33 @@ class MatchedNoGoldResearchTests(unittest.TestCase):
         self.assertEqual(row["decision"], "ABSTAIN")
         self.assertEqual(row["finish_reason"], "length")
 
+    def test_decoder_implementation_mutation_changes_protocol_sha(self):
+        # A protocol must NOT keep the same hash when only implementation
+        # details, not prompts/config, changed between two model runs.
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        import williams_ai.v6_expert_model_runner as runner
+
+        root=Path(runner.__file__).resolve().parent.parent
+        paths=("williams_ai/source_ranker_v2.py",
+               "williams_ai/v6_history_context.py",
+               "williams_ai/v6_expert_model_runner.py",
+               "williams_ai/local_model.py",
+               "williams_ai/independent_exam_v6.py")
+        with TemporaryDirectory() as tmp:
+            dst=Path(tmp)
+            for path in paths:
+                target=dst/path
+                target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_bytes((root/path).read_bytes())
+            with patch.object(runner, "ROOT", dst):
+                old=runner.protocol_sha256()
+                file=dst/"williams_ai/v6_expert_model_runner.py"
+                file.write_bytes(file.read_bytes()+b"\\n# hypothetical decoder change\\n")
+                new=runner.protocol_sha256()
+            self.assertNotEqual(old,new)
+
     def test_prompt_does_not_contain_case_id_or_reviewer_labels(self):
         case = self.cases["cases"][0]
         chart = json.loads((self.root / case["chart_file"]).read_text())
