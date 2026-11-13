@@ -14,7 +14,7 @@
 | `williams_ai/v6_expert_model_runner.py` | Реальный оффлайн-интерфейс Qwen3-4B GGUF / настоящий GGUF LoRA, SHA-проверка, одинаковые системные сообщения, RAG/контекст/seed/декодирование для базовой модели и кандидата, явный ABSTAIN при ошибках, **не знает эталонных ответов**. Переоценивает источниковые хеши и заново строит каждый промпт при объединении отчётов. |
 | `williams_ai/independent_exam_v6.py` | Строгая фиксация корпуса, проверка двух внешне зарегистрированных подписей, подсчёт по TC1/NTD/TC2/COURSE, отказов, критических ошибок и Wilson95. Отсутствие независимой разметки блокирует выставление оценки. |
 | `.github/workflows/ai-v6-expert-intake-cpu.yml` | Только статические/мок-тесты без биржевых запросов, секретов, GPU и весов. |
-| `.github/workflows/ai-v6-collect-forward-h1.yml` | **Только ручной запуск**: выбор `pilot` или `fully_forward`, загрузка реальных публичных свечей в недолговечный GitHub Actions artifact с маркировкой `UNREVIEWED`. Не хранит gold. |
+| `.github/workflows/ai-v6-collect-forward-h1.yml` | **Только явный запуск**: изменение отдельного заблокированного по умолчанию файла `research/v6_public_chart_collection_request.json` в исследовательской ветке (push trigger). Выбор `pilot` или `fully_forward` загружает публичные свечи в временный artifact `UNREVIEWED`. `workflow_dispatch` из UI может быть недоступен, пока workflow отсутствует в default branch; менять `main` для этого не нужно. Gold не хранится. |
 
 ## Календарь и различие пилота и финала
 
@@ -24,7 +24,7 @@
 
 ## Точный порядок выполнения после получения закрытых баров
 
-**1.** На GitHub Actions открыть `ai-v6-collect-forward-h1.yml` → `Run workflow` → `fully_forward`. Если публичный API Binance недоступен из региона runner (возможен HTTP 451), никаких заглушек: выполнить точно ту же команду на разрешённой локальной машине с публичным доступом. Работа с Binance только публичная, ключи запрещены.
+**1.** Исследовательская ветка остаётся отдельно от `main`. После фактического закрытия всех будущих окон в GitHub изменить только `research/v6_public_chart_collection_request.json`: `request` → `COLLECT_NOW`, `cohort` → `fully_forward`, `request_id` → новую уникальную строку длиной от восьми символов. **Push только этого файла** запускает `ai-v6-collect-forward-h1.yml` в исследовательской ветке. До этого файл имеет `request=DISABLED`; сейчас запуск не произведён. Прямой `Run workflow` через UI может отсутствовать, поскольку GitHub требует наличия workflow_dispatch-файла в default branch. Если публичный API Binance недоступен из региона runner (например, HTTP 451), никаких заглушек: выполнить точно ту же локальную команду с разрешённым публичным доступом. Биржевые ключи запрещены.
 
 ```bash
 python -m williams_ai.v6_public_chart_collector \
