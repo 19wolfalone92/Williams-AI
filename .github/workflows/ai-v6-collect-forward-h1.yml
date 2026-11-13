@@ -25,7 +25,7 @@ concurrency:
 jobs:
   public-market-source-only:
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,8 +35,15 @@ jobs:
           python-version: '3.11'
       - name: Preflight no-key forward selection and closed-bar contract
         run: |
-          python -m py_compile williams_ai/v6_public_chart_collector.py
-          python -m unittest tests.test_williams_ai_v6_public_chart_collector -v
+          python -m py_compile williams_ai/v6_public_chart_collector.py williams_ai/v6_official_archive_collector.py
+          python -m unittest tests.test_williams_ai_v6_public_chart_collector tests.test_williams_ai_v6_official_archive_collector -v
+          python - <<'PY'
+          from datetime import date
+          from williams_ai.v6_official_archive_collector import verified_daily
+          bars, source = verified_daily('BTCUSDT', date(2026, 11, 11))
+          assert len(bars) == 24 and source['official_checksum_verified'] is True
+          print('PUBLIC_BINANCE_DAILY_ARCHIVE_CHECKSUM_VERIFIED_NO_API_KEYS')
+          PY
       - name: Collect selected PUBLIC Binance USD-M H1 bars only after complete cutoffs
         env:
           V6_COHORT: ${{ inputs.cohort }}
