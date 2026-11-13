@@ -96,8 +96,13 @@ class V6IndependentIntakeTests(unittest.TestCase):
         bad = copy.deepcopy(self.dataset)
         chart_path = self.root / bad["cases"][0]["chart_file"]
         chart = __import__("json").loads(chart_path.read_text(encoding="utf-8"))
-        # Delete a single earlier hour without altering the final cutoff.
-        del chart["bars"][25]
+        # Keep 64 bars but introduce a single missing hour and overlap
+        # with the following bar: the causal validator must reject it.
+        from datetime import timedelta, datetime
+        row = chart["bars"][25]
+        for key in ("open_utc", "close_utc"):
+            row[key] = (datetime.fromisoformat(row[key].replace("Z", "+00:00"))
+                        + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
         import json
         from hashlib import sha256
         raw = canonical(chart)
@@ -112,7 +117,12 @@ class V6IndependentIntakeTests(unittest.TestCase):
         import json
         from hashlib import sha256
         chart = json.loads(chart_path.read_text(encoding="utf-8"))
-        chart["bars"] = chart["bars"][:-1]
+        # All 64 bars exist and are contiguous but lag cutoff by one hour.
+        from datetime import timedelta, datetime
+        for row in chart["bars"]:
+            for field in ("open_utc", "close_utc"):
+                row[field] = (datetime.fromisoformat(row[field].replace("Z", "+00:00"))
+                              - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
         raw = canonical(chart)
         chart_path.write_bytes(raw)
         bad["cases"][0]["chart_sha256"] = sha256(raw).hexdigest()
