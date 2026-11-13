@@ -79,6 +79,38 @@ def _heldout_exam(model,rows,*,mode):
             "independent_expert_wave_market_labels":False}
 
 
+
+def public_four_book_case_rows(graded:dict)->list[dict]:
+    """Preserve diagnostic 16-case evidence without exporting gold or raw text.
+
+    Grade_four_book_model already computes each per-case decision, but the old
+    v5 receipt dropped those rows; after that, causes of per-book regressions
+    cannot be traced from the artifact. This projection excludes question text,
+    correct-choice labels, reasoning and any source-PDF excerpts.
+    """
+    rows=graded.get("results")
+    if not isinstance(rows,list) or len(rows)!=16:
+        raise ValueError("EXPECTED_16_PER_CASE_GRADES_FROM_FOUR_BOOK_EXAM")
+    allowed=("id","edition","stage","source_rule_id","chosen","correct",
+             "abstained","failure","retrieved_source_card_count",
+             "model_decoding_mode","initial_finish_reason",
+             "json_fallback_used","json_fallback_reason",
+             "json_fallback_finish_reason")
+    public=[{key:row.get(key) for key in allowed} for row in rows]
+    if (len({r["id"] for r in public})!=16 or
+        {ed:sum(r["edition"]==ed for r in public)
+         for ed in ("TC1","NTD","TC2","COURSE")}!=dict.fromkeys(
+             ("TC1","NTD","TC2","COURSE"),4)):
+        raise ValueError("UNBALANCED_OR_DUPLICATE_FOUR_BOOK_CASE_GRADES")
+    if any(type(r["correct"]) is not bool or
+           type(r["abstained"]) is not bool or
+           r["chosen"] not in ("","A","B","C") or
+           r["abstained"]!=(r["chosen"]=="") or
+           (r["abstained"] and r["correct"]) for r in public):
+        raise ValueError("INCONSISTENT_FOUR_BOOK_CASE_GRADES")
+    return public
+
+
 def research_quality_gate(observed:dict)->dict:
     """Research-only gate, never a trading authorization.
 
@@ -144,10 +176,12 @@ def evaluate(base:Path,gguf_lora:Path,receipt:dict,*,out:Path):
         observed[name]={
             "prior_16_case_closed_book":{"correct":a["correct"],"total":a["total"],
                 "by_edition":a["by_edition"],
-                "abstentions":sum(x["abstained"] for x in a["results"])},
+                "abstentions":sum(x["abstained"] for x in a["results"]),
+                "case_pass_fail":public_four_book_case_rows(a)},
             "prior_16_case_with_source":{"correct":b["correct"],"total":b["total"],
                 "by_edition":b["by_edition"],
-                "abstentions":sum(x["abstained"] for x in b["results"])},
+                "abstentions":sum(x["abstained"] for x in b["results"]),
+                "case_pass_fail":public_four_book_case_rows(b)},
             "new_rule_disjoint_28_case_exam":frozen,
             "weights_trained_in_this_run":False,
             "previously_gpu_trained_lora_loaded_for_inference":adapter is not None,
