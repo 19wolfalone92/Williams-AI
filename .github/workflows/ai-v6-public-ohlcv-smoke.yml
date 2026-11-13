@@ -5,6 +5,10 @@ on:
     paths:
       - scripts/ai_v6_public_ohlcv_smoke.py
       - .github/workflows/ai-v6-public-ohlcv-smoke.yml
+  pull_request:
+    paths:
+      - scripts/ai_v6_public_ohlcv_smoke.py
+      - .github/workflows/ai-v6-public-ohlcv-smoke.yml
 permissions:
   contents: read
 concurrency:
