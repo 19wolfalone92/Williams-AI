@@ -15,6 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from .independent_exam_v6 import (
@@ -112,11 +113,24 @@ def read_only_public_klines(symbol: str, start_ms: int, end_ms: int):
                        "limit": BARS})
     request = Request(URL + "?" + query, method="GET",
                       headers={"User-Agent": "Williams-AI-v6-public-readonly-research"})
-    with urlopen(request, timeout=15) as response:
-        need(response.status == 200, "PUBLIC_MARKET_HTTP_FAILURE")
-        body = response.read(750_000)
-    need(len(body) < 750_000, "PUBLIC_MARKET_BODY_TOO_LARGE")
-    return json.loads(body)
+    try:
+        with urlopen(request, timeout=15) as response:
+            need(response.status == 200, "PUBLIC_MARKET_HTTP_FAILURE")
+            body = response.read(750_000)
+        need(len(body) < 750_000, "PUBLIC_MARKET_BODY_TOO_LARGE")
+        rows = json.loads(body)
+        read_only_public_klines.last_transport = "BINANCE_PUBLIC_REST_H1"
+        return rows
+    except HTTPError as exc:
+        if exc.code not in (403, 451):
+            raise
+        # The GitHub Ubuntu runners sometimes receive HTTP 451 from fapi.
+        # Official signed/hashed Binance historical ZIP is PUBLIC data,
+        # not a proxy trading endpoint. Verify SHA256 and every 1h bar.
+        from .v6_public_binance_archive import official_archive_klines
+        rows = official_archive_klines(symbol, start_ms, end_ms)
+        read_only_public_klines.last_transport = "BINANCE_OFFICIAL_PUBLIC_ARCHIVE_SHA256"
+        return rows
 
 
 def normalized_chart(symbol: str, cutoff: datetime, raw: list):
@@ -183,6 +197,10 @@ def collect(plan: dict, *, fetcher=read_only_public_klines,
         provenance.append({
             "id": planned["id"], "symbol": planned["symbol"],
             "endpoint": URL, "interval": "1h",
+            "transport": (
+                getattr(fetcher, "last_transport", "INJECTED_FETCHER_UNVERIFIED")
+                if fetcher is read_only_public_klines else
+                "INJECTED_FETCHER_UNVERIFIED"),
             "startTime": start, "endTime": end - 1,
             "raw_response_sha256": sha256(canonical(raw)).hexdigest(),
             "market_source_not_expert_label": True,
