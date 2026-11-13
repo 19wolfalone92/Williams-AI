@@ -38,6 +38,20 @@ class ForwardUnreviewedChartTests(unittest.TestCase):
                          {"TC1", "NTD", "TC2", "COURSE"})
         self.assertFalse(self.plan["examination_labels_present"])
 
+    def test_final_cohort_all_1024_h1_bars_are_post_training(self):
+        path = (ROOT / "research" /
+                "williams_v6_full_forward_expert_plan_20261228_20270104.json")
+        future = json.loads(path.read_text(encoding="utf-8"))
+        check_plan(future, now=datetime(2027, 1, 5, tzinfo=timezone.utc))
+        self.assertEqual(len(future["cases"]), 32)
+        for row in future["cases"]:
+            cutoff = datetime.fromisoformat(row["cutoff_utc"].replace("Z", "+00:00"))
+            earliest = cutoff - timedelta(hours=BARS)
+            self.assertGreater(earliest,
+                               datetime(2026, 11, 13, tzinfo=timezone.utc))
+        with self.assertRaisesRegex(ValueError, "PROSPECTIVE_CANDLE_NOT_YET_CLOSED"):
+            check_plan(future, now=datetime(2026, 11, 13, tzinfo=timezone.utc))
+
     def test_scheduled_cutoffs_not_ready_today(self):
         with self.assertRaisesRegex(ValueError, "PROSPECTIVE_CANDLE_NOT_YET_CLOSED"):
             check_plan(self.plan, now=datetime(2026, 11, 13, tzinfo=timezone.utc))
