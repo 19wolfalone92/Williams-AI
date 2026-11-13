@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 import math
@@ -129,8 +129,10 @@ def validate_cases(data, chart_root):
                 "open_utc", "close_utc", "open", "high", "low", "close", "volume"},
                 "BAD_BAR_SCHEMA")
             start, end = _utc(bar["open_utc"]), _utc(bar["close_utc"])
-            need(start < end <= cutoff and (last is None or start >= last),
-                 "FUTURE_OR_NONMONOTONIC_BAR")
+            need(start < end <= cutoff and
+                 end-start == timedelta(hours=1) and
+                 (last is None or start == last),
+                 "FUTURE_OR_GAPPED_H1_BAR")
             last = end
             nums = [bar[k] for k in ("open", "high", "low", "close", "volume")]
             need(all(type(x) in (int, float) and math.isfinite(x) for x in nums),
@@ -138,6 +140,7 @@ def validate_cases(data, chart_root):
             o, high, low, close, volume = nums
             need(0 < low <= min(o, close) <= max(o, close) <= high and volume >= 0,
                  "INVALID_OHLCV")
+        need(last == cutoff, "CHART_DOES_NOT_END_AT_FROZEN_CUTOFF")
         by_book[ed] += 1
         by_family[family] += 1
     need(all(by_book[b] >= 8 for b in BOOKS), "UNBALANCED_FOUR_BOOKS")
