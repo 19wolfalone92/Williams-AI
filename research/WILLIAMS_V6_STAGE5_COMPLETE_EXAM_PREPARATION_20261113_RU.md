@@ -11,6 +11,7 @@
 | `williams_ai/v6_public_chart_collector.py` | Только публичный Binance USDⓈ-M GET `/fapi/v1/klines`, 1024 строго замкнутых H1-свечи, 32 кейса, SHA-256, сверка UTC и запрещение частичных файлов. Никаких API-ключей, ордеров или GPU. |
 | `williams_ai/v6_history_context.py` | Детерминированная агрегация H1/H4/D1 только из закрытых баров, AO=(SMA5-SMA34) медианной цены, AC=AO-SMA5(AO). Эти численные признаки **не** подтверждают Elliott degree, ангуляцию и вход. |
 | `williams_ai/v6_expert_review_packets.py` | Безответные частные формы для двух рецензентов, **локальные** Ed25519-ключи (0600), ручное подписание после проверки первоисточников, trust-шаблон с **false**-разрешениями по умолчанию. Код не подтверждает квалификацию реального человека. |
+| `williams_ai/v6_v5_lora_binding.py` | Отдельный SHA-проверяемый паспорт **исторического** Qwen v5 Kaggle LoRA на 80 шагах; не подменяет несовместимый контракт локального `model_bundle` и не декодирует закрытый архив. |
 | `williams_ai/v6_expert_model_runner.py` | Реальный оффлайн-интерфейс Qwen3-4B GGUF / настоящий GGUF LoRA, SHA-проверка, одинаковые системные сообщения, RAG/контекст/seed/декодирование для базовой модели и кандидата, явный ABSTAIN при ошибках, **не знает эталонных ответов**. Переоценивает источниковые хеши и заново строит каждый промпт при объединении отчётов. |
 | `williams_ai/independent_exam_v6.py` | Строгая фиксация корпуса, проверка двух внешне зарегистрированных подписей, подсчёт по TC1/NTD/TC2/COURSE, отказов, критических ошибок и Wilson95. Отсутствие независимой разметки блокирует выставление оценки. |
 | `.github/workflows/ai-v6-expert-intake-cpu.yml` | Только статические/мок-тесты без биржевых запросов, секретов, GPU и весов. |
@@ -76,7 +77,26 @@ python -m williams_ai.v6_expert_review_packets trust-scaffold \
 
 Лишь независимый координатор после реального подтверждения квалификации/независимости может **локально** выставить обоим `externally_vetted_expert=true` и `independent_of_training=true`. Две цифровые подписи сами по себе не доказывают компетентность.
 
-**5.** Фактический CPU-экзамен требует `Qwen3-4B GGUF` с SHA-256 `f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a` и **реального проверенного GGUF LoRA** из v5, плюс манифест загрузчика. Исторический SHA `8bd26590...` относится к исходному LoRA, **не** к конвертированному GGUF: не подставлять его вместо проверенной новой суммы. Изолировать модель; не запускать GPU, не использовать реальные торговые ключи.
+**5.** Фактический CPU-экзамен требует `Qwen3-4B GGUF` с SHA-256 `f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a` и **реального проверенного GGUF LoRA** из v5, плюс манифест загрузчика. Исторический SHA `8bd26590df627c7452d56e81df6a4572885bfc82515259a7c9de4a3970c850b8` относится к исходному `adapter_model.safetensors`, **не** к конвертированному GGUF: не подставлять его вместо проверенной новой суммы. 
+
+**Важное исправление совместимости:** исторический `training_receipt.json` Qwen3-4B v5 имеет схему `WILLIAMS_V5_GENUINE_QWEN3_4B_SOURCE_ONLY_LORA`, а модуль `model_bundle.runtime_identity` ожидает другую локальную тренировочную схему; подделывать её нельзя. Для v5 подготовлен отдельный `v6_v5_lora_binding.py`, проверяющий настоящие 80 optimizer steps, четыре книги, SHA исходного адаптера, результат GGUF конвертации и неизменность receipt. Исходный LoRA нужно получить **только законным приватным способом**, уже предусмотренным старым CPU-recovery, затем конвертировать локально с `llama.cpp` commit `970b51ce7c9ba5fff0726c5e9994f1c2f0e4eedc`. Никаких повторных GPU jobs.
+
+```bash
+# После локального восстановления исходных safetensors и pinned converter:
+python /private/llama-cpp/convert_lora_to_gguf.py \
+  --base /private/Qwen3-4B-pinned-tokenizer-config \
+  --outtype f16 --outfile /private/verified_v5_lora.gguf \
+  /private/v5_recovered_adapter/
+
+python -m williams_ai.v6_v5_lora_binding \
+  --base /private/qwen3-4b.gguf \
+  --lora-gguf /private/verified_v5_lora.gguf \
+  --raw-safetensors /private/v5_recovered_adapter/adapter_model.safetensors \
+  --training-receipt /private/v5_recovered_adapter/training_receipt.json \
+  --out /private/v5_recovered_adapter/v5_historic_lora_binding.json
+```
+
+Затем в `infer-one` передать `--lora-manifest /private/v5_recovered_adapter/v5_historic_lora_binding.json` и SHA-256 фактического GGUF-файла. Все исходные веса, секреты и манифесты остаются приватными. Изолировать модель; не запускать GPU, не использовать реальные торговые ключи.
 
 ```bash
 python -m williams_ai.v6_expert_model_runner infer-one \
@@ -91,7 +111,7 @@ python -m williams_ai.v6_expert_model_runner infer-one \
  --base-sha256 f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a \
  --lora-gguf /private/verified_v5_lora.gguf \
  --lora-sha256 <SHA256_ACTUAL_GGUF_LORA_FILE> \
- --lora-manifest /private/verified_v5_lora_manifest.json \
+ --lora-manifest /private/v5_recovered_adapter/v5_historic_lora_binding.json \
  --out /private/candidate.json
 
 python -m williams_ai.v6_expert_model_runner combine \
