@@ -27,21 +27,32 @@ jobs:
           python-version: '3.11'
       - name: Python compile no dependencies
         run: python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py
-      - name: Probe official Binance public archive for lawful market-data fallback
+      - name: Verify official Binance USD-M daily archive checksum and 1h CSV schema
         run: |
           python - <<'PY'
+          import csv,hashlib,io,re,zipfile
           from urllib.request import Request,urlopen
-          from urllib.error import HTTPError, URLError
-          from re import fullmatch
-          url="https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip.CHECKSUM"
-          try:
-              with urlopen(Request(url,headers={"User-Agent":"Williams-AI-v6-readonly"}),timeout=15) as r:
-                  raw=r.read(512).decode("ascii","replace").strip()
-                  print("OFFICIAL_BINANCE_ARCHIVE_CHECKSUM_PROBE",
-                        "status="+str(r.status),"valid_checksum="+str(bool(fullmatch(r"[0-9a-fA-F]{64}\\s+\\S+\\.zip",raw))),flush=True)
-          except (HTTPError,URLError,TimeoutError) as e:
-              print("OFFICIAL_BINANCE_ARCHIVE_CHECKSUM_NOT_ACCESSIBLE",type(e).__name__,
-                    str(e)[:120],flush=True)
+          base="https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip"
+          def fetch(url):
+              with urlopen(Request(url,headers={"User-Agent":"Williams-AI-v6-readonly"}),timeout=20) as r:
+                  assert r.status==200
+                  return r.read(2_000_000)
+          checksum=fetch(base+".CHECKSUM").decode("ascii").strip()
+          print("ARCHIVE_CHECKSUM_LINE",repr(checksum[:120]),flush=True)
+          expected=checksum.split()[0]
+          assert re.fullmatch(r"[0-9a-fA-F]{64}",expected)
+          raw=fetch(base)
+          assert hashlib.sha256(raw).hexdigest().lower()==expected.lower()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              names=z.namelist()
+              assert len(names)==1 and names[0].endswith(".csv")
+              records=list(csv.reader(io.StringIO(z.read(names[0]).decode("utf-8-sig"))))
+              assert len(records) in (24,25)
+              print("OFFICIAL_BINANCE_ARCHIVE_VERIFIED",
+                    "zip_bytes="+str(len(raw)),
+                    "csv_rows="+str(len(records)),
+                    "first_column="+str(records[0][0]),
+                    "last_column_count="+str(len(records[-1])),flush=True)
           PY
       - name: Download actual 1024 closed H1 candles for four symbols (Binance public GET)
         run: |
