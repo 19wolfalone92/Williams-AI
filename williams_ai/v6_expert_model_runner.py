@@ -67,9 +67,18 @@ def protocol_sha256() -> str:
     """Binds prompts, RAG code and FOUR-BOOK frozen registry to both models."""
     source = (ROOT / "williams_ai" / "source_ranker_v2.py").read_bytes()
     aggregation = (ROOT / "williams_ai" / "v6_history_context.py").read_bytes()
+    # Pin the actual grammar/decoder implementation and allowed labels too.
+    # Otherwise two receipts could claim the same protocol after code
+    # edits to decide() or _strict_chart_json that silently change outputs.
+    source_files = ("williams_ai/v6_expert_model_runner.py",
+                    "williams_ai/local_model.py",
+                    "williams_ai/independent_exam_v6.py")
+    execution_code = {name: sha256((ROOT / name).read_bytes()).hexdigest()
+                      for name in source_files}
     return digest({"config": PROTOCOL, "system": SYS, "task_prompts": PROMPTS,
                    "source_ranker_sha256": sha256(source).hexdigest(),
                    "causal_multiscale_context_sha256": sha256(aggregation).hexdigest(),
+                   "decoder_and_case_contract_files": execution_code,
                    "frozen_source_registry_sha256": _pinned_registry_bytes()})
 
 
