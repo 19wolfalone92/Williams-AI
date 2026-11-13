@@ -78,7 +78,7 @@ def _pinned_registry_bytes() -> str:
     Any source edit must create a versioned new protocol before inference.
     """
     raw = _REGISTRY_PATH.read_bytes()
-    git_blob = sha1(b"blob " + str(len(raw)).encode("ascii") + b"\\0" + raw).hexdigest()
+    git_blob = sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest()
     _need(git_blob == _FROZEN_REGISTRY_GIT_BLOB, "SOURCE_SNAPSHOT_CHANGED")
     return sha256(raw).hexdigest()
 
