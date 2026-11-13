@@ -5,12 +5,16 @@ on:
     paths:
       - 'williams_ai/v6_research_pipeline.py'
       - 'tests/test_williams_ai_v6_research_pipeline.py'
+      - 'williams_ai/v6_rule_registry.py'
+      - 'tests/test_williams_ai_v6_rule_registry.py'
       - 'research/williams_v6_source_rule_proposals_20261113.json'
       - '.github/workflows/ai-v6-readonly-reasoning-cpu.yml'
   pull_request:
     paths:
       - 'williams_ai/v6_research_pipeline.py'
       - 'tests/test_williams_ai_v6_research_pipeline.py'
+      - 'williams_ai/v6_rule_registry.py'
+      - 'tests/test_williams_ai_v6_rule_registry.py'
       - 'research/williams_v6_source_rule_proposals_20261113.json'
       - '.github/workflows/ai-v6-readonly-reasoning-cpu.yml'
   workflow_dispatch:
@@ -34,6 +38,10 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile research-only pipeline and adversarial tests
-        run: python -m py_compile williams_ai/v6_research_pipeline.py tests/test_williams_ai_v6_research_pipeline.py
+        run: python -m py_compile williams_ai/v6_research_pipeline.py tests/test_williams_ai_v6_research_pipeline.py williams_ai/v6_rule_registry.py tests/test_williams_ai_v6_rule_registry.py
       - name: Execute bounded, offline research integration tests
-        run: python -m unittest tests.test_williams_ai_v6_research_pipeline -v
+        run: python -m unittest tests.test_williams_ai_v6_research_pipeline tests.test_williams_ai_v6_rule_registry -v
+      - name: Materialize strictly unapproved candidate source index
+        run: |
+          python -m williams_ai.v6_rule_registry --out "$RUNNER_TEMP/williams_v6_candidate_only.json"
+          python -c 'import json,sys; r=json.load(open(sys.argv[1])); assert len(r["books"])==4 and r["unapproved_corrections_count"]==6 and r["no_gpu_training"] and r["no_real_trading"] and all(not x["training_allowed"] for x in r["rules"])' "$RUNNER_TEMP/williams_v6_candidate_only.json"
