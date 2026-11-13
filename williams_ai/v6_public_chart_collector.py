@@ -194,7 +194,7 @@ def build_archive(plan: dict, out: Path, *, fetcher=read_only_public_klines,
             file = root / name
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_bytes(blob)
-        manifest = validate_cases(cases, root)
+        manifest = validate_cases(cases, root, current_time=now)
         receipts["frozen_dataset_sha256"] = manifest["dataset_sha256"]
         with ZipFile(out, "x", compression=ZIP_DEFLATED) as archive:
             archive.writestr("cases.json", canonical(cases))
