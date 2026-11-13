@@ -4,10 +4,12 @@ on:
     branches: [research/williams-ai-curriculum-v5-20261111]
     paths:
       - scripts/ai_v6_public_ohlcv_smoke.py
+      - tests/test_ai_v6_public_ohlcv_smoke.py
       - .github/workflows/ai-v6-public-ohlcv-smoke.yml
   pull_request:
     paths:
       - scripts/ai_v6_public_ohlcv_smoke.py
+      - tests/test_ai_v6_public_ohlcv_smoke.py
       - .github/workflows/ai-v6-public-ohlcv-smoke.yml
 permissions:
   contents: read
@@ -25,8 +27,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Python compile no dependencies
-        run: python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py
+      - name: Compile and verify official-archive reader against offline adversarial fixtures
+        run: |
+          python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py tests/test_ai_v6_public_ohlcv_smoke.py
+          python -m unittest tests.test_ai_v6_public_ohlcv_smoke -v
       - name: Verify official Binance USD-M daily archive checksum and 1h CSV schema
         run: |
           python - <<'PY'
@@ -54,7 +58,7 @@ jobs:
                     "first_column="+str(records[0][0]),
                     "last_column_count="+str(len(records[-1])),flush=True)
           PY
-      - name: Download actual 1024 closed H1 candles for four symbols (Binance public GET)
+      - name: Fetch SHA-verified 1024 closed H1 candles from official monthly public archives
         run: |
           python -m scripts.ai_v6_public_ohlcv_smoke \
             --out "$RUNNER_TEMP/WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json"
