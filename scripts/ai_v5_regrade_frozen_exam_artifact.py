@@ -157,7 +157,7 @@ def main():
     p.add_argument("--output",type=Path)
     a=p.parse_args()
     result=audit_archive(a.artifact_zip)
-    output=json.dumps(result,ensure_ascii=False,sort_keys=True,indent=2)+"\\n"
+    output=json.dumps(result,ensure_ascii=False,sort_keys=True,indent=2)+"\n"
     if a.output:
         if a.output.exists():
             raise FileExistsError("V5_AUDIT_DO_NOT_OVERWRITE_OUTPUT")
