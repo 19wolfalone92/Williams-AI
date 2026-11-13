@@ -24,7 +24,7 @@ from .independent_exam_v6 import (
 SCHEME = "WILLIAMS_V6_FORWARD_CHART_PLAN_V1"
 URL = "https://fapi.binance.com/fapi/v1/klines"
 MS = 3600 * 1000
-BARS = 128
+BARS = 1024
 ALLOWED = frozenset(("BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"))
 
 
@@ -98,8 +98,8 @@ def read_only_public_klines(symbol: str, start_ms: int, end_ms: int):
                       headers={"User-Agent": "Williams-AI-v6-public-readonly-research"})
     with urlopen(request, timeout=15) as response:
         need(response.status == 200, "PUBLIC_MARKET_HTTP_FAILURE")
-        body = response.read(300_000)
-    need(len(body) < 300_000, "PUBLIC_MARKET_BODY_TOO_LARGE")
+        body = response.read(750_000)
+    need(len(body) < 750_000, "PUBLIC_MARKET_BODY_TOO_LARGE")
     return json.loads(body)
 
 
