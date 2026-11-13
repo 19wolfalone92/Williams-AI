@@ -1,0 +1,56 @@
+{
+  "schema": "WILLIAMS_V6_REAL_MARKET_SOURCE_SMOKE_V1",
+  "exam_status": "NOT_AN_EXAM",
+  "observed_on": "2026-11-13",
+  "cutoff_utc": "2026-11-13T08:00:00Z",
+  "market_source": "Binance public USD-M futures H1 candles, read-only market data connector",
+  "read_only": true,
+  "exchange_keys_used": false,
+  "expert_labels_collected": 0,
+  "model_inference_performed": false,
+  "training_performed": false,
+  "main_merge": false,
+  "precision_warning": "Real OHLCV format smoke ONLY. Not future holdout, no model predictions, no independently reviewed Williams labels.",
+  "checks": [
+    {
+      "symbol": "BTCUSDT",
+      "hourly_bars": 1024,
+      "first_open_utc": "2026-10-01T16:00:00.000Z",
+      "final_close_exclusive_utc": "2026-11-13T08:00:00.000Z",
+      "strictly_contiguous": true,
+      "valid_ohlcv": true,
+      "raw_request_start_ms": 1790870400000,
+      "raw_request_end_ms": 1794556799999
+    },
+    {
+      "symbol": "ETHUSDT",
+      "hourly_bars": 1024,
+      "first_open_utc": "2026-10-01T16:00:00.000Z",
+      "final_close_exclusive_utc": "2026-11-13T08:00:00.000Z",
+      "strictly_contiguous": true,
+      "valid_ohlcv": true,
+      "raw_request_start_ms": 1790870400000,
+      "raw_request_end_ms": 1794556799999
+    },
+    {
+      "symbol": "SOLUSDT",
+      "hourly_bars": 1024,
+      "first_open_utc": "2026-10-01T16:00:00.000Z",
+      "final_close_exclusive_utc": "2026-11-13T08:00:00.000Z",
+      "strictly_contiguous": true,
+      "valid_ohlcv": true,
+      "raw_request_start_ms": 1790870400000,
+      "raw_request_end_ms": 1794556799999
+    },
+    {
+      "symbol": "XRPUSDT",
+      "hourly_bars": 1024,
+      "first_open_utc": "2026-10-01T16:00:00.000Z",
+      "final_close_exclusive_utc": "2026-11-13T08:00:00.000Z",
+      "strictly_contiguous": true,
+      "valid_ohlcv": true,
+      "raw_request_start_ms": 1790870400000,
+      "raw_request_end_ms": 1794556799999
+    }
+  ]
+}
