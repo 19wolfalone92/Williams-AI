@@ -48,3 +48,4 @@ jobs:
           path: ${{ runner.temp }}/WILLIAMS_V6_REAL_PUBLIC_4_SYMBOL_NON_HOLDOUT_SMOKE.zip
           if-no-files-found: error
           retention-days: 21
+# MARKET_SMOKE_RUN_TRIGGER: evidence-only CPU workflow, never marks expert gold
