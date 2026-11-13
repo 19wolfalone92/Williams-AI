@@ -300,6 +300,8 @@ def evaluate(cases, manifest, review_a, review_b, trust, predictions, *, chart_r
             "case_diversity_gate": enough, "matched_scores": scores,
             "95pct_research_threshold_met": meets,
             "wilson_95pct_lower_accuracy": wilson_lower,
+            "wilson_assumes_independent_cases_not_established_by_this_tool": True,
+            "overlapping_1024h_windows_and_same_day_clusters_need_external_review": True,
             "strictly_better_count_than_base_required": True,
             "automatic_model_promotion_allowed": False,
             "training_allowed": False, "GPU_allowed": False,
