@@ -1,5 +1,9 @@
 name: Williams AI v6 collect 32 forward H1 market cases (UNREVIEWED, manual)
 on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - 'research/v6_public_chart_collection_request.json'
   workflow_dispatch:
     inputs:
       cohort:
@@ -33,10 +37,26 @@ jobs:
         run: |
           python -m py_compile williams_ai/v6_public_chart_collector.py
           python -m unittest tests.test_williams_ai_v6_public_chart_collector -v
-      - name: Collect strictly selected PUBLIC Binance USD-M H1 bars only after complete cutoffs
+      - name: Collect selected PUBLIC Binance USD-M H1 bars only after complete cutoffs
         env:
           V6_COHORT: ${{ inputs.cohort }}
         run: |
+          # workflow_dispatch requires a workflow on the default branch.
+          # This research-only workflow can instead be triggered by a
+          # deliberate push of the DISABLED-by-default request file.
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            V6_COHORT="$(python - <<'PY'
+          import json
+          o=json.load(open("research/v6_public_chart_collection_request.json",encoding="utf-8"))
+          assert set(o)=={"schema","request","cohort","request_id","comments","gpu_allowed","trade_execution_allowed"}
+          assert o["schema"]=="WILLIAMS_V6_PUBLIC_FORWARD_COLLECTION_REQUEST_V1"
+          assert o["request"]=="COLLECT_NOW" and o["gpu_allowed"] is False and o["trade_execution_allowed"] is False
+          assert isinstance(o["request_id"],str) and len(o["request_id"])>=8
+          assert o["cohort"] in ("pilot","fully_forward")
+          print(o["cohort"])
+          PY
+          )"
+          fi
           case "$V6_COHORT" in
             pilot) V6_PLAN=research/williams_v6_prospective_chart_plan_20261115_22.json ;;
             fully_forward) V6_PLAN=research/williams_v6_full_forward_expert_plan_20261228_20270104.json ;;
@@ -48,7 +68,7 @@ jobs:
       - name: Upload chart candidate, explicitly not expert gold
         uses: actions/upload-artifact@v4
         with:
-          name: Williams-V6-UNREVIEWED-${{ inputs.cohort }}-H1-NOT-EXPERT-GOLD
+          name: Williams-V6-UNREVIEWED-H1-CHARTS-NOT-EXPERT-GOLD
           path: ${{ runner.temp }}/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip
           if-no-files-found: error
           retention-days: 7
