@@ -134,3 +134,4 @@ jobs:
           path: ${{ runner.temp }}/WILLIAMS_V6_PUBLIC_H1_NON_HOLDOUT.zip
           if-no-files-found: error
           retention-days: 7
+# One-off audited public historical smoke replay; NOT a model exam or gold labels.
