@@ -1,7 +1,7 @@
 """Quality is not equal to CI success; no synthetic exam permits trading."""
 import copy
 import unittest
-from williams_ai.v5_postfit_exam import research_quality_gate
+from williams_ai.v5_postfit_exam import research_quality_gate, public_four_book_case_rows
 
 
 def fixture(src=9,abstentions=5,hold=16):
@@ -62,6 +62,44 @@ class QualityGateAudit(unittest.TestCase):
         bad["public_base_control"]["new_rule_disjoint_28_case_exam"]["correct"]=20
         self.assertFalse(research_quality_gate(bad)["accepted_for_further_research"])
         self.assertTrue(outcome["accepted_for_further_research"])
+
+
+    def test_future_16_case_receipt_contains_redacted_verifiable_case_rows(self):
+        rows=[]
+        for ed in ("TC1","NTD","TC2","COURSE"):
+            for n in range(4):
+                rows.append({"id":f"{ed}-{n}","edition":ed,"stage":"ENTRY",
+                    "source_rule_id":f"{ed}.TEST","chosen":"A","correct":True,
+                    "abstained":False,"failure":None,
+                    "retrieved_source_card_count":2,
+                    "model_decoding_mode":"QWEN3_REASON_THEN_FINAL_JSON",
+                    "initial_finish_reason":"stop",
+                    "json_fallback_used":False,
+                    "raw_completion":"PRIVATE_UNPUBLISHED_THOUGHT",
+                    "question":"UNEXPORTED_QUESTION",
+                    "expected":"A","gold":"SENSITIVE_EXAM_KEY"})
+        sanitized=public_four_book_case_rows({"results":rows})
+        self.assertEqual(len(sanitized),16)
+        self.assertEqual({x["edition"] for x in sanitized},
+                         {"TC1","NTD","TC2","COURSE"})
+        for case in sanitized:
+            self.assertNotIn("raw_completion",case)
+            self.assertNotIn("question",case)
+            self.assertNotIn("expected",case)
+            self.assertNotIn("gold",case)
+
+    def test_future_16_case_receipt_rejects_duplicate_or_malformed_grades(self):
+        rows=[{"id":f"{ed}-{n}","edition":ed,"stage":"ENTRY",
+               "source_rule_id":f"{ed}.TEST","chosen":"A",
+               "correct":True,"abstained":False}
+              for ed in ("TC1","NTD","TC2","COURSE") for n in range(4)]
+        rows[1]["id"]=rows[0]["id"]
+        with self.assertRaisesRegex(ValueError,"UNBALANCED_OR_DUPLICATE"):
+            public_four_book_case_rows({"results":rows})
+        rows[1]["id"]="TC1-1"
+        rows[1]["chosen"]=""
+        with self.assertRaisesRegex(ValueError,"INCONSISTENT_FOUR_BOOK"):
+            public_four_book_case_rows({"results":rows})
 
 
 if __name__=="__main__":
