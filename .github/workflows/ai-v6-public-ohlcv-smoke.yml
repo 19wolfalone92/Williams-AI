@@ -1,0 +1,39 @@
+name: Williams v6 REAL public OHLCV smoke (no secrets, no exam)
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - scripts/ai_v6_public_ohlcv_smoke.py
+      - .github/workflows/ai-v6-public-ohlcv-smoke.yml
+permissions:
+  contents: read
+concurrency:
+  group: williams-v6-real-ohlcv-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-public-data-no-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python compile no dependencies
+        run: python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py
+      - name: Download actual 1024 closed H1 candles for four symbols (Binance public GET)
+        run: |
+          python -m scripts.ai_v6_public_ohlcv_smoke \
+            --out "$RUNNER_TEMP/WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json"
+      - name: Verify non-trading research receipt only
+        run: |
+          python -c 'import json,os,pathlib; j=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json").read_text()); assert j["model_inference_performed"] is False and j["expert_gold_present"] is False and j["execution_allowed"] is False and len(j["market_data_result"])==4 and all(x["bars"]==1024 and x["D1_AO_available"] and x["D1_AC_available"] for x in j["market_data_result"])'
+      - name: Upload read-only numeric market provenance (NO GOLD)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-REAL-H1-H4-D1-SMOKE-NOT-EXAM
+          path: ${{ runner.temp }}/WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json
+          if-no-files-found: error
+          retention-days: 14
