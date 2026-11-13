@@ -66,6 +66,17 @@ python -m williams_ai.v6_research_pipeline \
 
 Optional v5 LoRA requires **all three flags** `--lora-gguf`, `--lora-sha256`, `--lora-manifest`; adapter must first be legitimately unsealed and converted to actual GGUF. No decryption, downloading, GPU fallback or key access is performed by this module. `LocalWilliamsModel` provides SHA-/manifest-bound runtime and no network API. Do not supply raw `safetensors` as GGUF.
 
+## Версионированная база знаний v6 (только КАНДИДАТ)
+
+Добавлен `williams_ai/v6_rule_registry.py`: он детерминированно собирает все карточки четырёх книг из **исходного неизменного** V5 реестра, привязывает PDF SHA-256 и страницы и отдельно помечает **шесть уточнений, ожидающих второй независимой проверки**. Сохраняет первоначальный текст и предложенное уточнение раздельно; отдельно отмечает спорные рисунки Course и смещение губ Alligator. Вся база содержит `training_allowed:false`, `execution_allowed:false`, ноль экспертно проверенных рыночных меток. Отдельного статуса «изучено 100% книг» нет.
+
+```bash
+python -m williams_ai.v6_rule_registry --out /private/williams_v6_candidate_source_index.json
+python -m unittest tests.test_williams_ai_v6_rule_registry -v
+```
+
+Это **не тренировочная база**: она служит реестром источников и независимых замечаний для будущего двойного рецензирования. Ни одному из шести неподтверждённых предложений не присвоен экспертный статус автоматически. `SOURCE_RULE_CARDS.json` не редактировался; обновление весов LoRA запрещено до создания новой независимой выборки.
+
 ## Testing and limitations
 
 - `tests/test_williams_ai_v6_research_pipeline.py` covers all books, edition-pinned SHA, source-only CLI, model input separation, source ID hallucinations, pending source corrections, execution attempts, future H4/native/candidate timestamps, gapped observations, schema/runtime failures, exact GGUF byte hash and no-overwrite report behavior.
