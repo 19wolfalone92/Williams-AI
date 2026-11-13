@@ -81,8 +81,15 @@ class MatchedNoGoldResearchTests(unittest.TestCase):
         self.assertEqual(joined["protocol_sha256"], protocol_sha256())
         changed = copy.deepcopy(a)
         changed["prompt_diagnostics"][0]["prompt_sha256"] = "f" * 64
-        with self.assertRaisesRegex(ValueError, "DIFFERENT_INPUTS"):
+        with self.assertRaisesRegex(ValueError, "MODEL_RECEIPT_INPUT_DID_NOT_MATCH_FROZEN_CASE"):
             combine(changed, b, self.cases, self.root)
+        # Even BOTH model receipts agreeing on a forged hash cannot
+        # bypass independent reconstruction from real frozen chart bytes.
+        fake_a, fake_b = copy.deepcopy(a), copy.deepcopy(b)
+        fake_a["prompt_diagnostics"][0]["prompt_sha256"] = "e" * 64
+        fake_b["prompt_diagnostics"][0]["prompt_sha256"] = "e" * 64
+        with self.assertRaisesRegex(ValueError, "MODEL_RECEIPT_INPUT_DID_NOT_MATCH_FROZEN_CASE"):
+            combine(fake_a, fake_b, self.cases, self.root)
         changed = copy.deepcopy(a)
         changed["protocol_sha256"] = "0" * 64
         with self.assertRaisesRegex(ValueError, "INCOMPATIBLE_MODEL_PROTOCOL"):
