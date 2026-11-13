@@ -200,3 +200,74 @@ def review_chart(chart: dict, *, edition: str, question: str,
         state=("BLOCKED_UNSUPPORTED_RESEARCH_CLAIM" if problems
                else "PROVISIONAL_BOOK_REASONING_NOT_TRADE"),
         sources=sources, problems=problems, guard=guard, safe_claim=safe_claim)
+
+def _verified_file_sha256(path: str | Path, expected: str) -> Path:
+    """Pin actual local GGUF / adapter bytes; no downloads or network."""
+    file = Path(path).expanduser().resolve(strict=True)
+    _need(file.is_file() and file.suffix.lower() == ".gguf",
+          "LOCAL_GGUF_REQUIRED")
+    _need(isinstance(expected, str) and
+          re.fullmatch(r"[0-9a-f]{64}", expected) is not None,
+          "INVALID_MODEL_SHA256")
+    h = sha256()
+    with file.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(chunk)
+    _need(h.hexdigest() == expected, "MODEL_WEIGHTS_SHA256_MISMATCH")
+    return file
+
+
+def main() -> None:
+    """Optional offline CPU invocation; source-only works without model."""
+    import argparse
+
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--chart", type=Path, required=True,
+                   help="Existing closed-bar read-only JSON analysis")
+    p.add_argument("--edition", choices=_EDITIONS, required=True)
+    p.add_argument("--question", required=True)
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--retriever", choices=("legacy", "weighted_v2"),
+                   default="weighted_v2")
+    p.add_argument("--model-gguf", type=Path)
+    p.add_argument("--base-sha256")
+    p.add_argument("--lora-gguf", type=Path)
+    p.add_argument("--lora-sha256")
+    p.add_argument("--lora-manifest", type=Path)
+    args = p.parse_args()
+    _need(not args.out.exists(), "DO_NOT_OVERWRITE_REPORT")
+    _need(all(v is None for v in (
+          args.lora_gguf, args.lora_sha256, args.lora_manifest))
+          or all(v is not None for v in (
+          args.lora_gguf, args.lora_sha256, args.lora_manifest)),
+          "ADAPTER_AND_MANIFEST_REQUIRED_TOGETHER")
+    _need(args.model_gguf is not None or
+          all(v is None for v in (
+          args.lora_gguf, args.lora_sha256, args.lora_manifest,
+          args.base_sha256)), "MODEL_REQUIRED_FOR_ADAPTER")
+    chart = json.loads(args.chart.read_text(encoding="utf-8"))
+    model = None
+    if args.model_gguf is not None:
+        # This is the exact Qwen3-4B GGUF reference from historical V5
+        # research. A different model requires a SEPARATE study protocol.
+        _need(args.base_sha256 ==
+              "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a",
+              "EXPECTED_QWEN3_4B_BASE_IDENTITY")
+        base = _verified_file_sha256(args.model_gguf, args.base_sha256)
+        adapter = (_verified_file_sha256(args.lora_gguf, args.lora_sha256)
+                   if args.lora_gguf else None)
+        from .local_model import LocalWilliamsModel
+        model = LocalWilliamsModel(
+            base, n_ctx=8192, gpu_layers=0, learning_mode="legacy_json",
+            use_decision_schema=True, lora_adapter=adapter,
+            lora_manifest=args.lora_manifest)
+    result = review_chart(chart, edition=args.edition, question=args.question,
+                          model=model, retriever=args.retriever)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    with args.out.open("x", encoding="utf-8") as stream:
+        json.dump(result, stream, ensure_ascii=False, sort_keys=True, indent=2)
+        stream.write("\n")
+
+
+if __name__ == "__main__":
+    main()
