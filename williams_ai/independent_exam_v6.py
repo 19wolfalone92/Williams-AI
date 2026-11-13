@@ -103,6 +103,7 @@ def validate_cases(data, chart_root):
         need(row["provenance_id"] not in seen_provenance, "DUPLICATE_PROVENANCE")
         seen_provenance.add(row["provenance_id"])
         cutoff = _utc(row["cutoff_utc"])
+        need(cutoff <= datetime.now(timezone.utc), "FUTURE_CUTOFF")
         dates.add(cutoff.date().isoformat())
         chart_sha = row["chart_sha256"]
         need(type(chart_sha) is str and _HEX64.fullmatch(chart_sha), "INVALID_CHART_DIGEST")
@@ -146,8 +147,9 @@ def validate_cases(data, chart_root):
             "case_count": len(cases), "dataset_sha256": digest(data),
             "by_book": dict(by_book), "by_family": dict(by_family),
             "distinct_utc_dates": len(dates),
-            "no_gold_exported_to_model": True, "expert_labels_attached": False,
-            "original_v5_exams_not_used_as_new_holdout": True,
+            "public_case_schema_does_not_contain_gold": True, "expert_labels_attached": False,
+            "case_id_namespace_excludes_v5": True,
+            "novelty_vs_training_or_prior_exams_externally_unverified": True,
             "execution_allowed": False, "training_allowed": False}
 
 
@@ -259,8 +261,11 @@ def evaluate(cases, manifest, review_a, review_b, trust, predictions, *, chart_r
             by_book[ed]["correct"] += choice == expected
             by_book[ed]["abstained"] += choice == "ABSTAIN"
             by_book[ed]["critical_overcalls"] += (
-                family == "ENTRY" and expected in ("NO_SETUP", "INSUFFICIENT_DATA")
-                and choice in ("LONG_STOP_ENTRY", "SHORT_STOP_ENTRY"))
+                family == "ENTRY" and (
+                    (expected in ("NO_SETUP", "INSUFFICIENT_DATA") and
+                     choice in ("LONG_STOP_ENTRY", "SHORT_STOP_ENTRY")) or
+                    (expected == "LONG_STOP_ENTRY" and choice == "SHORT_STOP_ENTRY") or
+                    (expected == "SHORT_STOP_ENTRY" and choice == "LONG_STOP_ENTRY")))
         scores[name] = {"correct": sum(b["correct"] for b in by_book.values()),
                         "total": len(decisional),
                         "critical_overcalls": sum(b["critical_overcalls"] for b in by_book.values()),
@@ -286,7 +291,7 @@ def evaluate(cases, manifest, review_a, review_b, trust, predictions, *, chart_r
             "case_diversity_gate": enough, "matched_scores": scores,
             "95pct_research_threshold_met": meets,
             "wilson_95pct_lower_accuracy": wilson_lower,
-            "significant_improvement_over_base_required": True,
+            "strictly_better_count_than_base_required": True,
             "automatic_model_promotion_allowed": False,
             "training_allowed": False, "GPU_allowed": False,
             "execution_allowed": False, "main_merge_allowed": False}
