@@ -135,3 +135,44 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 # One-off audited public historical smoke replay; NOT a model exam or gold labels.
+
+  official-archive-probe:
+    # Research-only probe for Binance's documented public-data ZIP+CHECKSUM.
+    # Intentionally different from the region-restricted futures API (451).
+    if: ${{ github.event_name == 'push' && github.repository == '19wolfalone92/Williams-AI' && contains(github.event.head_commit.message, '[v6-archive-probe]') }}
+    needs: offline-expert-intake
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - name: Download public Oct-2026 BTCUSDT 1h ZIP and check signed checksum bytes
+        run: |
+          python - <<'PY'
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          from hashlib import sha256
+          from io import BytesIO
+          from zipfile import ZipFile
+          import csv
+          import re
+          base='https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-10.zip'
+          def fetch(url,limit):
+              req=Request(url,headers={'User-Agent':'Williams-AI-v6-unlabeled-archive-research'})
+              with urlopen(req,timeout=20) as r:
+                  if r.status!=200: raise RuntimeError('OFFICIAL_ARCHIVE_HTTP_'+str(r.status))
+                  data=r.read(limit+1)
+                  if len(data)>limit: raise RuntimeError('OFFICIAL_ARCHIVE_SIZE_LIMIT')
+                  return data
+          check=fetch(base+'.CHECKSUM',300).decode('ascii').strip()
+          blob=fetch(base,2000000)
+          expected=check.split()[0].lower()
+          assert re.fullmatch('[0-9a-f]{64}',expected)
+          assert sha256(blob).hexdigest()==expected,'ARCHIVE_CHECKSUM_FAILURE'
+          with ZipFile(BytesIO(blob)) as z:
+              names=z.namelist()
+              assert len(names)==1 and names[0]=='BTCUSDT-1h-2026-10.csv'
+              rows=list(csv.reader(z.read(names[0]).decode('utf-8-sig').splitlines()))
+          assert 700<=len(rows)<=746
+          print('VERIFIED_OFFICIAL_BINANCE_PUBLIC_ARCHIVE_SOURCE',len(blob),len(rows),sha256(blob).hexdigest(),flush=True)
+          PY
