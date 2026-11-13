@@ -9,6 +9,8 @@ on:
       - 'williams_ai/v6_real_market_smoke.py'
       - 'tests/test_williams_ai_v6_real_market_smoke.py'
       - 'williams_ai/v6_v5_lora_binding.py'
+      - 'williams_ai/v6_real_market_smoke.py'
+      - 'tests/test_williams_ai_v6_real_market_smoke.py'
       - 'tests/test_williams_ai_v6_v5_lora_binding.py'
       - 'williams_ai/v6_history_context.py'
       - 'tests/test_williams_ai_v6_history_context.py'
@@ -28,6 +30,8 @@ on:
       - 'williams_ai/v6_real_market_smoke.py'
       - 'tests/test_williams_ai_v6_real_market_smoke.py'
       - 'williams_ai/v6_v5_lora_binding.py'
+      - 'williams_ai/v6_real_market_smoke.py'
+      - 'tests/test_williams_ai_v6_real_market_smoke.py'
       - 'tests/test_williams_ai_v6_v5_lora_binding.py'
       - 'williams_ai/v6_history_context.py'
       - 'tests/test_williams_ai_v6_history_context.py'
@@ -64,7 +68,7 @@ jobs:
       - name: Compile static analysis
         run: |
           python -m py_compile williams_ai/independent_exam_v6.py tests/test_williams_ai_independent_exam_v6.py
-          python -m py_compile williams_ai/v6_expert_model_runner.py williams_ai/v6_public_chart_collector.py williams_ai/v6_expert_review_packets.py williams_ai/v6_history_context.py williams_ai/v6_v5_lora_binding.py williams_ai/v6_real_market_smoke.py
+          python -m py_compile williams_ai/v6_expert_model_runner.py williams_ai/v6_public_chart_collector.py williams_ai/v6_expert_review_packets.py williams_ai/v6_history_context.py williams_ai/v6_v5_lora_binding.py williams_ai/v6_real_market_smoke.py williams_ai/v6_real_market_smoke.py
           python -m py_compile tests/test_williams_ai_v6_expert_model_runner.py tests/test_williams_ai_v6_public_chart_collector.py tests/test_williams_ai_v6_expert_review_packets.py tests/test_williams_ai_v6_history_context.py tests/test_williams_ai_v6_v5_lora_binding.py tests/test_williams_ai_v6_real_market_smoke.py
       - name: Offline adversarial contract tests (synthetic fixtures only)
         run: |
@@ -102,3 +106,31 @@ jobs:
           path: ${{ runner.temp }}/WILLIAMS_V6_REAL_PUBLIC_NON_HOLDOUT_20261112.zip
           if-no-files-found: error
           retention-days: 21
+
+  real-public-h1-smoke-on-explicit-research-commit:
+    # Opt-in exactly once by adding tag to a research-branch commit message.
+    # No model, reviewer gold, futures orders, API keys, GPU, or main writes.
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[run-real-market-smoke]')
+    needs: offline-expert-intake
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify actual public Binance USD-M closed historical candles
+        run: |
+          set -euo pipefail
+          python -m williams_ai.v6_real_market_smoke \
+            --acknowledge-non-holdout \
+            --out "$RUNNER_TEMP/WILLIAMS_V6_PUBLIC_H1_NON_HOLDOUT.zip"
+      - name: Archive non-holdout market evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V6-REAL-H1-1024x4-NON-HOLDOUT-NOT-GOLD
+          path: ${{ runner.temp }}/WILLIAMS_V6_PUBLIC_H1_NON_HOLDOUT.zip
+          if-no-files-found: error
+          retention-days: 7
