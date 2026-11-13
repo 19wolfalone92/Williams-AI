@@ -129,10 +129,11 @@ def validate_cases(data, chart_root):
                 "open_utc", "close_utc", "open", "high", "low", "close", "volume"},
                 "BAD_BAR_SCHEMA")
             start, end = _utc(bar["open_utc"]), _utc(bar["close_utc"])
-            need(start < end <= cutoff and
-                 end-start == timedelta(hours=1) and
-                 (last is None or start == last),
-                 "FUTURE_OR_GAPPED_H1_BAR")
+            need(start < end <= cutoff and (last is None or start >= last),
+                 "FUTURE_OR_NONMONOTONIC_BAR")
+            need(end-start == timedelta(hours=1)
+                 and (last is None or start == last),
+                 "NONCONTIGUOUS_H1_BARS")
             last = end
             nums = [bar[k] for k in ("open", "high", "low", "close", "volume")]
             need(all(type(x) in (int, float) and math.isfinite(x) for x in nums),
