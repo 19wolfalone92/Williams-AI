@@ -46,9 +46,21 @@ Matched improvements: TC1 `V5-28206ca5568e4324` and NTD `V5-864e07682572ff8c` we
 
 Recovery occurred on **10/28 V5 cases (10 recorded correct)** and **21/28 base cases (16 correct)**. This is post-processing of model answers, not evidence that the model learned those ten rules. V5's 16 source-assisted cohort had 0 abstentions; its 16 closed-book cohort had 1. Source-assisted TC2 remains the primary release blocker.
 
+## Deterministic examiner-side regrading of all 28 synthetic MCQs
+
+Using the **exact run-sha versions** of `williams_ai/knowledge_curriculum_v5.py` (blob `b8d6b92580d1328d20ec3627d20df13d4df81b1d`) and `knowledge/SOURCE_RULE_CARDS.json` (blob `b09553108aa4ce2c764cb6e489544516003943d8`), we reconstructed all 28 expected letters from `case_id = SHA256({r, v, seed=20261111})` and the seeded 3-way choice permutation. Every reported `correct` boolean matches the independently reconstructed letter. **24/28 trained, 23/28 base** are *verified against frozen developer-authored labels*, NOT against independently reviewed expert answers.
+
+Now the exact V5 errors can be mapped to source rules and frozen variant indices:
+- `TC1.RHYTHM`, n=6, `V5-eecd724e72cf0b0b`: expected **B**, returned **A**.
+- `NTD.ZONE.ADDED`, n=6, `V5-36b17184574541af`: expected **C**, returned **A**.
+- `NTD.ALLIGATOR`, n=6, `V5-bcabcf5d34e9485e`: expected **A**, returned **B**.
+- `TC2.REVERSE`, n=9, `V5-f1e841d72a5345bf`: expected **B**, returned **empty** despite finish=`stop`. The actual unparsed raw response is not archived.
+
+The first three errors are **shared by the base model**. The sole new V5 heldout regression is **TC2.REVERSE n=9 missing parsed choice**. Distinguish this decoding/abstention symptom from a demonstrated wrong interpretation of TC2 exit logic.
+
 ## Hard limits of evidence
 
-The artifact includes 28 *case IDs, chosen letters and correct/abstention labels* but **does not export the corresponding gold keys, raw model outputs, question texts or source passages**. The two 16-case cohorts contain only per-book aggregates, **no per-question rows**. Therefore this audit independently verifies tally consistency and provenance, but cannot adjudicate semantic correctness or diagnose every failure's causal path. The four-book source PDFs and their diagrams were **not** fully reviewed in this stage; the manifest explicitly states **0 independently reviewed diagrams** and **0 approved market labels**.
+The artifact includes 28 *case IDs, chosen letters and correct/abstention labels*, but not raw model completions, question texts or source passages. The gold choices for these 28 could be reconstructed from unchanged run-source deterministic MCQ generation and were verified against every row; this does **not** independently verify that those labels reflect the original books. The two 16-case cohorts contain only per-book aggregates and **no per-question rows**. Therefore this audit cannot adjudicate semantic correctness from expert chart evidence or diagnose every failure's causal path. The four-book source PDFs and their diagrams were **not** fully reviewed in this stage; the manifest explicitly states **0 independently reviewed diagrams** and **0 approved market labels**.
 
 This is a repeat on developer-derived known exercises, **not an untouched benchmark**. Old checkpoint500 differs in case-id and RAG/decoder contract and is **not** a matched control. No accuracy target such as 95% is established from these results.
 
@@ -59,4 +71,4 @@ This is a repeat on developer-derived known exercises, **not an untouched benchm
 3. Populate a source-backed registry with explicit original edition/page/figure and reviewer sign-off for all four books; flag OCR/diagram uncertainties as unverified, never invent citations.
 4. Freeze a **new independent expert-authored chart exam** before inference. Do not reuse the 28 known prompts for optimization; no new GPU until credible independent data exists.
 
-**Stage 1 outcome:** artifact verified and regression localized to source-assisted TC2 and one rule-disjoint TC2 abstention; deeper semantic root cause **blocked by missing per-case/source/raw completion evidence**. Never auto-promote the adapter.
+**Stage 1 outcome:** artifact and deterministic 28-case gold grading verified; errors mapped to exact rule IDs and variants. Regression localized to source-assisted TC2 and a rule-disjoint `TC2.REVERSE` abstention; the precise decoding-versus-reasoning root cause is **blocked by missing raw completion/source evidence**. Never auto-promote the adapter.
