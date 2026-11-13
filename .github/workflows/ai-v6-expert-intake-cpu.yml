@@ -14,6 +14,7 @@ on:
       - 'tests/test_williams_ai_v6_public_chart_collector.py'
       - 'tests/test_williams_ai_v6_expert_review_packets.py'
       - 'research/williams_v6_prospective_chart_plan_20261115_22.json'
+      - 'research/williams_v6_full_forward_expert_plan_20261228_20270104.json'
       - '.github/workflows/ai-v6-expert-intake-cpu.yml'
   pull_request:
     paths:
@@ -28,6 +29,7 @@ on:
       - 'tests/test_williams_ai_v6_public_chart_collector.py'
       - 'tests/test_williams_ai_v6_expert_review_packets.py'
       - 'research/williams_v6_prospective_chart_plan_20261115_22.json'
+      - 'research/williams_v6_full_forward_expert_plan_20261228_20270104.json'
       - '.github/workflows/ai-v6-expert-intake-cpu.yml'
   workflow_dispatch:
 
