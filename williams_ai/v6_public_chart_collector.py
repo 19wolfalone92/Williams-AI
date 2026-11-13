@@ -21,6 +21,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from .independent_exam_v6 import (
     BOOKS, FAMILIES, PDF_SHA, SCHEMA, _utc, canonical, validate_cases,
 )
+from .v6_official_archive_collector import read_only_public_archives_klines
 
 SCHEME = "WILLIAMS_V6_FORWARD_CHART_PLAN_V1"
 URL = "https://fapi.binance.com/fapi/v1/klines"
@@ -168,7 +169,7 @@ def normalized_chart(symbol: str, cutoff: datetime, raw: list):
     return {"symbol": symbol, "bars": out}
 
 
-def collect(plan: dict, *, fetcher=read_only_public_klines,
+def collect(plan: dict, *, fetcher=read_only_public_archives_klines,
             now: datetime | None = None) -> tuple[dict, dict, dict]:
     """Injectable read-only fetcher; no outgoing network during offline tests."""
     if now is None:
@@ -179,7 +180,15 @@ def collect(plan: dict, *, fetcher=read_only_public_klines,
         cutoff = _utc(planned["cutoff_utc"])
         end = int(cutoff.timestamp() * 1000)
         start = end - BARS * MS
-        raw = fetcher(planned["symbol"], start, end - 1)
+        result = fetcher(planned["symbol"], start, end - 1)
+        if type(result) is tuple and len(result) == 2:
+            raw, official_receipt = result
+        else:
+            raw, official_receipt = result, None
+        if fetcher is read_only_public_archives_klines:
+            need(type(official_receipt) is dict and
+                 official_receipt.get("official_checksum_verified_all") is True,
+                 "OFFICIAL_ARCHIVE_PROVENANCE_REQUIRED")
         chart = normalized_chart(planned["symbol"], cutoff, raw)
         blob = canonical(chart)
         file = "charts/" + planned["id"] + ".json"
@@ -196,11 +205,14 @@ def collect(plan: dict, *, fetcher=read_only_public_klines,
         })
         provenance.append({
             "id": planned["id"], "symbol": planned["symbol"],
-            "endpoint": URL, "interval": "1h",
-            "transport": (
-                getattr(fetcher, "last_transport", "INJECTED_FETCHER_UNVERIFIED")
-                if fetcher is read_only_public_klines else
-                "INJECTED_FETCHER_UNVERIFIED"),
+            "endpoint": (official_receipt["archive_data_source"]
+                         if official_receipt is not None else URL),
+            "interval": "1h",
+            "transport": ("OFFICIAL_BINANCE_DAILY_ZIP_SHA256_VERIFIED"
+                          if official_receipt is not None else
+                          "INJECTED_FETCHER_UNVERIFIED"),
+            "daily_source_receipts": (official_receipt["daily_sources"]
+                                      if official_receipt else []),
             "startTime": start, "endTime": end - 1,
             "raw_response_sha256": sha256(canonical(raw)).hexdigest(),
             "market_source_not_expert_label": True,
@@ -215,10 +227,13 @@ def collect(plan: dict, *, fetcher=read_only_public_klines,
     }
     return cases, {"schema": "WILLIAMS_V6_MARKET_SOURCE_RECEIPT_V1",
                    "rows": provenance, "data_only_unreviewed": True,
+                   "all_official_archive_checksums_verified": all(
+                       r["transport"] == "OFFICIAL_BINANCE_DAILY_ZIP_SHA256_VERIFIED"
+                       for r in provenance),
                    "chart_labels_authorized": False}, chart_bytes
 
 
-def build_archive(plan: dict, out: Path, *, fetcher=read_only_public_klines,
+def build_archive(plan: dict, out: Path, *, fetcher=read_only_public_archives_klines,
                   now: datetime | None = None) -> dict:
     need(not out.exists(), "NO_OVERWRITE_PUBLIC_MARKET_PACKET")
     cases, receipts, charts = collect(plan, fetcher=fetcher, now=now)
