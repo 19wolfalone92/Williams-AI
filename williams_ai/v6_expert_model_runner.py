@@ -295,12 +295,21 @@ def main() -> None:
                   "AUTHENTIC_CONVERTED_LORA_REQUIRED")
             adapter = _verified_file_sha256(args.lora_gguf, args.lora_sha256)
             effective = args.lora_sha256
-        from .local_model import LocalWilliamsModel
-        model = LocalWilliamsModel(
-            base, n_ctx=PROTOCOL["context_tokens"], gpu_layers=0,
-            use_decision_schema=True, learning_mode="legacy_json",
-            lora_adapter=adapter, lora_manifest=args.lora_manifest)
-        final = infer(model._model, cases, args.chart_root, name=args.role,
+        # The historical Kaggle v5 receipt has a DIFFERENT schema from
+        # model_bundle's local Qwen LoRA receipt. Never forge that receipt:
+        # require a separately validated and privately bound real 80-step
+        # conversion, then load through llama.cpp's actual LoRA interface.
+        adapter_args = {}
+        if adapter is not None:
+            from .v6_v5_lora_binding import verify_binding
+            proven = verify_binding(base=base, lora_gguf=adapter,
+                                    binding_file=args.lora_manifest)
+            _need(proven == args.lora_sha256, "LORA_RECEIPT_CONTRADICTS_FILE")
+            adapter_args = {"lora_path": str(adapter), "lora_scale": 1.0}
+        from llama_cpp import Llama
+        model = Llama(model_path=str(base), n_ctx=PROTOCOL["context_tokens"],
+                      n_gpu_layers=0, verbose=False, **adapter_args)
+        final = infer(model, cases, args.chart_root, name=args.role,
                       effective_weights_sha256=effective)
     _write_new(args.out, final)
 
