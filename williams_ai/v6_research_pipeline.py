@@ -211,6 +211,8 @@ def _verified_file_sha256(path: str | Path, expected: str) -> Path:
           "INVALID_MODEL_SHA256")
     h = sha256()
     with file.open("rb") as stream:
+        _need(stream.read(4) == b"GGUF", "INVALID_GGUF_HEADER")
+        stream.seek(0)
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             h.update(chunk)
     _need(h.hexdigest() == expected, "MODEL_WEIGHTS_SHA256_MISMATCH")
