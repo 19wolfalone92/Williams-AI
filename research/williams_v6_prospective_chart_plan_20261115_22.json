@@ -8,7 +8,7 @@
   "data_provenance_not_independent_expert_review": true,
   "source_overlap_audit": "EXTERNAL_REVIEW_REQUIRED",
   "selection_algorithm": "every UTC day 2026-11-15 through 2026-11-22, each four books and symbols cyclically rotated, no outcome-driven choice",
-  "max_bars_per_case": 128,
+  "max_bars_per_case": 1024,
   "cases": [
     {
       "id": "E6-FWD-20261115-TC1",
