@@ -1,0 +1,38 @@
+name: Williams AI v6 collect 32 forward H1 market cases (UNREVIEWED, manual)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v6-forward-collect-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  public-market-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preflight no-key forward selection and closed-bar contract
+        run: |
+          python -m py_compile williams_ai/v6_public_chart_collector.py
+          python -m unittest tests.test_williams_ai_v6_public_chart_collector -v
+      - name: Fetch PUBLIC Binance USD-M H1 candles only after Nov 22 cutoff
+        run: |
+          python -m williams_ai.v6_public_chart_collector \
+            --plan research/williams_v6_prospective_chart_plan_20261115_22.json \
+            --out "$RUNNER_TEMP/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip"
+      - name: Upload chart candidate, explicitly not expert gold
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V6-UNREVIEWED-PUBLIC-H1-CANDIDATES-NOT-EXPERT-EXAM
+          path: ${{ runner.temp }}/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip
+          if-no-files-found: error
+          retention-days: 7
