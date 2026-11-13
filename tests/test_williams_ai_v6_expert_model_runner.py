@@ -33,6 +33,14 @@ class MatchedNoGoldResearchTests(unittest.TestCase):
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.cases, self.root = self.fixture.dataset, self.fixture.root
+        book_queries = {
+            "TC1": "Торговый Хаос: фрактал волна дивергенция 5/34 анализ пяти свечей.",
+            "NTD": "NTD зона AO AC Аллигатор ускорение фрактал условия закрытия.",
+            "TC2": "TC2 третий Мудрец фрактал пробой зубы Alligator разворот.",
+            "COURSE": "Course 5/34/5 momentum осциллятор волна нулевая линия.",
+        }
+        for case in self.cases["cases"]:
+            case["question"] = book_queries[case["edition"]]
 
     def test_all_books_same_prompt_bound_to_closed_chart_and_no_exam_key(self):
         llm = StubLlama()
