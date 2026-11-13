@@ -70,7 +70,12 @@ def _load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def validate_cases(data, chart_root):
+def validate_cases(data, chart_root, *, current_time=None):
+    # Optional clock injection is for offline mock tests. CLI uses UTC now.
+    if current_time is None:
+        current_time = datetime.now(timezone.utc)
+    need(isinstance(current_time, datetime) and
+         current_time.tzinfo is not None, "INVALID_VALIDATION_CLOCK")
     need(type(data) is dict and data.get("schema") == SCHEMA, "BAD_CASE_SCHEMA")
     need(set(data) == {"schema", "dataset_id", "cases", "provenance_note"}, "UNEXPECTED_CASE_FIELDS")
     need(type(data["dataset_id"]) is str and 8 <= len(data["dataset_id"]) <= 100,
@@ -103,7 +108,7 @@ def validate_cases(data, chart_root):
         need(row["provenance_id"] not in seen_provenance, "DUPLICATE_PROVENANCE")
         seen_provenance.add(row["provenance_id"])
         cutoff = _utc(row["cutoff_utc"])
-        need(cutoff <= datetime.now(timezone.utc), "FUTURE_CUTOFF")
+        need(cutoff <= current_time, "FUTURE_CUTOFF")
         dates.add(cutoff.date().isoformat())
         chart_sha = row["chart_sha256"]
         need(type(chart_sha) is str and _HEX64.fullmatch(chart_sha), "INVALID_CHART_DIGEST")
