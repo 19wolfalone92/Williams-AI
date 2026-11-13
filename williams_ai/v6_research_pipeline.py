@@ -9,7 +9,7 @@ No GPU, broker access, training, embedding model, or future OHLC data.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from hashlib import sha256
+from hashlib import sha1, sha256
 import json
 from pathlib import Path
 import re
@@ -22,6 +22,8 @@ from .unprompted_source_application import self_retrieve_source
 _EDITIONS = ("TC1", "NTD", "TC2", "COURSE")
 _REPO = Path(__file__).resolve().parent.parent
 _PROPOSALS = _REPO / "research" / "williams_v6_source_rule_proposals_20261113.json"
+_REGISTRY_PATH = _REPO / "knowledge" / "SOURCE_RULE_CARDS.json"
+_FROZEN_REGISTRY_GIT_BLOB = "b09553108aa4ce2c764cb6e489544516003943d8"
 _SYMBOL = re.compile(r"[A-Z0-9_:-]{2,40}\Z")
 _MAX_REFS = 3
 
@@ -68,13 +70,30 @@ def _observation_contract(chart: dict, edition: str) -> None:
             _closed_before(frame["closed_through"], cutoff)
 
 
+def _pinned_registry_bytes() -> str:
+    """Fail closed if the original four-book rule snapshot has changed.
+
+    GitHub uses SHA-1 over "blob <byte-size>\\0<exact bytes>"; this is an
+    historical source ID check, *not* a signature or expert verification.
+    Any source edit must create a versioned new protocol before inference.
+    """
+    raw = _REGISTRY_PATH.read_bytes()
+    git_blob = sha1(b"blob " + str(len(raw)).encode("ascii") + b"\\0" + raw).hexdigest()
+    _need(git_blob == _FROZEN_REGISTRY_GIT_BLOB, "SOURCE_SNAPSHOT_CHANGED")
+    return sha256(raw).hexdigest()
+
+
 def _pending_rule_proposals() -> set[str]:
     """Unapproved source corrections cannot silently become authoritative."""
+    _pinned_registry_bytes()
     data = json.loads(_PROPOSALS.read_text(encoding="utf-8"))
     _need(isinstance(data, dict)
           and data.get("schema") == "WILLIAMS_V6_SOURCE_RULE_PROPOSALS_REVIEW_REQUIRED"
           and data.get("frozen_v5_unchanged") is True
-          and data.get("independent_expert_approval_count") == 0,
+          and data.get("independent_expert_approval_count") == 0
+          and data.get("parent_registry_blob_sha") == _FROZEN_REGISTRY_GIT_BLOB
+          and data.get("parent_run_sha") ==
+              "e3f1b4d34059f10adb1b2791267bb11b79ec67c1",
           "SOURCE_PROPOSALS_NOT_VERIFIED")
     proposals = data.get("proposals")
     _need(isinstance(proposals, list), "SOURCE_PROPOSAL_LIST_INVALID")
