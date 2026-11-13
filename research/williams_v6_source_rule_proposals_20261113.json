@@ -1,0 +1,83 @@
+{
+  "schema": "WILLIAMS_V6_SOURCE_RULE_PROPOSALS_REVIEW_REQUIRED",
+  "created_on": "2026-11-13",
+  "parent_run_sha": "e3f1b4d34059f10adb1b2791267bb11b79ec67c1",
+  "parent_registry_blob_sha": "b09553108aa4ce2c764cb6e489544516003943d8",
+  "frozen_v5_unchanged": true,
+  "exam_28_cases_used_for_training": false,
+  "training_authorized": false,
+  "independent_expert_approval_count": 0,
+  "proposals": [
+    {
+      "rule_id": "TC1.RHYTHM",
+      "pages": [
+        53,
+        54
+      ],
+      "review_status": "SOURCE_TEXT_CHECKED_PENDING_SECOND_REVIEW",
+      "issue": "Original paraphrase omits internal correction wave c / W4 / entry in W5 context.",
+      "candidate_summary": "На стр.54 TC1 масштаб 100–140 баров рассматривается для внутренней волны c коррекции W4 при поиске входа в W5; корректируют наблюдаемый таймфрейм, не свечи и не данные. Само число баров не является сигналом.",
+      "training_allowed": false
+    },
+    {
+      "rule_id": "NTD.ZONE.ADDED",
+      "pages": [
+        92,
+        93
+      ],
+      "review_status": "SOURCE_TEXT_CHECKED_PENDING_SECOND_REVIEW",
+      "issue": "Distinguish stop of zone-based additions after fifth same-color bar from continued independent trend signals. Conditions AO rising, AC rising, favorable close.",
+      "training_allowed": false
+    },
+    {
+      "rule_id": "NTD.ALLIGATOR",
+      "pages": [
+        34,
+        35,
+        36,
+        37
+      ],
+      "review_status": "SOURCE_TEXT_CHECKED_FIGURE_NOT_INDEPENDENTLY_CERTIFIED",
+      "issue": "PDF page36 has contradictory 5-period Lips shift: a rendered/parsed box says 2 bars, later main description says 3. Do not silently choose OCR without original figure/edition reconciliation.",
+      "training_allowed": false
+    },
+    {
+      "rule_id": "TC2.REVERSE",
+      "pages": [
+        131
+      ],
+      "review_status": "SOURCE_TEXT_CHECKED_PENDING_SECOND_REVIEW",
+      "issue": "Opposite valid signal can close old long and enter net short; initial protective stop belongs beyond opposite end of reversal signal bar. Candidate MCQ n=9 abstained despite finish=stop; no raw completion.",
+      "training_allowed": false
+    },
+    {
+      "rule_id": "TC2.WM1.ANG",
+      "pages": [
+        122,
+        123,
+        124
+      ],
+      "review_status": "SOURCE_TEXT_AND_FIGURES_SPOT_CHECKED_PENDING_EXPERT_CONFIRMATION",
+      "issue": "Source's four angulation steps require divergence between price-bar envelope and alligator path; arbitrary jaw distance and AO sign alone do not establish angulation.",
+      "training_allowed": false
+    },
+    {
+      "rule_id": "COURSE.W4.ZERO",
+      "pages": [
+        43,
+        44,
+        45
+      ],
+      "review_status": "SOURCE_SCAN_PAGE44_SPOT_CHECKED_OCR_UNVERIFIED",
+      "issue": "Crossing 5/34/5 zero means minimum wave 4 criteria, not wave 4 completion. OCR pp43–45 manually compared with scan p44 only; no fully certified diagrams.",
+      "training_allowed": false
+    }
+  ],
+  "promotion_gate": {
+    "gpu": false,
+    "main_merge": false,
+    "trading": false,
+    "requires_two_independent_reviews": true,
+    "requires_new_unseen_expert_market_cases": true
+  }
+}
