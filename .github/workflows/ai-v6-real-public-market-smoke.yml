@@ -1,0 +1,43 @@
+name: Williams AI v6 REAL public OHLCV smoke (non-holdout, CPU only)
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - '.github/workflows/ai-v6-real-public-market-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v6-real-public-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  four-symbol-real-public-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run pure synthetic test contracts (NO network yet)
+        run: |
+          python -m py_compile williams_ai/v6_real_market_smoke.py
+          python -m unittest tests.test_williams_ai_v6_real_market_smoke -v
+      - name: Download and verify actual historical public Binance H1 BTC/ETH/SOL/XRP
+        run: |
+          set -euo pipefail
+          python -m williams_ai.v6_real_market_smoke \
+            --acknowledge-non-holdout \
+            --out "$RUNNER_TEMP/WILLIAMS_V6_REAL_PUBLIC_MARKET_NON_HOLDOUT.zip"
+      - name: Upload only the NON-HOLDOUT evidence (7 day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V6-REAL-PUBLIC-H1-NON-HOLDOUT-NOT-GOLD
+          path: ${{ runner.temp }}/WILLIAMS_V6_REAL_PUBLIC_MARKET_NON_HOLDOUT.zip
+          if-no-files-found: error
+          retention-days: 7
