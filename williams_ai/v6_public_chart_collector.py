@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta, timezone
-from hashlib import sha256
+from hashlib import sha1, sha256
 import json
 import math
 from pathlib import Path
@@ -26,6 +26,22 @@ URL = "https://fapi.binance.com/fapi/v1/klines"
 MS = 3600 * 1000
 BARS = 1024
 ALLOWED = frozenset(("BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"))
+# Pin every byte of the pre-registered prospective selection. Git blobs use
+# SHA-1 over b"blob <length>\\0" + exact bytes; a new experiment requires
+# an explicit new version and newly reviewed plan, never a silent edit.
+PLAN_BLOB_SHA1 = frozenset((
+    "b5ca8bb4168ff192e510bb2d1df640921f933ef7",  # Nov pilot
+    "a8fe024c583613d6ae50412022689e03584445c4",  # fully-forward final
+))
+
+def verify_precommitted_plan_bytes(raw: bytes) -> str:
+    if type(raw) is not bytes or not raw or len(raw) > 200_000:
+        raise ValueError("V6_PUBLIC_MARKET_INTAKE_INVALID_PLAN_BYTES")
+    blob = sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest()
+    if blob not in PLAN_BLOB_SHA1:
+        raise ValueError("V6_PUBLIC_MARKET_INTAKE_UNCOMMITTED_PLAN_EDIT")
+    return sha256(raw).hexdigest()
+
 
 
 def need(ok: bool, code: str):
@@ -210,7 +226,9 @@ def main():
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
-    plan = json.loads(args.plan.read_text(encoding="utf-8"))
+    raw = args.plan.read_bytes()
+    verify_precommitted_plan_bytes(raw)
+    plan = json.loads(raw)
     manifest = build_archive(plan, args.out)
     print(json.dumps({"file": str(args.out), "manifest": manifest},
                      ensure_ascii=False, sort_keys=True))
