@@ -185,6 +185,14 @@ def combine(candidate: dict, base: dict, cases: dict, chart_root: str | Path) ->
     pinned = protocol_sha256()
     per_model = {}
     sorted_ids = sorted(x["id"] for x in cases["cases"])
+    # Reconstruct EVERY input prompt from frozen charts independently,
+    # not only verify that two self-reported prompt hashes agree.
+    root = Path(chart_root).resolve(strict=True)
+    canonical_prompts = {}
+    for case in cases["cases"]:
+        chart = json.loads((root / case["chart_file"]).read_bytes())
+        _, metadata = prompt_for_case(case, chart)
+        canonical_prompts[case["id"]] = metadata
     prompt_signatures = {}
     for name, result in (("candidate_v5", candidate), ("matched_base", base)):
         _need(type(result) is dict and
@@ -212,6 +220,10 @@ def combine(candidate: dict, base: dict, cases: dict, chart_root: str | Path) ->
         trace_map = {r["id"]: r["prompt_sha256"] for r in traces}
         _need(all(type(v) is str and len(v) == 64 for v in trace_map.values()),
               "INVALID_PROMPT_HASH")
+        _need(all(
+            type(rec) is dict and
+            rec == {"id": rec["id"], **canonical_prompts[rec["id"]]}
+            for rec in traces), "MODEL_RECEIPT_INPUT_DID_NOT_MATCH_FROZEN_CASE")
         prompt_signatures[name] = trace_map
         per_model[name] = {
             "weights_sha256": result["weights_sha256"],
