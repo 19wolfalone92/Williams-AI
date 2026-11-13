@@ -1,6 +1,15 @@
 name: Williams AI v6 collect 32 forward H1 market cases (UNREVIEWED, manual)
 on:
   workflow_dispatch:
+    inputs:
+      cohort:
+        description: 'UNREVIEWED dataset only; pilot contains pretraining context, final is fully forward'
+        type: choice
+        required: true
+        default: fully_forward
+        options:
+          - pilot
+          - fully_forward
 
 permissions:
   contents: read
@@ -24,15 +33,22 @@ jobs:
         run: |
           python -m py_compile williams_ai/v6_public_chart_collector.py
           python -m unittest tests.test_williams_ai_v6_public_chart_collector -v
-      - name: Fetch PUBLIC Binance USD-M H1 candles only after Nov 22 cutoff
+      - name: Collect strictly selected PUBLIC Binance USD-M H1 bars only after complete cutoffs
+        env:
+          V6_COHORT: ${{ inputs.cohort }}
         run: |
+          case "$V6_COHORT" in
+            pilot) V6_PLAN=research/williams_v6_prospective_chart_plan_20261115_22.json ;;
+            fully_forward) V6_PLAN=research/williams_v6_full_forward_expert_plan_20261228_20270104.json ;;
+            *) echo 'UNAPPROVED_COHORT' >&2; exit 1 ;;
+          esac
           python -m williams_ai.v6_public_chart_collector \
-            --plan research/williams_v6_prospective_chart_plan_20261115_22.json \
+            --plan "$V6_PLAN" \
             --out "$RUNNER_TEMP/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip"
       - name: Upload chart candidate, explicitly not expert gold
         uses: actions/upload-artifact@v4
         with:
-          name: Williams-V6-UNREVIEWED-PUBLIC-H1-CANDIDATES-NOT-EXPERT-EXAM
+          name: Williams-V6-UNREVIEWED-${{ inputs.cohort }}-H1-NOT-EXPERT-GOLD
           path: ${{ runner.temp }}/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip
           if-no-files-found: error
           retention-days: 7
