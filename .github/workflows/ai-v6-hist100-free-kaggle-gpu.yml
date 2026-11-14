@@ -1,0 +1,49 @@
+name: Williams AI v6 — HIST100 free Kaggle T4 GPU plus existing CPU shards (read only)
+on:
+  push:
+    branches: [research/williams-v6-hist100-hybrid-gpu-20261115]
+    paths:
+      - .github/workflows/ai-v6-hist100-free-kaggle-gpu.yml
+      - scripts/ai_v6_hist100_kaggle_gpu_submit.py
+      - scripts/ai_v6_hist100_kaggle_gpu_worker.py
+      - tests/test_ai_v6_hist100_kaggle_gpu.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v6-hist100-KAGGLE-GPU-submission-once
+  cancel-in-progress: false
+
+jobs:
+  validate-and-submit-gpu:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unit-test real GPU worker contracts locally on CPU
+        run: |
+          python -m py_compile scripts/ai_v6_hist100_kaggle_gpu_submit.py scripts/ai_v6_hist100_kaggle_gpu_worker.py tests/test_ai_v6_hist100_kaggle_gpu.py
+          python -m unittest tests.test_ai_v6_hist100_kaggle_gpu tests.test_ai_v6_historical100_models tests.test_ai_v6_historical100_shard_cpu -v
+      - name: Install Kaggle authenticated client (no free GPU quota used here)
+        run: |
+          python -m pip install --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Check confirmed FREE GPU quota, verify original trained LoRA, submit ONE PRIVATE T4 inference
+        run: |
+          python -m scripts.ai_v6_hist100_kaggle_gpu_submit
+      - name: Archive non-secret GPU submission proof; do not claim completion
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-HIST100-KAGGLE-T4-GPU-SUBMISSION-RECEIPT-NOT-MODEL-RESULT
+          path: ${{ runner.temp }}/hist100_gpu_submission_receipt.json
+          retention-days: 30
+          if-no-files-found: warn
