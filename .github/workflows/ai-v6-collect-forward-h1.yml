@@ -1,0 +1,81 @@
+name: Williams AI v6 collect 32 forward H1 market cases (UNREVIEWED, manual)
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - 'research/v6_public_chart_collection_request.json'
+  workflow_dispatch:
+    inputs:
+      cohort:
+        description: 'UNREVIEWED dataset only; pilot contains pretraining context, final is fully forward'
+        type: choice
+        required: true
+        default: fully_forward
+        options:
+          - pilot
+          - fully_forward
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v6-forward-collect-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  public-market-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preflight no-key forward selection and closed-bar contract
+        run: |
+          python -m py_compile williams_ai/v6_public_chart_collector.py williams_ai/v6_official_archive_collector.py
+          python -m unittest tests.test_williams_ai_v6_public_chart_collector tests.test_williams_ai_v6_official_archive_collector -v
+          python - <<'PY'
+          from datetime import date
+          from williams_ai.v6_official_archive_collector import verified_daily
+          bars, source = verified_daily('BTCUSDT', date(2026, 11, 11))
+          assert len(bars) == 24 and source['official_checksum_verified'] is True
+          print('PUBLIC_BINANCE_DAILY_ARCHIVE_CHECKSUM_VERIFIED_NO_API_KEYS')
+          PY
+      - name: Collect selected PUBLIC Binance USD-M H1 bars only after complete cutoffs
+        env:
+          V6_COHORT: ${{ inputs.cohort }}
+        run: |
+          # workflow_dispatch requires a workflow on the default branch.
+          # This research-only workflow can instead be triggered by a
+          # deliberate push of the DISABLED-by-default request file.
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            V6_COHORT="$(python - <<'PY'
+          import json
+          o=json.load(open("research/v6_public_chart_collection_request.json",encoding="utf-8"))
+          assert set(o)=={"schema","request","cohort","request_id","comments","gpu_allowed","trade_execution_allowed"}
+          assert o["schema"]=="WILLIAMS_V6_PUBLIC_FORWARD_COLLECTION_REQUEST_V1"
+          assert o["request"]=="COLLECT_NOW" and o["gpu_allowed"] is False and o["trade_execution_allowed"] is False
+          assert isinstance(o["request_id"],str) and len(o["request_id"])>=8
+          assert o["cohort"] in ("pilot","fully_forward")
+          print(o["cohort"])
+          PY
+          )"
+          fi
+          case "$V6_COHORT" in
+            pilot) V6_PLAN=research/williams_v6_prospective_chart_plan_20261115_22.json ;;
+            fully_forward) V6_PLAN=research/williams_v6_full_forward_expert_plan_20261228_20270104.json ;;
+            *) echo 'UNAPPROVED_COHORT' >&2; exit 1 ;;
+          esac
+          python -m williams_ai.v6_public_chart_collector \
+            --plan "$V6_PLAN" \
+            --out "$RUNNER_TEMP/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip"
+      - name: Upload chart candidate, explicitly not expert gold
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V6-UNREVIEWED-H1-CHARTS-NOT-EXPERT-GOLD
+          path: ${{ runner.temp }}/WILLIAMS_V6_UNREVIEWED_32_FORWARD_H1.zip
+          if-no-files-found: error
+          retention-days: 7

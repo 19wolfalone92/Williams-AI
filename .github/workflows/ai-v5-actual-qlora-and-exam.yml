@@ -1,0 +1,116 @@
+name: Williams AI v5 ACTUAL Qwen3-4B QLoRA + independent book exam
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths: ['experiments/v5-training-start.json']
+permissions:
+  contents: read
+concurrency:
+  group: williams-ai-v5-once-free-kaggle-train-and-actual-exam
+  cancel-in-progress: false
+
+jobs:
+  actual-four-book-qlora-and-knowledge-exam:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams-v5-research-hf
+      TOKENIZERS_PARALLELISM: 'false'
+      GGUF_FILE: Qwen3-4B-Q4_K_M.gguf
+      BASE_SHA256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze rule-disjoint training, validation and independent test
+        run: |
+          python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+          python -m unittest tests.test_williams_ai_knowledge_curriculum_v5 tests.test_williams_ai_kaggle_v5 -v
+          python -m williams_ai.knowledge_curriculum_v5 \
+            --database "$RUNNER_TEMP/williams-v5-train-dev-test.sqlite3" \
+            --manifest "$RUNNER_TEMP/williams-v5-train-dev-test-manifest.json"
+      - name: Install approved PRIVATE Kaggle submission client
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle>=1.7,<2' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Actually train Qwen3-4B with NF4 LoRA on free Nvidia T4 quota
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python scripts/ai_submit_v5_qlora_kaggle.py
+      - name: Install local CPU GGUF LoRA converter (runner only)
+        run: |
+          python -m pip install --disable-pip-version-check --index-url \
+            https://download.pytorch.org/whl/cpu 'torch==2.6.0'
+          python -m pip install --disable-pip-version-check \
+            'huggingface_hub>=0.29,<2' 'transformers>=4.57,<5' \
+            'gguf>=0.17' 'safetensors>=0.5' 'sentencepiece>=0.2' \
+            'protobuf>=4.25,<7' 'numpy>=1.26,<3'
+          git clone --quiet --filter=blob:none https://github.com/ggml-org/llama.cpp.git "$RUNNER_TEMP/llama-v5"
+          git -C "$RUNNER_TEMP/llama-v5" checkout --quiet 970b51ce7c9ba5fff0726c5e9994f1c2f0e4eedc
+          test -f "$RUNNER_TEMP/llama-v5/convert_lora_to_gguf.py"
+      - name: Download verified HF tokenizer/config only for source Qwen3-4B
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          from pathlib import Path
+          root=Path(snapshot_download(repo_id='Qwen/Qwen3-4B',
+            revision='3fb356690bbdae7353c94efb3eecdce276e6ed1c',
+            allow_patterns=['config.json','generation_config.json',
+              'tokenizer.json','tokenizer_config.json','special_tokens_map.json',
+              'added_tokens.json','vocab.json','merges.txt','tokenizer.model',
+              '*.tiktoken'],local_dir='/tmp/williams-v5-source-qwen3'))
+          assert (root/'config.json').is_file()
+          print('EXACT_QWEN3_4B_V5_TOKENIZER_READY_NO_RAW_PDF',flush=True)
+          PY
+      - name: Convert independently SHA-verified V5 adapter to real GGUF LoRA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/llama-v5/convert_lora_to_gguf.py" \
+            --base /tmp/williams-v5-source-qwen3 --outtype f16 \
+            --outfile "$RUNNER_TEMP/williams-v5-new-adapter.gguf" \
+            "$RUNNER_TEMP/williams_v5_private_runtime" \
+            > "$RUNNER_TEMP/v5-conversion.log" 2>&1 || {
+              grep -E '(Traceback|Error|error|ModuleNotFoundError|ImportError)' \
+                "$RUNNER_TEMP/v5-conversion.log" | tail -n 10 || true
+              exit 1
+            }
+          test -s "$RUNNER_TEMP/williams-v5-new-adapter.gguf"
+      - name: Download SHA-pinned Qwen3-4B base GGUF for equal-conditions model exam
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          p=hf_hub_download(repo_id='unsloth/Qwen3-4B-GGUF',
+            filename=os.environ['GGUF_FILE'],local_dir='/tmp/williams-v5-base')
+          x=actual_gguf_sha256(p,os.environ['BASE_SHA256'])
+          print('V5_SAME_ORIGINAL_QWEN_BASE_VERIFIED',x['model_sha256'],flush=True)
+          PY
+      - name: Run actual trained v5 vs same base 16+28 knowledge exam (CPU)
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python
+          python -m williams_ai.v5_postfit_exam \
+            --base-gguf "/tmp/williams-v5-base/${GGUF_FILE}" \
+            --trained-lora-gguf "$RUNNER_TEMP/williams-v5-new-adapter.gguf" \
+            --training-receipt "$RUNNER_TEMP/williams_v5_private_runtime/training_receipt.json" \
+            --output "$RUNNER_TEMP/williams_v5_knowledge_exam.json"
+      - name: Keep only encrypted model, audit, public curriculum and numeric exam
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-AI-v5-GENUINE-trained-Qwen3-4B-Sealed-and-knowledge-exam
+          path: |
+            ${{ runner.temp }}/williams_v5_encrypted/williams-v5-trained-qwen3-4b-lora.zip.sealed
+            ${{ runner.temp }}/williams_v5_encrypted/v5_training_audit.json
+            ${{ runner.temp }}/williams-v5-train-dev-test-manifest.json
+            ${{ runner.temp }}/williams_v5_knowledge_exam.json
+          if-no-files-found: warn
+          retention-days: 21

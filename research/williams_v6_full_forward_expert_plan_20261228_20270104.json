@@ -1,0 +1,531 @@
+{
+  "schema": "WILLIAMS_V6_FORWARD_CHART_PLAN_V1",
+  "dataset_id": "Williams-v6-fully-forward-20261228-20270104-unreviewed",
+  "created_utc": "2026-11-13T06:45:00Z",
+  "training_cutoff_reference_sha": "e3f1b4d34059f10adb1b2791267bb11b79ec67c1",
+  "examination_labels_present": false,
+  "prospective_chart_source": "https://fapi.binance.com/fapi/v1/klines",
+  "data_provenance_not_independent_expert_review": true,
+  "source_overlap_audit": "EXTERNAL_REVIEW_REQUIRED",
+  "selection_algorithm": "precommitted eight daily UTC cutoffs Dec 28 2026 through Jan 4 2027, four books and cyclically rotated assets; all 1024 H1 bars occur after 2026-11-13T00:00:00Z training boundary; still requires external expert novelty review",
+  "max_bars_per_case": 1024,
+  "cases": [
+    {
+      "id": "E6-FWD-20261228-TC1",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2026-12-28T00:00:00Z",
+      "source_pdf_pages": [
+        68,
+        69,
+        70
+      ],
+      "question": "Изучите по закрытым H1-барам подтверждение входа по фрактальной логике Торгового хаоса 1: есть ли допустимый вход или данных недостаточно?",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20261228",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261228-NTD",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2026-12-28T00:00:00Z",
+      "source_pdf_pages": [
+        48,
+        49,
+        55,
+        56
+      ],
+      "question": "Проверьте условия допуска первого входа по фракталу NTD и дополнительные измерения по закрытым барам без предположений об исполнении.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20261228",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261228-TC2",
+      "edition": "TC2",
+      "family": "ENTRY",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2026-12-28T00:00:00Z",
+      "source_pdf_pages": [
+        121,
+        122,
+        124,
+        125,
+        147,
+        148
+      ],
+      "question": "Проверьте по книге Торговый хаос 2 допустимость конкретного стоп-входа по подтверждённым Мудрецам и условиям Аллигатора.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20261228",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261228-COURSE",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2026-12-28T00:00:00Z",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "question": "По Profitunity Course отделите минимальные требования к волне 4 от завершения волны и проверьте 5/34/5 по закрытым барам.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20261228",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261229-TC1",
+      "edition": "TC1",
+      "family": "WAVE",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2026-12-29T00:00:00Z",
+      "source_pdf_pages": [
+        53,
+        54
+      ],
+      "question": "Проверяйте только завершённые импульсные и коррекционные фазы, степень волны и ограничения анализа по Торговому хаосу 1.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20261229",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261229-NTD",
+      "edition": "NTD",
+      "family": "EXIT",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2026-12-29T00:00:00Z",
+      "source_pdf_pages": [
+        115,
+        116
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция LONG, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Новые измерения условия сопровождения и возможного выхода с опорой на закрытые бары.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20261229",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261229-TC2",
+      "edition": "TC2",
+      "family": "EXIT",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2026-12-29T00:00:00Z",
+      "source_pdf_pages": [
+        131,
+        164
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция LONG, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Торговый хаос 2 условия защитного выхода или реверса; биржевых подтверждений позиции и стопа нет.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20261229",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261229-COURSE",
+      "edition": "COURSE",
+      "family": "ENTRY",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2026-12-29T00:00:00Z",
+      "source_pdf_pages": [
+        69,
+        70,
+        71,
+        89
+      ],
+      "question": "Проверьте по Profitunity Course, какие условия стоп-входа наблюдаемы в истории закрытых H1-баров.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20261229",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261230-TC1",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2026-12-30T00:00:00Z",
+      "source_pdf_pages": [
+        68,
+        69,
+        70
+      ],
+      "question": "Изучите по закрытым H1-барам подтверждение входа по фрактальной логике Торгового хаоса 1: есть ли допустимый вход или данных недостаточно?",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20261230",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261230-NTD",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2026-12-30T00:00:00Z",
+      "source_pdf_pages": [
+        48,
+        49,
+        55,
+        56
+      ],
+      "question": "Проверьте условия допуска первого входа по фракталу NTD и дополнительные измерения по закрытым барам без предположений об исполнении.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20261230",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261230-TC2",
+      "edition": "TC2",
+      "family": "ENTRY",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2026-12-30T00:00:00Z",
+      "source_pdf_pages": [
+        121,
+        122,
+        124,
+        125,
+        147,
+        148
+      ],
+      "question": "Проверьте по книге Торговый хаос 2 допустимость конкретного стоп-входа по подтверждённым Мудрецам и условиям Аллигатора.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20261230",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261230-COURSE",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2026-12-30T00:00:00Z",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "question": "По Profitunity Course отделите минимальные требования к волне 4 от завершения волны и проверьте 5/34/5 по закрытым барам.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20261230",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261231-TC1",
+      "edition": "TC1",
+      "family": "WAVE",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2026-12-31T00:00:00Z",
+      "source_pdf_pages": [
+        53,
+        54
+      ],
+      "question": "Проверяйте только завершённые импульсные и коррекционные фазы, степень волны и ограничения анализа по Торговому хаосу 1.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20261231",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261231-NTD",
+      "edition": "NTD",
+      "family": "EXIT",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2026-12-31T00:00:00Z",
+      "source_pdf_pages": [
+        115,
+        116
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция SHORT, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Новые измерения условия сопровождения и возможного выхода с опорой на закрытые бары.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20261231",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261231-TC2",
+      "edition": "TC2",
+      "family": "EXIT",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2026-12-31T00:00:00Z",
+      "source_pdf_pages": [
+        131,
+        164
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция SHORT, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Торговый хаос 2 условия защитного выхода или реверса; биржевых подтверждений позиции и стопа нет.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20261231",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20261231-COURSE",
+      "edition": "COURSE",
+      "family": "EXIT",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2026-12-31T00:00:00Z",
+      "source_pdf_pages": [
+        88,
+        89
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция LONG, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по Course только критерии выхода, которые можно увидеть без информации о биржевых подтверждениях.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20261231",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270101-TC1",
+      "edition": "TC1",
+      "family": "EXIT",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2027-01-01T00:00:00Z",
+      "source_pdf_pages": [
+        83,
+        84
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция LONG, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Изучите правила сопровождения и условия выхода по Торговому хаосу 1 без сведений об исполненных ордерах.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20270101",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270101-NTD",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2027-01-01T00:00:00Z",
+      "source_pdf_pages": [
+        48,
+        49,
+        55,
+        56
+      ],
+      "question": "Проверьте условия допуска первого входа по фракталу NTD и дополнительные измерения по закрытым барам без предположений об исполнении.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20270101",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270101-TC2",
+      "edition": "TC2",
+      "family": "ENTRY",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2027-01-01T00:00:00Z",
+      "source_pdf_pages": [
+        121,
+        122,
+        124,
+        125,
+        147,
+        148
+      ],
+      "question": "Проверьте по книге Торговый хаос 2 допустимость конкретного стоп-входа по подтверждённым Мудрецам и условиям Аллигатора.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20270101",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270101-COURSE",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2027-01-01T00:00:00Z",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "question": "По Profitunity Course отделите минимальные требования к волне 4 от завершения волны и проверьте 5/34/5 по закрытым барам.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20270101",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270102-TC1",
+      "edition": "TC1",
+      "family": "WAVE",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2027-01-02T00:00:00Z",
+      "source_pdf_pages": [
+        53,
+        54
+      ],
+      "question": "Проверяйте только завершённые импульсные и коррекционные фазы, степень волны и ограничения анализа по Торговому хаосу 1.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20270102",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270102-NTD",
+      "edition": "NTD",
+      "family": "EXIT",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2027-01-02T00:00:00Z",
+      "source_pdf_pages": [
+        115,
+        116
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция LONG, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Новые измерения условия сопровождения и возможного выхода с опорой на закрытые бары.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20270102",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270102-TC2",
+      "edition": "TC2",
+      "family": "EXIT",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2027-01-02T00:00:00Z",
+      "source_pdf_pages": [
+        131,
+        164
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция LONG, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Торговый хаос 2 условия защитного выхода или реверса; биржевых подтверждений позиции и стопа нет.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20270102",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270102-COURSE",
+      "edition": "COURSE",
+      "family": "ENTRY",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2027-01-02T00:00:00Z",
+      "source_pdf_pages": [
+        69,
+        70,
+        71,
+        89
+      ],
+      "question": "Проверьте по Profitunity Course, какие условия стоп-входа наблюдаемы в истории закрытых H1-баров.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20270102",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270103-TC1",
+      "edition": "TC1",
+      "family": "EXIT",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2027-01-03T00:00:00Z",
+      "source_pdf_pages": [
+        83,
+        84
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция SHORT, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Изучите правила сопровождения и условия выхода по Торговому хаосу 1 без сведений об исполненных ордерах.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20270103",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270103-NTD",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2027-01-03T00:00:00Z",
+      "source_pdf_pages": [
+        48,
+        49,
+        55,
+        56
+      ],
+      "question": "Проверьте условия допуска первого входа по фракталу NTD и дополнительные измерения по закрытым барам без предположений об исполнении.",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20270103",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270103-TC2",
+      "edition": "TC2",
+      "family": "ENTRY",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2027-01-03T00:00:00Z",
+      "source_pdf_pages": [
+        121,
+        122,
+        124,
+        125,
+        147,
+        148
+      ],
+      "question": "Проверьте по книге Торговый хаос 2 допустимость конкретного стоп-входа по подтверждённым Мудрецам и условиям Аллигатора.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20270103",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270103-COURSE",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2027-01-03T00:00:00Z",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "question": "По Profitunity Course отделите минимальные требования к волне 4 от завершения волны и проверьте 5/34/5 по закрытым барам.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20270103",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270104-TC1",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2027-01-04T00:00:00Z",
+      "source_pdf_pages": [
+        68,
+        69,
+        70
+      ],
+      "question": "Изучите по закрытым H1-барам подтверждение входа по фрактальной логике Торгового хаоса 1: есть ли допустимый вход или данных недостаточно?",
+      "provenance_id": "public-usdm-H1-XRPUSDT-20270104",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270104-NTD",
+      "edition": "NTD",
+      "family": "EXIT",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2027-01-04T00:00:00Z",
+      "source_pdf_pages": [
+        115,
+        116
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция SHORT, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Новые измерения условия сопровождения и возможного выхода с опорой на закрытые бары.",
+      "provenance_id": "public-usdm-H1-BTCUSDT-20270104",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270104-TC2",
+      "edition": "TC2",
+      "family": "EXIT",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2027-01-04T00:00:00Z",
+      "source_pdf_pages": [
+        131,
+        164
+      ],
+      "question": "В учебном сценарии на начало рассматриваемого бара предполагается позиция SHORT, но подтверждения биржи/ордера не представлены. Оценивайте исключительно критерий выхода по закрытым барам, не заявляйте фактическое исполнение. Проверьте по книге Торговый хаос 2 условия защитного выхода или реверса; биржевых подтверждений позиции и стопа нет.",
+      "provenance_id": "public-usdm-H1-ETHUSDT-20270104",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    },
+    {
+      "id": "E6-FWD-20270104-COURSE",
+      "edition": "COURSE",
+      "family": "ENTRY",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2027-01-04T00:00:00Z",
+      "source_pdf_pages": [
+        69,
+        70,
+        71,
+        89
+      ],
+      "question": "Проверьте по Profitunity Course, какие условия стоп-входа наблюдаемы в истории закрытых H1-баров.",
+      "provenance_id": "public-usdm-H1-SOLUSDT-20270104",
+      "venue": "BINANCE_PUBLIC_USDM_PERPETUAL_H1",
+      "source_csv_optional": null
+    }
+  ]
+}

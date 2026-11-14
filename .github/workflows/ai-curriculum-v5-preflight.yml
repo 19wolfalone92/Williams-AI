@@ -1,0 +1,54 @@
+name: Williams AI V5 rule-disjoint training database and readiness audit
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - 'williams_ai/knowledge_curriculum_v5.py'
+      - 'williams_ai/knowledge_training_v5.py'
+      - 'williams_ai/v5_postfit_exam.py'
+      - '.github/workflows/ai-v5-actual-qlora-and-exam.yml'
+      - 'scripts/ai_submit_v5_qlora_kaggle.py'
+      - 'tests/test_williams_ai_kaggle_v5.py'
+      - 'tests/test_williams_ai_knowledge_curriculum_v5.py'
+      - '.github/workflows/ai-curriculum-v5-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v5-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-verified-learning-db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and complete no-test-leak curriculum contract
+        run: |
+          python -m py_compile williams_ai/knowledge_curriculum_v5.py williams_ai/knowledge_training_v5.py williams_ai/v5_postfit_exam.py scripts/ai_submit_v5_qlora_kaggle.py
+          python -m pip install --disable-pip-version-check 'cryptography>=44,<48'
+          python -m unittest tests.test_williams_ai_knowledge_curriculum_v5 tests.test_williams_ai_kaggle_v5 -v
+      - name: Build real versioned SQLite with four books and sealed train/dev/test
+        run: |
+          python -m williams_ai.knowledge_curriculum_v5 \
+            --database "$RUNNER_TEMP/williams_v5_source_curriculum.sqlite3" \
+            --manifest "$RUNNER_TEMP/williams_v5_source_curriculum_manifest.json"
+      - name: Complete core regression and safety CI
+        run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
+      - name: Publish source-card database only, NO original books, secrets or model weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-AI-V5-Four-Books-Rule-Disjoint-Learning-Database-Not-Market-Gold
+          path: |
+            ${{ runner.temp }}/williams_v5_source_curriculum.sqlite3
+            ${{ runner.temp }}/williams_v5_source_curriculum_manifest.json
+          retention-days: 21
+          if-no-files-found: error
