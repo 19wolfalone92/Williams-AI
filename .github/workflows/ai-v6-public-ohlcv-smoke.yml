@@ -200,6 +200,9 @@ jobs:
               rows=x["observed"][role]
               assert len(rows)==4 and {r["edition"] for r in rows}=={"TC1","NTD","TC2","COURSE"}
               assert all(r["finish_reason"] in ("stop","length","error") for r in rows)
+              assert all((isinstance(r.get("model_reason"), str) and 1 <= len(r["model_reason"]) <= 240) if r["finish_reason"]=="stop" else r.get("model_reason") is None for r in rows)
+          assert x["model_generated_rationales_available_if_stop"] is True
+          assert x["model_reason_not_expert_gold_or_verified_causal_attribution"] is True
           print("ACTUAL_CPU_BASE_AND_V5_FOUR_BOOK_MARKET_SMOKE_COMPLETE_NO_GOLD",flush=True)
           PY
       - name: Upload ONLY technical 4-book answer summaries, no weights or expert gold

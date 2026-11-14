@@ -113,6 +113,16 @@ class MatchedNoGoldResearchTests(unittest.TestCase):
         self.assertEqual(row["decision"], "ABSTAIN")
         self.assertEqual(row["finish_reason"], "length")
 
+    def test_explicit_retrospective_reason_capture_is_not_default_expert_receipt(self):
+        case = self.cases["cases"][0]
+        chart = json.loads((self.root / case["chart_file"]).read_text())
+        answer = json.dumps({"decision": "NO_SETUP", "reason": "No proven price-level trigger at cutoff."})
+        ordinary, _ = decide(StubLlama(raw=answer), case, chart)
+        audited, _ = decide(StubLlama(raw=answer), case, chart, include_model_reason=True)
+        self.assertNotIn("model_reason", ordinary)
+        self.assertEqual(ordinary["decision"], audited["decision"])
+        self.assertEqual(audited["model_reason"], "No proven price-level trigger at cutoff.")
+
     def test_decoder_implementation_mutation_changes_protocol_sha(self):
         # A protocol must NOT keep the same hash when only implementation
         # details, not prompts/config, changed between two model runs.

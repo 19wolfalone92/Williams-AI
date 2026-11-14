@@ -123,7 +123,7 @@ def prompt_for_case(case: dict, chart: dict) -> tuple[list[dict], dict]:
     }
 
 
-def decide(model: Any, case: dict, chart: dict) -> tuple[dict, dict]:
+def decide(model: Any, case: dict, chart: dict, *, include_model_reason: bool = False) -> tuple[dict, dict]:
     """One attempt, shared decoding for both models; zero answer repair."""
     messages, evidence = prompt_for_case(case, chart)
     if evidence["source_missing"]:
@@ -161,7 +161,13 @@ def decide(model: Any, case: dict, chart: dict) -> tuple[dict, dict]:
         result = None
     if not isinstance(result, dict) or set(result) != {"decision", "reason"}             or result.get("decision") not in choices             or type(result.get("reason")) is not str             or not 1 <= len(result["reason"]) <= 240:
         return {"id": case["id"], "decision": "ABSTAIN", "finish_reason": "error"}, evidence
-    return {"id": case["id"], "decision": result["decision"], "finish_reason": "stop"}, evidence
+    row = {"id": case["id"], "decision": result["decision"], "finish_reason": "stop"}
+    # This is a model-generated justification, NOT a verified causal
+    # explanation or independent expert label. Standard exam receipts
+    # intentionally omit it; only explicit retrospective audit opts in.
+    if include_model_reason:
+        row["model_reason"] = result["reason"]
+    return row, evidence
 
 
 def infer(model: Any, cases: dict, chart_root: str | Path, *,

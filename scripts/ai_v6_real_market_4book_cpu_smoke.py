@@ -73,7 +73,7 @@ def model_results(*, cases, base: Path, lora: Path | None):
             _, meta = prompt_for_case(case, chart)
             if meta != original_meta:
                 raise ValueError("RETRO_SOURCE_OR_PROMPT_CHANGED_DURING_RUN")
-            answer, evidence = decide(model, case, chart)
+            answer, evidence = decide(model, case, chart, include_model_reason=True)
             if evidence != original_meta:
                 raise ValueError("RETRO_MODEL_INPUT_NOT_SAME_AS_SOURCE")
             rows.append({**answer,
@@ -99,6 +99,13 @@ def run(*, base: Path, adapter: Path, receipt_file: Path) -> dict:
     report = {}
     for label, lora in (("matched_base", None), ("candidate_v5", adapter)):
         report[label] = model_results(cases=samples, base=base, lora=lora)
+    for role, rows in report.items():
+        for row in rows:
+            if row["finish_reason"] == "stop" and (
+                not isinstance(row.get("model_reason"), str) or
+                not 1 <= len(row["model_reason"]) <= 240
+            ):
+                raise ValueError("RETRO_MODEL_REASON_NOT_RETAINED")
     for a, b in zip(report["matched_base"], report["candidate_v5"], strict=True):
         if (a["id"] != b["id"] or a["prompt_sha256"] != b["prompt_sha256"] or
             a["chart_sha256"] != b["chart_sha256"] or
@@ -120,6 +127,8 @@ def run(*, base: Path, adapter: Path, receipt_file: Path) -> dict:
         "observed": report,
         "no_expert_labels": True, "real_market_book_accuracy": None,
         "comparison_is_only_model_decisions_not_correctness": True,
+        "model_generated_rationales_available_if_stop": True,
+        "model_reason_not_expert_gold_or_verified_causal_attribution": True,
         "research_execution_allowed": False, "gpu_training_allowed": False,
         "no_live_broker_trading": True, "no_model_weight_export": True,
     }

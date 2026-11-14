@@ -14,6 +14,27 @@ from williams_ai.independent_exam_v6 import canonical
 
 
 class FourBookReportTest(unittest.TestCase):
+    def test_reject_missing_model_reason_after_successful_decoding(self):
+        case, symbol, edition, family, question = smoke.CASES[0]
+        bad = {"id": case, "edition": edition, "decision": "ABSTAIN",
+               "finish_reason": "stop", "prompt_sha256": "a"*64,
+               "chart_sha256": "b"*64, "retrieved_rule_ids": []}
+        with (
+            patch.object(smoke, "verified_receipt"),
+            patch.object(smoke, "verified_gguf",
+                         side_effect=[smoke.BASE_SHA256, "c"*64]),
+            patch.object(smoke, "build_cases", return_value=[(
+                {"id": cid, "edition": ed, "family": fam,
+                 "cutoff_utc": smoke.CUTOFF, "question": q},
+                {"symbol": sym}, {}, {"source": "fixture"})
+                for cid, sym, ed, fam, q in smoke.CASES]),
+            patch.object(smoke, "model_results",
+                         side_effect=[[dict(bad, id=cid, edition=ed) for cid, _, ed, _, _ in smoke.CASES]]*2),
+        ):
+            with self.assertRaisesRegex(ValueError, "RETRO_MODEL_REASON_NOT_RETAINED"):
+                smoke.run(base=Path("fake"), adapter=Path("fake"),
+                          receipt_file=Path("fake"))
+
     def test_source_symbol_is_normalized_chart_symbol(self):
         cases = []
         expected = []
@@ -38,7 +59,7 @@ class FourBookReportTest(unittest.TestCase):
                 "chart_sha256": sha256(canonical(chart)).hexdigest(),
                 "prompt_sha256": "b" * 64,
                 "retrieved_rule_ids": [], "decision": "ABSTAIN",
-                "finish_reason": "stop",
+                "finish_reason": "stop", "model_reason": "Offline fixture; not expert gold.",
             })
 
         with (
@@ -65,6 +86,8 @@ class FourBookReportTest(unittest.TestCase):
         self.assertTrue(report["no_expert_labels"])
         self.assertIsNone(report["real_market_book_accuracy"])
         self.assertFalse(report["research_execution_allowed"])
+        self.assertTrue(report["model_generated_rationales_available_if_stop"])
+        self.assertTrue(report["model_reason_not_expert_gold_or_verified_causal_attribution"])
 
 
 if __name__ == "__main__":
