@@ -1,0 +1,48 @@
+name: Williams AI v6 — monitor private Kaggle GPU HIST100 and verify model output
+on:
+  push:
+    branches: [research/williams-v6-hist100-hybrid-gpu-20261115]
+    paths:
+      - .github/workflows/ai-v6-hist100-kaggle-gpu-result-monitor.yml
+      - scripts/ai_v6_hist100_kaggle_gpu_result_monitor.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v6-hist100-kaggle-gpu-status-monitor
+  cancel-in-progress: false
+
+jobs:
+  verify-private-gpu-execution-result:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify monitor's syntax without a GPU
+        run: |
+          python -m py_compile scripts/ai_v6_hist100_kaggle_gpu_result_monitor.py
+      - name: Install read-only Kaggle monitoring client
+        run: |
+          python -m pip install --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Monitor private GPU and verify 100 Base plus 100 v5 model results
+        run: |
+          python -m scripts.ai_v6_hist100_kaggle_gpu_result_monitor \
+            --plan research/williams_v6_historical100_selection_20261114.json \
+            --out "$RUNNER_TEMP/actual_gpu_historical100_verified_model_outputs.json" \
+            --max-polls 320 --interval 45
+      - name: Publish ONLY verified gold-free decisions (NEVER trained model weights)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-HIST100-REAL-GPU-100-BASE-100-V5-VERIFIED-NO-GOLD
+          path: ${{ runner.temp }}/actual_gpu_historical100_verified_model_outputs.json
+          if-no-files-found: error
+          retention-days: 30
