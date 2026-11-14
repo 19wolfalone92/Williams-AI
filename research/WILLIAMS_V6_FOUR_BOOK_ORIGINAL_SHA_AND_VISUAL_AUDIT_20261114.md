@@ -38,3 +38,29 @@
 Stage level: `SHA_VERIFIED` for all four original files; `VISUAL_PAGE_SPOT_CHECKED` for the above selected pages; `COMPLETE_BOOK_VISUAL_AUDIT` **NOT DONE**; `INDEPENDENT_EXPERT_MARKET_GOLD` **BLOCKED**; `TRADE_QUALIFIED` **FALSE**.
 
 No external expert identity/signature or gold was fabricated.
+
+## All-page PDF technical integrity pass (non-semantic)
+
+All **642 pages** of the four SHA-verified originals were individually decoded and rendered through PyMuPDF (low-resolution display integrity pass), without replacing the actual files. This checks that an image can be rendered, **not** that all 642 pages were read and validated semantically. Outcomes:
+
+| Book | PDF pages rendered | Pages with little/no extractable text | Pages containing image objects | Rendering errors |
+|---|---:|---:|---:|---:|
+| TC1 | 140/140 | 0 | 140 | 0 |
+| NTD | 156/156 | 2 | 96 | 0 |
+| TC2 | 224/224 | 0 | 56 | 0 |
+| COURSE | 122/122 | **122** | **122** | 0 |
+| **Total** | **642/642** | **124** | — | **0** |
+
+**COURSE is fully image-only in this particular PDF.** A text-only extraction cannot support independent verification of COURSE figures; its high-risk pages 43–45 were visually inspected separately. Automated OCR on all pages is not claimed, and no false recognition/independent page review is asserted. Do not upload these source PDFs or page images to public GitHub.
+
+The all-page integrity pass local JSON SHA256 is `9ab42dd2b4130df53e7a0df7b0d9205a4e483914b8dbf55b475142ff6ae0ce84`. Original PDFs remain private. This pass is valid solely as technical reading/rendering, not as independent two-expert signoff.
+
+## Prospectively frozen H1 cohorts: concrete non-independence warning
+
+Read-only review of the already-frozen pilot `williams_v6_prospective_chart_plan_20261115_22.json` and final `williams_v6_full_forward_expert_plan_20261228_20270104.json` shows that each consists of **32 cases**, **8 per edition**, **4 symbols (BTC/ETH/SOL/XRP)** across **8 daily UTC cutoffs**. Each case requests a **1024-H1-bar** historical lookback.
+
+For **each cohort**, the same instrument's eight windows overlap for **all 28 possible pairs**, or **112 overlapping same-symbol pairs across four symbols**. Adjacent dates share **1000/1024 H1 bars = 97.65625%** of the lookback. This is not a violation of the frozen prospective cutoff, but it means those 32 cases cannot be assumed to be **32 independent statistical observations**. Daily market dates and cross-symbol conditions may also be correlated.
+
+Thus the naive binomial Wilson95 interval must not be treated as independent skill qualification; use block/cluster methods and a newly precommitted genuinely diverse cohort for inferential certification. **Do not modify or reselect the 32 frozen cases.**
+
+Collection remains future-gated: pilot 15–22 Nov 2026, final 28 Dec 2026–4 Jan 2027. No future market data fetched, no expert labels fabricated. Existing collection and human review modules remain intact. 
