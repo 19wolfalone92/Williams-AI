@@ -106,7 +106,12 @@ def main():
         prior = api.kernels_status(kernel)
     except Exception:
         pass
-    need(prior is None, "GPU_JOB_SLUG_ALREADY_EXISTS_DO_NOT_OVERWRITE")
+    # One controlled retry ONLY when last version had terminal ERROR.
+    # Never overwrite a Kaggle job that may still be consuming free GPU quota.
+    if prior is not None:
+        state=str(prior.status).upper()
+        need("ERROR" in state,"GPU_ALREADY_ACTIVE_OR_COMPLETE_DO_NOT_OVERWRITE")
+        print("HIST100_GPU_PREVIOUS_ERROR_RETRY_CAUSAL_MOUNT_FIX",flush=True)
     need(token not in worker and "adapter_model.safetensors" not in worker,
          "SECRET_OR_WEIGHTS_EXPOSED")
     with tempfile.TemporaryDirectory(prefix="hist100-private-gpu-submit-") as tmp:

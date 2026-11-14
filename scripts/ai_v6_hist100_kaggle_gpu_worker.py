@@ -35,7 +35,12 @@ def need(ok, reason):
 def find_trained_lora():
     """Only authentic training-kernel private Kaggle input, never public upload."""
     root = Path("/kaggle/input")
-    paths = sorted(root.glob("*/williams_v5_model/adapter/adapter_model.safetensors"))
+    # Kaggle can nest previous private kernel output under extra directories.
+    # Require original adapter + authentic training receipt SHA, not a guess.
+    paths = sorted(p for p in root.rglob("adapter_model.safetensors")
+                   if "williams_v5_model" in p.parts and
+                   p.parent.name == "adapter")
+    print("HIST100_V5_PRIVATE_MOUNT_CANDIDATES",len(paths),flush=True)
     need(len(paths) == 1, "NO_UNIQUE_ATTACHED_PRIVATE_V5_TRAINING_OUTPUT")
     adapter_path = paths[0]
     trained_root = adapter_path.parent.parent
