@@ -2,7 +2,7 @@
   "schema": "WILLIAMS_V6_HISTORICAL100_FIXED_SELECTION_V1",
   "created_utc_date": "2026-11-14",
   "source": "Binance connected USD-M historical H1 kline endpoint (real market records, no future exchange trades)",
-  "status": "FIXED_BEFORE_CHART_ACQUISITION_ON_THIS_BRANCH",
+  "status": "SYMBOL_CONTRACT_CORRECTION_BEFORE_ANY_COMPLETED_MARKET_COHORT",
   "not_independent_expert_holdout": true,
   "not_prospective_exam": true,
   "possible_train_overlap": "UNKNOWN_REQUIRES_EXTERNAL_AUDIT",
@@ -15,7 +15,8 @@
     "history_h1": 1024,
     "forward_evaluation_h1": 24,
     "independent_source_archive_checksum": "NOT_YET_VERIFIED",
-    "no_trade_execution": true
+    "no_trade_execution": true,
+    "original_symbol_validated_by_current_exchange_info": true
   },
   "cases": [
     {
@@ -980,7 +981,7 @@
     },
     {
       "id": "HIST100-25-1",
-      "symbol": "PEPEUSDT",
+      "symbol": "1000PEPEUSDT",
       "cutoff_utc": "2025-02-15T00:00:00Z",
       "edition": "TC1",
       "family": "ENTRY",
@@ -990,7 +991,7 @@
     },
     {
       "id": "HIST100-25-2",
-      "symbol": "PEPEUSDT",
+      "symbol": "1000PEPEUSDT",
       "cutoff_utc": "2025-05-15T00:00:00Z",
       "edition": "NTD",
       "family": "ENTRY",
@@ -1000,7 +1001,7 @@
     },
     {
       "id": "HIST100-25-3",
-      "symbol": "PEPEUSDT",
+      "symbol": "1000PEPEUSDT",
       "cutoff_utc": "2025-08-15T00:00:00Z",
       "edition": "TC2",
       "family": "EXIT",
@@ -1010,7 +1011,7 @@
     },
     {
       "id": "HIST100-25-4",
-      "symbol": "PEPEUSDT",
+      "symbol": "1000PEPEUSDT",
       "cutoff_utc": "2025-11-15T00:00:00Z",
       "edition": "COURSE",
       "family": "WAVE",
@@ -1018,5 +1019,15 @@
       "postcutoff_evaluation_h1": 24,
       "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
     }
-  ]
+  ],
+  "selection_amendment": {
+    "date_utc": "2026-11-14",
+    "prior_symbol": "PEPEUSDT",
+    "corrected_symbol": "1000PEPEUSDT",
+    "reason": "Binance USD-M returned -1121 invalid symbol and official 2025 monthly PEPEUSDT archive 404. Verified 1000PEPEUSDT is an actual Binance USD-M perpetual TRADING contract, on-boarded 2023-05-05 UTC; all 25 selected instruments now confirmed listed before historical cutoffs. No data-specific outcome or signal was inspected to select replacement.",
+    "previous_failed_run": 43588031518,
+    "selection_kind": "MARKET_CONTRACT_SYMBOL_FIX_BEFORE_VALID_CORPUS",
+    "case_count_unchanged": true,
+    "legacy_id_preserved_for_audit": true
+  }
 }
