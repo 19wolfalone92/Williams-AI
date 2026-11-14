@@ -21,9 +21,13 @@ from williams_ai.local_model import _strict_chart_json
 from williams_ai.v6_expert_model_runner import prompt_for_case, protocol_sha256
 from williams_ai.v6_v5_lora_binding import MODEL_COMMIT, RAW_ADAPTER_SHA, verified_receipt
 
-SCHEMA = "WILLIAMS_V6_HIST100_HF_NF4_GPU_BASE_V5_LO合RA_NO_GOLD_V1".replace("合", "")
+SCHEMA = "WILLIAMS_V6_HIST100_HF_NF4_GPU_BASE_V5_LORA_NO_GOLD_V1"
 MAX_CONTEXT_TOKENS = 8192
 MAX_NEW_TOKENS = 256
+# Bound T4 attention activation memory; GPU prompt policy differs from CPU GGUF.
+GPU_MAX_INPUT_TOKENS = 3200
+GPU_VISIBLE_CLOSED_H1_MAX = 48
+GPU_VISIBLE_CLOSED_H1_MIN = 20
 SEED = 1942
 
 
@@ -57,6 +61,37 @@ def find_trained_lora():
     return adapter_path.parent
 
 
+def compact_gpu_prompt(tokenizer, original_messages):
+    """Causally compact ONLY the HF GPU prompt; never change stored 1024 H1 input.
+
+    A 96-candle HF prompt caused real torch.OutOfMemoryError on Tesla T4
+    (6.96GiB transient attention allocation). Freeze a smaller, explicitly
+    different GPU prompt policy, preserving unchanged book rules and
+    full-history derived causal H1/H4/D1 technical features. Both model roles
+    receive EXACTLY identical compact bytes. Refuse a case rather than
+    silently throw away all price context.
+    """
+    need(len(original_messages) == 2, "MALFORMED_TWO_MESSAGE_GPU_PROMPT")
+    base=json.loads(original_messages[1]["content"])
+    original_bars=base["closed_bars"]
+    need(isinstance(original_bars,list) and
+         len(original_bars) >= GPU_VISIBLE_CLOSED_H1_MAX,
+         "INSUFFICIENT_ORIGINAL_CANDLE_CONTEXT")
+    base["closed_bars"]=original_bars[-GPU_VISIBLE_CLOSED_H1_MAX:]
+    while True:
+        messages=[original_messages[0],
+                  {"role":"user","content":canonical(base).decode("utf-8")}]
+        tokens=tokenizer.apply_chat_template(
+            messages,tokenize=True,add_generation_prompt=True,
+            enable_thinking=False)
+        count=len(tokens)
+        if count <= GPU_MAX_INPUT_TOKENS:
+            return messages, sha256(canonical(messages)).hexdigest(), count, len(base["closed_bars"])
+        need(len(base["closed_bars"]) > GPU_VISIBLE_CLOSED_H1_MIN,
+             "GPU_PROMPT_TOO_LARGE_WITH_20_CLOSED_BARS")
+        base["closed_bars"]=base["closed_bars"][2:]
+
+
 def decode_hf(model, tokenizer, messages, decision_choices, *, use_adapter, torch):
     from contextlib import nullcontext
     import time
@@ -69,7 +104,8 @@ def decode_hf(model, tokenizer, messages, decision_choices, *, use_adapter, torc
     context = nullcontext() if use_adapter else model.disable_adapter()
     start = time.monotonic()
     with context, torch.inference_mode():
-        generation = model.generate(input_ids=tokenized, do_sample=False,
+        generation = model.generate(input_ids=tokenized,
+            attention_mask=torch.ones_like(tokenized), do_sample=False,
             max_new_tokens=MAX_NEW_TOKENS, use_cache=True,
             pad_token_id=tokenizer.eos_token_id)
     torch.cuda.synchronize()
@@ -137,6 +173,10 @@ def main():
         "market_selection_plan_sha256": dataset_sha,
         "original_cpu_prompt_protocol_sha256": protocol_sha256(),
         "gpu_decoding_backend": "HuggingFace Transformers v4.57 + PEFT + bitsandbytes NF4",
+        "gpu_prompt_max_input_tokens": GPU_MAX_INPUT_TOKENS,
+        "gpu_prompt_causal_closed_bars_initial": GPU_VISIBLE_CLOSED_H1_MAX,
+        "gpu_prompt_causal_closed_bars_min": GPU_VISIBLE_CLOSED_H1_MIN,
+        "gpu_prompt_is_compacted_vs_cpu_protocol": True,
         "gpu_protocol_not_bit_identical_to_llama_cpp_gguf": True,
         "qwen_base_revision": MODEL_COMMIT,
         "verified_genuine_trained_adapter_sha256": RAW_ADAPTER_SHA,
@@ -154,12 +194,16 @@ def main():
     for i, (case, chart, evidence, chart_sha) in enumerate(selected, start=1):
         messages, meta = prompt_for_case(case, chart)
         need(meta == evidence, "BOOK_SOURCE_CHANGED_DURING_INFERENCE")
+        # This step freezes an explicit GPU-only prompt. The same 1024-bar
+        # chart remains checksummed; full H1/H4/D1 context is unchanged.
+        gpu_messages,gpu_hash,gpu_tokens,visible_bars=compact_gpu_prompt(
+            tokenizer,messages)
         available = list(FAMILIES[case["family"]]) + ["ABSTAIN"]
         for role, active in (("matched_base", False), ("candidate_v5", True)):
             if meta["source_missing"]:
                 answer = ("ABSTAIN", "stop", None, 0.0, 0, 0)
             else:
-                answer = decode_hf(model, tokenizer, messages, available,
+                answer = decode_hf(model, tokenizer, gpu_messages, available,
                                    use_adapter=active, torch=torch)
             decision,finish,reason,elapsed,ntokens,generated=answer
             rows[role].append({
@@ -168,12 +212,16 @@ def main():
                 "cutoff_utc": case["cutoff_utc"], "decision": decision,
                 "finish_reason": finish, "model_reason": reason,
                 "chart_sha256": chart_sha,
-                "prompt_sha256": evidence["prompt_sha256"],
+                "prompt_sha256": gpu_hash,
+                "original_cpu_full_prompt_sha256": evidence["prompt_sha256"],
+                "gpu_prompt_tokens": gpu_tokens,
+                "gpu_visible_closed_h1_bars": visible_bars,
                 "retrieved_rule_ids": evidence["retrieved_rule_ids"],
                 "source_missing": evidence["source_missing"],
                 "duration_sec": elapsed,
                 "tokens_in": ntokens, "tokens_out": generated,
             })
+        torch.cuda.empty_cache()
         receipt["completed_paired_cases"] = i
         receipt["real_model_inference_rows"] = i*2
         write_json_atomic(out, receipt)
