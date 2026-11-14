@@ -113,7 +113,7 @@ def run(*, base: Path, adapter: Path, receipt_file: Path) -> dict:
         "v5_original_raw_adapter_sha256_attested": RAW_ADAPTER_SHA,
         "v5_converted_lora_gguf_sha256": adapter_sha,
         "sources": [
-            {"symbol": case["symbol"], "edition": case["edition"],
+            {"symbol": chart["symbol"], "edition": case["edition"],
              "chart_sha256": sha256(canonical(chart)).hexdigest(),
              "official_archive_provenance": original}
             for case, chart, _, original in samples],
