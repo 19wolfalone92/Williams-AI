@@ -18,42 +18,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install Kaggle CLI (read-only)
+      - name: Install Kaggle CLI read-only
         run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'six>=1.16,<2' 'numpy>=2,<3'
-      - name: Diagnose latest private 100-case GPU kernel; redact user identity
+      - name: Parse private worker traceback safely; no GPU resubmission
         run: |
           python - <<'PY'
-          import subprocess, re
+          import json, re, subprocess
           from kagglehub.auth import get_username
           from kaggle.api.kaggle_api_extended import KaggleApi
-          api=KaggleApi();api.authenticate()
+          api=KaggleApi()
+          api.authenticate()
           owner=get_username()
           kernel=owner+'/williams-v6-hist100-matched-base-v5-gpu-20261115'
           print('HIST100_KAGGLE_GPU_STATUS',api.kernels_status(kernel).status,flush=True)
-          for cmd in (('kaggle','kernels','logs',kernel),):
-              proc=subprocess.run(cmd,capture_output=True,text=True,timeout=110)
-              print('KAGGLE_LOG_CMD_RETURN',proc.returncode,flush=True)
-              output=proc.stdout if proc.returncode==0 else proc.stderr
-              # The Kaggle CLI logs API emits JSONL, sometimes comma-prefixed.
-          # Decode the data string so the actual exception is visible.
-          import json
+          proc=subprocess.run(['kaggle','kernels','logs',kernel],capture_output=True,text=True,timeout=110)
+          print('KAGGLE_LOG_CMD_RETURN',proc.returncode,flush=True)
+          output=proc.stdout if proc.returncode==0 else proc.stderr
           decoded=[]
           for line in output.splitlines():
               try:
-                  obj=json.loads(line.lstrip(','))
-                  if isinstance(obj,dict) and isinstance(obj.get('data'),str):
-                      decoded.extend(obj['data'].splitlines())
+                  o=json.loads(line.lstrip(','))
+                  if isinstance(o,dict) and isinstance(o.get('data'),str):
+                      decoded.extend(o['data'].splitlines())
               except (ValueError,TypeError):
                   pass
           lines=decoded if decoded else output.splitlines()
-              safe=[]
-              for i,line in enumerate(lines):
-                  if re.search(r'(Traceback|Exception|Error|error|CUDA|ValueError|RuntimeError|File "|ModuleNotFound|kaggle/working|kaggle/input|HIST100_|Adapter|adapter|ImportError|Killed|OOM|NotFound|No such|Permission|Operation not permitted)',line,re.I):
-                      safe.extend(lines[max(0,i-1):min(len(lines),i+2)])
-              safe=list(dict.fromkeys(safe))[-90:]
-              print('HIST100_PARSED_PRIVATE_GPU_LOG_LINES',len(lines),flush=True)
-          for line in safe:
-                  line=line.replace(owner,'<owner>')
-                  line=re.sub(r'(?i)(token|password|secret|authorization)\s*[=:]\s*\S+',r'\1=<redacted>',line)
-                  print('KAGGLE_DIAG',line[:450],flush=True)
+          print('HIST100_PARSED_PRIVATE_GPU_LOG_LINES',len(lines),flush=True)
+          matched=[]
+          for i,line in enumerate(lines):
+              if re.search(r'(Traceback|Exception|ValueError|RuntimeError|ModuleNotFound|ImportError|HIST100_|adapter|CUDA|OUT_OF_MEMORY|kaggle.input|No such|Permission|torch|File ")',line,re.I):
+                  matched.extend(lines[max(0,i-1):min(len(lines),i+2)])
+          for line in list(dict.fromkeys(matched))[-100:]:
+              line=line.replace(owner,'<owner>')
+              line=re.sub(r'(?i)(token|password|secret|authorization)\s*[=:]\s*\S+',r'\1=<redacted>',line)
+              print('KAGGLE_DIAG',line[:350],flush=True)
           PY
