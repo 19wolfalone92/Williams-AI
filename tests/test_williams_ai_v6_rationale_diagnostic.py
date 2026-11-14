@@ -82,6 +82,37 @@ class TestV6ReasonReceipt(unittest.TestCase):
         self.assertEqual(result["checks"]["matched_base"][2]["C_causal_consistency"],
                          "FAIL_FUTURE_TIMESTAMP_IN_EXPLANATION")
 
+    def test_flag_real_sol_style_hold_against_insufficient_reason(self):
+        raw = sample()
+        raw["observed"]["matched_base"][2]["model_reason"] = "INSUFFICIENT_DATA"
+        result = audit(raw)
+        self.assertEqual(
+            result["checks"]["matched_base"][2]["D_contradiction_detection"],
+            "FAIL_DECISION_REASON_CONTRADICTION")
+        self.assertTrue(
+            result["checks"]["matched_base"][2]["H_explanation_quality"][
+                "reason_only_repeats_uncertainty_label"])
+        self.assertFalse(result["book_reasoning_proven"])
+
+    def test_long_scanned_course_reason_at_exact_240_ceiling_is_warning(self):
+        raw = sample()
+        for role in ("matched_base", "candidate_v5"):
+            raw["observed"][role][3]["model_reason"] = "x" * 240
+        result = audit(raw)
+        for role in ("matched_base", "candidate_v5"):
+            self.assertTrue(result["checks"][role][3][
+                "H_explanation_quality"]["at_reason_length_ceiling_240"])
+        self.assertIsNone(result["independent_accuracy"])
+
+    def test_russian_insufficient_reason_not_false_flagged_as_signal(self):
+        raw = sample()
+        raw["observed"]["candidate_v5"][2]["model_reason"] = (
+            "Недостаточно данных для определения сигнала")
+        result = audit(raw)
+        self.assertNotEqual(
+            result["checks"]["candidate_v5"][2]["D_contradiction_detection"],
+            "FAIL_DECISION_REASON_CONTRADICTION")
+
     def test_truncated_response_cannot_pass_as_signal(self):
         raw = sample()
         raw["observed"]["matched_base"][2]["finish_reason"] = "length"

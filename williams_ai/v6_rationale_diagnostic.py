@@ -123,6 +123,13 @@ def audit(data: dict) -> dict:
                     "status": "TEXT_PRESENT_NOT_VALIDATED_AS_BOOK_REASONING",
                     "reason_sha256": sha256(rationale.encode("utf-8")).hexdigest(),
                     "reason_length": len(rationale),
+                    # The grammar permits at most 240 characters. A reason
+                    # exactly at that ceiling can be syntactically STOP yet
+                    # semantically cut off. Mark a warning, not proof of clip.
+                    "at_reason_length_ceiling_240": len(rationale) == 240,
+                    "reason_only_repeats_uncertainty_label": (
+                        rationale.strip().upper() in {"ABSTAIN", "INSUFFICIENT_DATA"}
+                    ),
                     "rule_ids_asserted": sorted(asserted),
                     "unretrieved_rule_assertions": sorted(
                         asserted - set(row["retrieved_rule_ids"])),
@@ -139,10 +146,19 @@ def audit(data: dict) -> dict:
                 "C_causal_consistency": ("FAIL_FUTURE_TIMESTAMP_IN_EXPLANATION"
                     if explanation["future_timestamp_mentioned"]
                     else "PARTIAL_HASH_ONLY_NOT_FULL_CAUSAL_AUDIT"),
-                "D_contradiction_detection": ("REQUIRES_POSITION_STATE_FOR_EXIT"
+                "D_contradiction_detection": (
+                    "FAIL_DECISION_REASON_CONTRADICTION"
+                    if rationale is not None
+                    and row["decision"] in {
+                        "HOLD", "EXIT_LONG", "EXIT_SHORT",
+                        "LONG_STOP_ENTRY", "SHORT_STOP_ENTRY", "WAVE_CONFIRMED"}
+                    and re.match(
+                        r"^\s*(?:INSUFFICIENT_DATA\b|недостаточно данных\b)",
+                        rationale, flags=re.I)
+                    else "REQUIRES_POSITION_STATE_FOR_EXIT"
                     if row["family"] == "EXIT" and row["decision"] in
-                    {"HOLD", "EXIT_LONG", "EXIT_SHORT"} else
-                    "BLOCKED_NO_INDEPENDENT_MARKET_RECONSTRUCTION"),
+                    {"HOLD", "EXIT_LONG", "EXIT_SHORT"}
+                    else "BLOCKED_NO_INDEPENDENT_MARKET_RECONSTRUCTION"),
                 "E_signal_validation": "BLOCKED_NO_DETERMINISTIC_SIGNAL_PROOF",
                 "F_uncertainty_calibration": "NOT_SCOREABLE_WITHOUT_EXPERT_GOLD",
                 "G_counterfactual_test": "BLOCKED_NO_PAIRED_INPUT_PERTURBATIONS",
