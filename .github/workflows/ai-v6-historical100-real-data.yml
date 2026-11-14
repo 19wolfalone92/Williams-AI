@@ -1,0 +1,58 @@
+name: Williams v6 REAL 100 historic charts official Binance USD-M source check
+on:
+  push:
+    branches: [research/williams-v6-historical100-20261114]
+    paths:
+      - research/williams_v6_historical100_selection_20261114.json
+      - scripts/ai_v6_historical100_real_binance.py
+      - tests/test_ai_v6_historical100_real_binance.py
+      - .github/workflows/ai-v6-historical100-real-data.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: williams-v6-historical100-monthly-real-data
+  cancel-in-progress: false
+
+jobs:
+  real-historical-100-market-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Offline contract regressions
+        run: |
+          python -m py_compile scripts/ai_v6_historical100_real_binance.py tests/test_ai_v6_historical100_real_binance.py
+          python -m unittest tests.test_ai_v6_historical100_real_binance -v
+      - name: Fetch 100 ACTUAL historic H1 charts from official SHA-verified monthly archives
+        run: |
+          python -m scripts.ai_v6_historical100_real_binance --plan research/williams_v6_historical100_selection_20261114.json --out .hist100_out
+      - name: Assert 100 actual charts and no AI/gold claims
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('.hist100_out/market_evidence.json').read_text())
+          assert report['distinct_chart_windows'] == 100
+          assert report['distinct_symbols'] == 25
+          assert report['historical_H1_bars_verified'] == 102400
+          assert report['future_24h_bars_separately_verified'] == 2400
+          assert report['base_model_inferences'] == report['v5_model_inferences'] == 0
+          assert report['expert_gold_present'] is False
+          assert len(list(Path('.hist100_out/charts').glob('*.json'))) == 100
+          assert len(list(Path('.hist100_out/future24').glob('*.json'))) == 100
+          PY
+      - name: Upload verified real-market 100 chart evidence and future-separated charts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V6-REAL-100-H1-HISTORICAL-CHARTS-NOT-MODEL-EXAM
+          path: .hist100_out/
+          if-no-files-found: warn
+          retention-days: 30
