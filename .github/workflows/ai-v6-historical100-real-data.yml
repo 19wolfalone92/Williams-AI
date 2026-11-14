@@ -57,3 +57,129 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 30
+
+  actual-100-historical-base-and-v5:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    needs: real-historical-100-market-data
+    timeout-minutes: 355
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HOME: /tmp/williams-v5-research-hf
+      TOKENIZERS_PARALLELISM: 'false'
+      GGUF_FILE: Qwen3-4B-Q4_K_M.gguf
+      BASE_SHA256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze rule-disjoint training, validation and independent test
+        run: |
+          python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+          python -m unittest tests.test_williams_ai_knowledge_curriculum_v5 tests.test_williams_ai_kaggle_v5 -v
+          # Regression: recovery entrypoint must resolve sibling scripts as a package.
+          python -c 'import importlib.util; assert importlib.util.find_spec("scripts.ai_recover_v5_qlora_kaggle") is not None; import scripts.ai_recover_v5_qlora_kaggle'
+          python -m williams_ai.knowledge_curriculum_v5 \
+            --database "$RUNNER_TEMP/williams-v5-train-dev-test.sqlite3" \
+            --manifest "$RUNNER_TEMP/williams-v5-train-dev-test-manifest.json"
+      - name: Install approved PRIVATE Kaggle submission client
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Recover previously trained Kaggle Qwen3-4B LoRA without GPU work
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python -m scripts.ai_recover_v5_qlora_kaggle
+      - name: Install local CPU GGUF LoRA converter (runner only)
+        run: |
+          python -m pip install --disable-pip-version-check --index-url \
+            https://download.pytorch.org/whl/cpu 'torch==2.6.0'
+          python -m pip install --disable-pip-version-check \
+            'huggingface_hub>=0.29,<2' 'transformers>=4.57,<5' \
+            'gguf>=0.17' 'safetensors>=0.5' 'sentencepiece>=0.2' \
+            'protobuf>=4.25,<7' 'numpy>=1.26,<3'
+          git clone --quiet --filter=blob:none https://github.com/ggml-org/llama.cpp.git "$RUNNER_TEMP/llama-v5"
+          git -C "$RUNNER_TEMP/llama-v5" checkout --quiet 970b51ce7c9ba5fff0726c5e9994f1c2f0e4eedc
+          test -f "$RUNNER_TEMP/llama-v5/convert_lora_to_gguf.py"
+      - name: Download verified HF tokenizer/config only for source Qwen3-4B
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          from pathlib import Path
+          root=Path(snapshot_download(repo_id='Qwen/Qwen3-4B',
+            revision='3fb356690bbdae7353c94efb3eecdce276e6ed1c',
+            allow_patterns=['config.json','generation_config.json',
+              'tokenizer.json','tokenizer_config.json','special_tokens_map.json',
+              'added_tokens.json','vocab.json','merges.txt','tokenizer.model',
+              '*.tiktoken'],local_dir='/tmp/williams-v5-source-qwen3'))
+          assert (root/'config.json').is_file()
+          print('EXACT_QWEN3_4B_V5_TOKENIZER_READY_NO_RAW_PDF',flush=True)
+          PY
+      - name: Convert independently SHA-verified V5 adapter to real GGUF LoRA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/llama-v5/convert_lora_to_gguf.py" \
+            --base /tmp/williams-v5-source-qwen3 --outtype f16 \
+            --outfile "$RUNNER_TEMP/williams-v5-new-adapter.gguf" \
+            "$RUNNER_TEMP/williams_v5_private_runtime" \
+            > "$RUNNER_TEMP/v5-conversion.log" 2>&1 || {
+              grep -E '(Traceback|Error|error|ModuleNotFoundError|ImportError)' \
+                "$RUNNER_TEMP/v5-conversion.log" | tail -n 10 || true
+              exit 1
+            }
+          test -s "$RUNNER_TEMP/williams-v5-new-adapter.gguf"
+      - name: Download SHA-pinned Qwen3-4B base GGUF for equal-conditions model exam
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          from williams_ai.real_gguf_acceptance import actual_gguf_sha256
+          import os
+          p=hf_hub_download(repo_id='unsloth/Qwen3-4B-GGUF',
+            filename=os.environ['GGUF_FILE'],local_dir='/tmp/williams-v5-base')
+          x=actual_gguf_sha256(p,os.environ['BASE_SHA256'])
+          print('V5_SAME_ORIGINAL_QWEN_BASE_VERIFIED',x['model_sha256'],flush=True)
+          PY
+      - name: Download 100 independently SHA-verified real-market H1 charts
+        uses: actions/download-artifact@v4
+        with:
+          name: Williams-V6-REAL-100-H1-HISTORICAL-CHARTS-NOT-MODEL-EXAM
+          path: market100_verified
+      - name: Run actual Qwen3-4B BASE and authentic V5 LoRA on 100 fixed historical market inputs
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python
+          python -m unittest tests.test_ai_v6_historical100_models -v
+          python -m scripts.ai_v6_historical100_models \
+            --plan research/williams_v6_historical100_selection_20261114.json \
+            --corpus market100_verified \
+            --base-gguf "/tmp/williams-v5-base/${GGUF_FILE}" \
+            --trained-lora-gguf "$RUNNER_TEMP/williams-v5-new-adapter.gguf" \
+            --training-receipt "$RUNNER_TEMP/williams_v5_private_runtime/training_receipt.json" \
+            --out "$RUNNER_TEMP/williams_v6_historical100_actual_base_vs_lora.json"
+      - name: Assert 100 actual cases per model or fail closed
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'williams_v6_historical100_actual_base_vs_lora.json'
+          d=json.loads(p.read_text())
+          assert d['schema']=='WILLIAMS_V6_HIST100_ACTUAL_MATCHED_BASE_V5_CPU_NO_EXPERT_GOLD_V1'
+          assert d['complete'] is True and d['completed_model_rows']==200
+          assert len(d['observed']['matched_base'])==len(d['observed']['candidate_v5'])==100
+          assert d['no_expert_labels'] and d['real_market_book_accuracy'] is None
+          assert not d['gpu_training_allowed'] and not d['research_execution_allowed']
+          print('CONFIRMED_100_ACTUAL_BASE_AND_100_ACTUAL_LORA_NO_GOLD',flush=True)
+          PY
+      - name: Upload real (or clearly incomplete) model decisions, never weights/gold
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-ACTUAL-100-BASE-V5-HISTORICAL-NO-EXPERT-GOLD
+          path: ${{ runner.temp }}/williams_v6_historical100_actual_base_vs_lora.json
+          if-no-files-found: warn
+          retention-days: 30
