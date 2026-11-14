@@ -1,0 +1,30 @@
+name: Williams AI v6 non-scoring reasoning receipt regression (offline)
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - 'williams_ai/v6_rationale_diagnostic.py'
+      - 'tests/test_williams_ai_v6_rationale_diagnostic.py'
+      - '.github/workflows/ai-v6-rationale-diagnostic.yml'
+  pull_request:
+    paths:
+      - 'williams_ai/v6_rationale_diagnostic.py'
+      - 'tests/test_williams_ai_v6_rationale_diagnostic.py'
+      - '.github/workflows/ai-v6-rationale-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  offline-causal-evidence-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify syntax and strict non-scoring evidence audits
+        run: |
+          python -m py_compile williams_ai/v6_rationale_diagnostic.py tests/test_williams_ai_v6_rationale_diagnostic.py
+          python -m unittest tests.test_williams_ai_v6_rationale_diagnostic -v
