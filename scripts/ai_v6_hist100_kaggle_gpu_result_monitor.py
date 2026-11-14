@@ -30,8 +30,7 @@ def validate(receipt: dict, plan: dict):
          receipt["complete"] is True and
          receipt["cuda_is_available"] is True and
          receipt["cpu_preparation_and_gpu_inference"] is True and
-         receipt["source_zip_sha256_verified"] is True and
-         receipt["total_original_cases"] if "total_original_cases" in receipt else True,
+         receipt["source_zip_sha256_verified"] is True,
          "INVALID_GPU_RESULT_HEADER")
     need(receipt["cases_total"] == receipt["completed_paired_cases"] == 100 and
          receipt["real_model_inference_rows"] == 200 and
