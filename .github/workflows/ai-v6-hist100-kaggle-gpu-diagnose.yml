@@ -34,13 +34,25 @@ jobs:
               proc=subprocess.run(cmd,capture_output=True,text=True,timeout=110)
               print('KAGGLE_LOG_CMD_RETURN',proc.returncode,flush=True)
               output=proc.stdout if proc.returncode==0 else proc.stderr
-              lines=output.splitlines()
+              # The Kaggle CLI logs API emits JSONL, sometimes comma-prefixed.
+          # Decode the data string so the actual exception is visible.
+          import json
+          decoded=[]
+          for line in output.splitlines():
+              try:
+                  obj=json.loads(line.lstrip(','))
+                  if isinstance(obj,dict) and isinstance(obj.get('data'),str):
+                      decoded.extend(obj['data'].splitlines())
+              except (ValueError,TypeError):
+                  pass
+          lines=decoded if decoded else output.splitlines()
               safe=[]
               for i,line in enumerate(lines):
                   if re.search(r'(Traceback|Exception|Error|error|CUDA|ValueError|RuntimeError|File "|ModuleNotFound|kaggle/working|kaggle/input|HIST100_|Adapter|adapter|ImportError|Killed|OOM|NotFound|No such|Permission|Operation not permitted)',line,re.I):
                       safe.extend(lines[max(0,i-1):min(len(lines),i+2)])
               safe=list(dict.fromkeys(safe))[-90:]
-              for line in safe:
+              print('HIST100_PARSED_PRIVATE_GPU_LOG_LINES',len(lines),flush=True)
+          for line in safe:
                   line=line.replace(owner,'<owner>')
                   line=re.sub(r'(?i)(token|password|secret|authorization)\s*[=:]\s*\S+',r'\1=<redacted>',line)
                   print('KAGGLE_DIAG',line[:450],flush=True)
