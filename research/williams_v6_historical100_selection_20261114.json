@@ -1,0 +1,1022 @@
+{
+  "schema": "WILLIAMS_V6_HISTORICAL100_FIXED_SELECTION_V1",
+  "created_utc_date": "2026-11-14",
+  "source": "Binance connected USD-M historical H1 kline endpoint (real market records, no future exchange trades)",
+  "status": "FIXED_BEFORE_CHART_ACQUISITION_ON_THIS_BRANCH",
+  "not_independent_expert_holdout": true,
+  "not_prospective_exam": true,
+  "possible_train_overlap": "UNKNOWN_REQUIRES_EXTERNAL_AUDIT",
+  "model_inference_performed": false,
+  "criteria": {
+    "book_edition_allocation": "cyclic symbol index + date index",
+    "pairs": 25,
+    "dates": 4,
+    "cases": 100,
+    "history_h1": 1024,
+    "forward_evaluation_h1": 24,
+    "independent_source_archive_checksum": "NOT_YET_VERIFIED",
+    "no_trade_execution": true
+  },
+  "cases": [
+    {
+      "id": "HIST100-01-1",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-01-2",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-01-3",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-01-4",
+      "symbol": "BTCUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-02-1",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-02-2",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-02-3",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-02-4",
+      "symbol": "ETHUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-03-1",
+      "symbol": "BNBUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-03-2",
+      "symbol": "BNBUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-03-3",
+      "symbol": "BNBUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-03-4",
+      "symbol": "BNBUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-04-1",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-04-2",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-04-3",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-04-4",
+      "symbol": "SOLUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-05-1",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-05-2",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-05-3",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-05-4",
+      "symbol": "XRPUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-06-1",
+      "symbol": "DOGEUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-06-2",
+      "symbol": "DOGEUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-06-3",
+      "symbol": "DOGEUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-06-4",
+      "symbol": "DOGEUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-07-1",
+      "symbol": "ADAUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-07-2",
+      "symbol": "ADAUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-07-3",
+      "symbol": "ADAUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-07-4",
+      "symbol": "ADAUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-08-1",
+      "symbol": "LINKUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-08-2",
+      "symbol": "LINKUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-08-3",
+      "symbol": "LINKUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-08-4",
+      "symbol": "LINKUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-09-1",
+      "symbol": "AVAXUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-09-2",
+      "symbol": "AVAXUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-09-3",
+      "symbol": "AVAXUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-09-4",
+      "symbol": "AVAXUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-10-1",
+      "symbol": "LTCUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-10-2",
+      "symbol": "LTCUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-10-3",
+      "symbol": "LTCUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-10-4",
+      "symbol": "LTCUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-11-1",
+      "symbol": "DOTUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-11-2",
+      "symbol": "DOTUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-11-3",
+      "symbol": "DOTUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-11-4",
+      "symbol": "DOTUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-12-1",
+      "symbol": "TRXUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-12-2",
+      "symbol": "TRXUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-12-3",
+      "symbol": "TRXUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-12-4",
+      "symbol": "TRXUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-13-1",
+      "symbol": "BCHUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-13-2",
+      "symbol": "BCHUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-13-3",
+      "symbol": "BCHUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-13-4",
+      "symbol": "BCHUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-14-1",
+      "symbol": "XLMUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-14-2",
+      "symbol": "XLMUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-14-3",
+      "symbol": "XLMUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-14-4",
+      "symbol": "XLMUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-15-1",
+      "symbol": "UNIUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-15-2",
+      "symbol": "UNIUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-15-3",
+      "symbol": "UNIUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-15-4",
+      "symbol": "UNIUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-16-1",
+      "symbol": "ATOMUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-16-2",
+      "symbol": "ATOMUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-16-3",
+      "symbol": "ATOMUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-16-4",
+      "symbol": "ATOMUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-17-1",
+      "symbol": "ETCUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-17-2",
+      "symbol": "ETCUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-17-3",
+      "symbol": "ETCUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-17-4",
+      "symbol": "ETCUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-18-1",
+      "symbol": "NEARUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-18-2",
+      "symbol": "NEARUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-18-3",
+      "symbol": "NEARUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-18-4",
+      "symbol": "NEARUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-19-1",
+      "symbol": "AAVEUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-19-2",
+      "symbol": "AAVEUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-19-3",
+      "symbol": "AAVEUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-19-4",
+      "symbol": "AAVEUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-20-1",
+      "symbol": "FILUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-20-2",
+      "symbol": "FILUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-20-3",
+      "symbol": "FILUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-20-4",
+      "symbol": "FILUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-21-1",
+      "symbol": "OPUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-21-2",
+      "symbol": "OPUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-21-3",
+      "symbol": "OPUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-21-4",
+      "symbol": "OPUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-22-1",
+      "symbol": "ARBUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-22-2",
+      "symbol": "ARBUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-22-3",
+      "symbol": "ARBUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-22-4",
+      "symbol": "ARBUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-23-1",
+      "symbol": "INJUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-23-2",
+      "symbol": "INJUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-23-3",
+      "symbol": "INJUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-23-4",
+      "symbol": "INJUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-24-1",
+      "symbol": "SUIUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-24-2",
+      "symbol": "SUIUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-24-3",
+      "symbol": "SUIUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-24-4",
+      "symbol": "SUIUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-25-1",
+      "symbol": "PEPEUSDT",
+      "cutoff_utc": "2025-02-15T00:00:00Z",
+      "edition": "TC1",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-25-2",
+      "symbol": "PEPEUSDT",
+      "cutoff_utc": "2025-05-15T00:00:00Z",
+      "edition": "NTD",
+      "family": "ENTRY",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-25-3",
+      "symbol": "PEPEUSDT",
+      "cutoff_utc": "2025-08-15T00:00:00Z",
+      "edition": "TC2",
+      "family": "EXIT",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    },
+    {
+      "id": "HIST100-25-4",
+      "symbol": "PEPEUSDT",
+      "cutoff_utc": "2025-11-15T00:00:00Z",
+      "edition": "COURSE",
+      "family": "WAVE",
+      "h1_bars": 1024,
+      "postcutoff_evaluation_h1": 24,
+      "purpose": "DEVELOPMENT_DIAGNOSTIC_NOT_EXPERT_GOLD"
+    }
+  ]
+}
