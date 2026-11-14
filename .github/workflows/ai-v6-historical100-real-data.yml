@@ -54,5 +54,6 @@ jobs:
         with:
           name: Williams-V6-REAL-100-H1-HISTORICAL-CHARTS-NOT-MODEL-EXAM
           path: .hist100_out/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 30
