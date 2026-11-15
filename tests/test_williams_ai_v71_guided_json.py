@@ -1,6 +1,13 @@
 import unittest
 from williams_ai.v71_guided_json_diagnostics import ENFORCER_COMMIT,decode,schema
+from scripts.ai_v71_guided_json_8_h1_submit import _is_missing_private_slug
+
 class V71Tests(unittest.TestCase):
+ def test_kaggle_wrapped_403_valueerror_detected_without_literal_status(self):
+  e=ValueError("Cannot access kernel 'owner/slug' (Permission 'kernels.get' was denied).")
+  self.assertTrue(_is_missing_private_slug(e,"owner","owner/slug"))
+  self.assertFalse(_is_missing_private_slug(e,"other","owner/slug"))
+  self.assertFalse(_is_missing_private_slug(ValueError("Permission denied"),"owner","owner/slug"))
  def test_pin_and_strict_schema(self):
   self.assertEqual(ENFORCER_COMMIT,"d4d9b7cc20937bcd3a643be7a8dafb7b1ca20dfb")
   for family in ("ENTRY","EXIT","WAVE"):self.assertFalse(schema(family)["additionalProperties"])
