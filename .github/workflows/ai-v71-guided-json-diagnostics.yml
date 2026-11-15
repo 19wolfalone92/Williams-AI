@@ -1,0 +1,42 @@
+name: Williams AI v7.1 — pinned LMFE whitespace fix T4 diagnostic
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - williams_ai/v71_guided_json_diagnostics.py
+      - scripts/ai_v71_guided_json_8_h1_worker.py
+      - scripts/ai_v71_guided_json_8_h1_submit.py
+      - tests/test_williams_ai_v71_guided_json.py
+      - .github/workflows/ai-v71-guided-json-diagnostics.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: williams-ai-v71-patched-lmfe-t4
+  cancel-in-progress: false
+jobs:
+  submit-one-kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and run JSON contract tests
+        run: |
+          python -m py_compile williams_ai/v71_guided_json_diagnostics.py scripts/ai_v71_guided_json_8_h1_worker.py scripts/ai_v71_guided_json_8_h1_submit.py
+          python -m unittest tests.test_williams_ai_v71_guided_json -v
+      - name: Install Kaggle client
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
+      - name: Check remaining free quota and submit exactly one private T4 kernel
+        run: python -m scripts.ai_v71_guided_json_8_h1_submit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v71-T4-patched-LMFE-submission
+          path: ${{runner.temp}}/v71_submission.json
+          if-no-files-found: error
