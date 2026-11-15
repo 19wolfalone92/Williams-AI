@@ -6,6 +6,7 @@ on:
       - research/williams_v7_review_targets_20261115.json
       - williams_ai/v7_training_gate.py
       - tests/test_williams_ai_v7_training_gate.py
+      - tests/test_williams_v7_review_targets.py
       - .github/workflows/ai-v7-training-data-approval-gate.yml
   workflow_dispatch:
 
@@ -21,5 +22,5 @@ jobs:
           python-version: '3.11'
       - name: Book-source and human-gold guard
         run: |
-          python -m unittest tests.test_williams_ai_v7_training_gate -v
+          python -m unittest tests.test_williams_ai_v7_training_gate tests.test_williams_v7_review_targets -v
           python -m williams_ai.v7_training_gate --input research/williams_v7_review_targets_20261115.json
