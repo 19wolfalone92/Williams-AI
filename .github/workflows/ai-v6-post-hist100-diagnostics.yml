@@ -1,0 +1,55 @@
+name: Williams AI v6 — postflight 100 CPU + 100 GPU research diagnostics (NO training)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - scripts/ai_v6_hist100_postflight.py
+      - tests/test_ai_v6_hist100_postflight.py
+      - .github/workflows/ai-v6-post-hist100-diagnostics.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-frozen-model-receipts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: 
+          python-version: '3.11'
+      - name: Run fail-closed regression tests, no weights or GPU
+        run: python -m unittest tests.test_ai_v6_hist100_postflight -v
+      - uses: actions/download-artifact@v4
+        with:
+          repository: 19wolfalone92/Williams-AI
+          run-id: 43639364206
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Williams-v6-HIST100-ALL-100-BASE-100-V5-VERIFIED-NO-GOLD
+          path: hist100_cpu
+      - uses: actions/download-artifact@v4
+        with:
+          repository: 19wolfalone92/Williams-AI
+          run-id: 43658377350
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Williams-v6-HIST100-REAL-GPU-100-BASE-100-V5-COMPLETE-NO-GOLD
+          path: hist100_gpu
+      - name: Audit exact 100+100 CPU and GPU, separate technical vs deliberate refusals
+        run: |
+          python -m scripts.ai_v6_hist100_postflight \
+            --cpu hist100_cpu/hist100_complete_base_vs_lora.json \
+            --gpu hist100_gpu/WILLIAMS_V6_HIST100_ALL_100_BASE_100_V5_REAL_GPU_NOT_GOLD.json \
+            --out-json hist100_POSTFLIGHT_NO_GOLD.json \
+            --out-markdown hist100_POSTFLIGHT_RESEARCH_RU.md
+      - name: Archive audit and unapproved expert-review queue
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-hist100-CPU-GPU-postflight-AUDIT-NO-GOLD
+          path: |
+            hist100_POSTFLIGHT_NO_GOLD.json
+            hist100_POSTFLIGHT_RESEARCH_RU.md
+          if-no-files-found: error
+          retention-days: 45
