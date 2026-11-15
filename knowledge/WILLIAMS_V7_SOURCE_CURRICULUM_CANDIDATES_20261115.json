@@ -3,7 +3,7 @@
   "edition_scope": "TC1, NTD, TC2, COURSE original PDFs pinned by SHA-256",
   "created_utc": "2026-11-15T19:30:00Z",
   "status": {
-    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_NINETEEN_RULE_LESSONS",
+    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TWENTY_TWO_RULE_LESSONS",
     "visual_figures": "VISUALLY_INSPECTED_WHERE_REQUIRED",
     "independent_expert_reviews": 0,
     "expert_approval": false,
@@ -820,6 +820,145 @@
       ],
       "unresolved": [
         "The source's five bullets are a confluence/hypothesis framework, not a formally calibrated probability model."
+      ]
+    },
+    {
+      "id": "V7.TC2.WISE_MEN.FIRST_SIGNAL_ALTERNATIVES",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        150,
+        151,
+        152,
+        153,
+        155,
+        156,
+        157,
+        161,
+        162
+      ],
+      "rule_ids": [
+        "TC2.WM1.BAR",
+        "TC2.WM1.ANG",
+        "TC2.WM1.TRIGGER",
+        "TC2.WM2",
+        "TC2.WM3"
+      ],
+      "concept": "Three Wise Men — classic sequence and alternative first signal",
+      "principles": [
+        "Classical progression is WM1 reversal + angulation, WM2 Super AO, WM3 fractal breakout.",
+        "TC2 explicitly allows a valid outside-mouth WM3 fractal or Super AO WM2 signal to be the first entry when it activates before WM1.",
+        "After any accepted first entry, later valid signals in the same direction may add to the campaign; direction and Alligator filter still apply.",
+        "For WM3, a fractal formation is not enough: activation must occur on the correct side of Teeth."
+      ],
+      "required_sequence": [
+        "CLASSIFY_WHICH_WISE_MAN_FIRST_ACTIVATED",
+        "VERIFY_BOOK_FILTERS_FOR_THAT_SIGNAL",
+        "ARM_STOP_BEYOND_CORRESPONDING_PRICE_EXTREME",
+        "WAIT_FOR_TRIGGER_AND_EXCHANGE_FILL",
+        "ALLOW_LATER_SAME_DIRECTION_SIGNALS_AS_ADDS"
+      ],
+      "invalid_inferences": [
+        "Requiring WM1 before any WM2 or WM3 entry in all cases.",
+        "Treating any AO histogram change or untriggered fractal as entry.",
+        "Confusing NTD AO Saucer/Zero Cross/Twin Peaks with TC2 WM2."
+      ],
+      "unresolved": [
+        "The TC2 text describes WM2 with AO histogram bars in chapter 10 and linked price bars in chapter 12; implementation must align their timestamps and colour mapping."
+      ]
+    },
+    {
+      "id": "V7.TC2.CAMPAIGN.REVERSE_PYRAMID_AND_TRAILING",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        154,
+        155,
+        156,
+        157,
+        158,
+        161,
+        164,
+        165
+      ],
+      "rule_ids": [
+        "TC2.WM1.STOP",
+        "TC2.WM2",
+        "TC2.WM3",
+        "TC2.CAMPAIGN"
+      ],
+      "concept": "TC2 campaign adds, reverse pyramid and 3/5-bar trailing stop",
+      "principles": [
+        "Initial WM1 entry is a stop beyond the reversal bar; initial protection sits beyond the opposite extreme of that signal bar.",
+        "WM2 adds after the required third sequential AO/associated price-bar condition; WM3 fractal adds after correct trigger and Teeth-at-activation filter.",
+        "After adds, the trailing protective stop may sit one or two ticks beyond the lowest low of the latest 3 or 5 completed price bars for long; short uses highest high, chosen for suitable breathing room.",
+        "Reverse pyramid begins with the smallest initial position, scales larger as a campaign becomes profitable/confirmed, then reduces later add sizes.",
+        "The book's 1-5-4-3-2 contracts example on a total 15-contract capacity is illustrative, not a universal risk percentage or a Binance Futures sizing rule."
+      ],
+      "required_sequence": [
+        "VERIFY_POSITION_AND_AVAILABLE_RISK",
+        "ENTER_INITIAL_MINIMUM_SIZE",
+        "WAIT_FOR_WM2_OR_WM3_TRIGGER",
+        "ADD_ONLY_AFTER_CONFIRMATION",
+        "UPDATE_TRAILING_3_OR_5_COMPLETED_BAR_STOP",
+        "RECONCILE_BROKER_STOP_AND_POSITION"
+      ],
+      "invalid_inferences": [
+        "Importing 1-5-4-3-2 as a mandatory size model for every market/account.",
+        "Updating trailing stop from an unclosed candle.",
+        "Adding on a setup that has not triggered.",
+        "Treating book example fills as modern exchange fills."
+      ],
+      "unresolved": [
+        "Exact allocation must be separately adapted to futures leverage, volatility, margin and user risk limits; this is beyond TC2's fixed examples."
+      ]
+    },
+    {
+      "id": "V7.TC2.EXITS.TRAILING_VS_REVERSE_AND_PARTIAL_CLOSE",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        131,
+        154,
+        155,
+        156,
+        157,
+        158,
+        161,
+        163,
+        164,
+        165
+      ],
+      "rule_ids": [
+        "TC2.REVERSE",
+        "TC2.CAMPAIGN",
+        "TC2.WM1.TRIGGER",
+        "TC2.WM2",
+        "TC2.WM3"
+      ],
+      "concept": "TC2 trailing exit vs activated reverse and optional partial close",
+      "principles": [
+        "The chapter 12 common exit is a long price breaking below the lowest low of the preceding three/five bars; short is the highest high of three/five bars.",
+        "In most campaigns this trailing exit happens before a new opposite-side signal appears; a signal appearance alone does not close an open position.",
+        "TC2 chapter 9 stop-and-reverse is a separate case: a qualifying opposite WM1 setup must pass its book filters and its price trigger must activate before closing the old side and opening the reverse side.",
+        "Partial close, including the example of closing half and trailing the remainder, is optional and depends on campaign/risk psychology; not a universal fraction."
+      ],
+      "required_sequence": [
+        "CHECK_EXISTING_POSITION_STATE",
+        "SELECT_TRAILING_OR_VALID_REVERSE_MECHANISM",
+        "WAIT_FOR_CLOSED_BAR_TRIGGER",
+        "CREATE_EXIT_OR_REVERSE_INTENT",
+        "CONFIRM_BROKER_FILL",
+        "UPDATE_POSITION_STATE_AFTER_RECONCILIATION"
+      ],
+      "invalid_inferences": [
+        "Closing solely because an opposite WM signal or AO colour appears.",
+        "Confusing trailing exit with stop-and-reverse.",
+        "Forcing a fixed half-close in all positions.",
+        "Marking the position closed before broker fill."
+      ],
+      "unresolved": [
+        "Order-level implementation and partial-fill handling remain engineering requirements outside this book example."
       ]
     }
   ],
