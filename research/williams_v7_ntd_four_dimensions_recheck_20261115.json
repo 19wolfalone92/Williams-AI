@@ -85,6 +85,48 @@
         "NTD.AC"
       ],
       "scope": "Green/red/gray based on AO+AC, add at close with price confirmation, stop zone add after fifth same-colour bar."
+    },
+    {
+      "id": "RULE_CHECK_015",
+      "pages": [
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        114
+      ],
+      "rule_ids": [
+        "NTD.BALANCE",
+        "NTD.ALLIGATOR",
+        "NTD.ZONE",
+        "NTD.ZONE.ADDED"
+      ],
+      "scope": "Full base/one-vs-two/extreme procedure, pending-stop replacement / special blue light, Alligator mouth filter, zone-based doubling for adverse-side Balance Line signal."
+    },
+    {
+      "id": "RULE_CHECK_016",
+      "pages": [
+        115,
+        116,
+        117,
+        118,
+        119,
+        120
+      ],
+      "rule_ids": [
+        "NTD.EXITS",
+        "NTD.ALLIGATOR",
+        "NTD.ZONE",
+        "NTD.AO",
+        "NTD.AC"
+      ],
+      "scope": "Four exit approaches: Teeth close-only; five same-color bars trailing stop; Lips line for running markets; lowest-preference opposite-direction signal as exit rather than automatic reverse."
     }
   ]
 }

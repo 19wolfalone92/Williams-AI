@@ -3,7 +3,7 @@
   "edition_scope": "TC1, NTD, TC2, COURSE original PDFs pinned by SHA-256",
   "created_utc": "2026-11-15T19:30:00Z",
   "status": {
-    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TEN_RULES",
+    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_SIXTEEN_RULE_LESSONS",
     "visual_figures": "VISUALLY_INSPECTED_WHERE_REQUIRED",
     "independent_expert_reviews": 0,
     "expert_approval": false,
@@ -579,6 +579,103 @@
       ],
       "unresolved": [
         "Конкретные broker fills/размер позиции и риск-лимит не определяются зоной; OHLC close не подтверждает исполнение ордера."
+      ]
+    },
+    {
+      "id": "V7.NTD.BALANCE.ZONE.ALLIGATOR_FILTERS",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        114
+      ],
+      "rule_ids": [
+        "NTD.BALANCE",
+        "NTD.ALLIGATOR",
+        "NTD.ZONE",
+        "NTD.ZONE.ADDED"
+      ],
+      "concept": "Balance Line base/trigger plus Alligator and adverse-Zone filters",
+      "principles": [
+        "Balance Line signal starts from a base bar and is scanned right-to-left; highs are used for buy and lows for sell. A lower high may replace a buy base; a higher low may replace a sell base under the described special-blue-light procedure.",
+        "From the Balance Line one new extreme is required; toward the line two new extremes are required. Ordinary later higher highs do not necessarily move a pending buy trigger once the base is established.",
+        "Filter one: do not buy below the Alligator mouth and do not sell above it.",
+        "Filter two: double the base count for a BUY setup in the Red Zone and for a SELL setup in the Green Zone. The base one/two count depends first on the price's position relative to Balance Line; doubling is an additional filter, not replacement.",
+        "Other side/zone combinations retain normal count. Gray Zone is transitional; zone context is read from AO and AC, not candle colour alone."
+      ],
+      "required_sequence": [
+        "SCAN_RIGHT_TO_LEFT_AND_SELECT_BASE",
+        "DETERMINE_PRICE_SIDE_OF_BALANCE_LINE",
+        "CALCULATE_BASE_ONE_OR_TWO_EXTREMES",
+        "APPLY_ALLIGATOR_MOUTH_DIRECTION_FILTER",
+        "APPLY_ADVERSE_ZONE_DOUBLE_COUNT_IF_REQUIRED",
+        "KEEP_OR_REPLACE_PENDING_TRIGGER_ON_NEW_BASE_ONLY",
+        "WAIT_FOR_PRICE_TRIGGER"
+      ],
+      "invalid_inferences": [
+        "Treating every new higher high as a new buy base.",
+        "Applying only one/two count without checking the adverse Zone doubling.",
+        "Buying below Alligator mouth or selling above it.",
+        "Treating the Zone as if it were the Balance Line itself."
+      ],
+      "unresolved": [
+        "Special-blue-light base migration must be implemented against the exact source pattern; translation and diagrams need independent reviewer sign-off."
+      ]
+    },
+    {
+      "id": "V7.NTD.EXITS.FOUR_MARKET_DECISIONS",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        115,
+        116,
+        117,
+        118,
+        119,
+        120
+      ],
+      "rule_ids": [
+        "NTD.EXITS",
+        "NTD.ALLIGATOR",
+        "NTD.ZONE",
+        "NTD.AO",
+        "NTD.AC"
+      ],
+      "concept": "NTD: Teeth close-only, five bars, running-market Lips and opposite-signal exits",
+      "principles": [
+        "NTD describes four market-derived profit-taking mechanisms: close-only Teeth line; five consecutive same-colour bars and trailing protection; Green Lips line for a running market; opposite-direction qualifying signal.",
+        "After five green bars in a long trade, the initial protective stop is one tick below the fifth bar's low; after five red bars in short, one tick above the fifth bar's high. Thereafter trail against subsequent completed bars and preserve the stop until actual exit.",
+        "Green Lips is for a running market when the price trajectory angle is steeper than the Green line; its value is set for the next period and applied as a close-only protective stop.",
+        "The opposite-direction signal is the least-preferred exit mechanism, described as an alarm/exit decision; usually exit rather than automatically reverse. A long-position sell signal should be on the correct side of Alligator mouth, and a short-position buy signal likewise.",
+        "If a position has exited, a later same-direction re-entry requires a valid signal from the five dimensions and the price outside Alligator mouth."
+      ],
+      "required_sequence": [
+        "VERIFY_POSITION_AND_TREND_CONTEXT",
+        "SELECT_AVAILABLE_EXIT_MECHANISM",
+        "OBSERVE_CLOSED_BAR_OR_TRIGGER",
+        "ARM_NEXT_PERIOD_CLOSE_ONLY_STOP_WHEN_REQUIRED",
+        "EXECUTE_BROKER_EXIT",
+        "VERIFY_CONFIRMED_FILL",
+        "ONLY_THEN_UPDATE_POSITION_STATE"
+      ],
+      "invalid_inferences": [
+        "Treating a wick through Teeth as a close-only exit.",
+        "Using Green Lips in every ordinary trend instead of the running-market condition.",
+        "Closing immediately on any opposite setup without validating the relevant side of the Alligator.",
+        "Automatically reversing the position when NTD labels an opposite-direction signal.",
+        "Treating the OHLC stop trigger as a confirmed broker fill."
+      ],
+      "unresolved": [
+        "A live derivative exchange needs an explicit translation of close-only rules into order monitoring and gap handling; the book's historical examples do not supply modern exchange reconciliation."
       ]
     }
   ],

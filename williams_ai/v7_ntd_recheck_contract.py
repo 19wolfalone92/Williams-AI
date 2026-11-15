@@ -1,4 +1,4 @@
-"""Check four NTD primary-source rechecks; no labels/training authority."""
+"""Validate six NTD primary-source rechecks; no labels/training authority."""
 from __future__ import annotations
 import argparse,json
 from pathlib import Path
@@ -10,7 +10,7 @@ def validate(x):
  if x.get("book")!="NTD" or x.get("source_pdf_sha256")!=PDF_SHA["NTD"]:raise ValueError("NTD_RECHECK_SOURCE_HASH")
  if x.get("expert_reviews")!=0 or x.get("model_labels")!=0 or x.get("training_approved") is not False:raise ValueError("NTD_RECHECK_GOLD_LEAK")
  cards={c["id"]:c["source"] for c in registry()["rule_cards"]}
- if len(x.get("reviews",[]))!=4:raise ValueError("NTD_RECHECK_EXPECTED_FOUR")
+ if len(x.get("reviews",[]))!=6:raise ValueError("NTD_RECHECK_EXPECTED_SIX")
  seen=set()
  for r in x["reviews"]:
   if r.get("id") in seen or not r.get("rule_ids"):raise ValueError("NTD_RECHECK_DUPLICATE")

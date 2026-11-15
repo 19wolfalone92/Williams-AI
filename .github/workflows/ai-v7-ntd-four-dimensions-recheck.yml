@@ -1,4 +1,4 @@
-name: Williams AI v7 — NTD Alligator AO AC and Zone source rechecks
+name: Williams AI v7 — NTD source rechecks
 on:
   push:
     branches: [research/williams-v6-post-hist100-evidence-20261115]
@@ -10,6 +10,8 @@ on:
       - research/WILLIAMS_V7_RULE_CHECK_012_*
       - research/WILLIAMS_V7_RULE_CHECK_013_*
       - research/WILLIAMS_V7_RULE_CHECK_014_*
+      - research/WILLIAMS_V7_RULE_CHECK_015_*
+      - research/WILLIAMS_V7_RULE_CHECK_016_*
       - .github/workflows/ai-v7-ntd-four-dimensions-recheck.yml
   workflow_dispatch:
 permissions:
@@ -22,7 +24,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Check SHA, pages, rule IDs and no labels
+      - name: Check PDF SHA, pages, rule IDs and no labels
         run: |
           python -m unittest tests.test_williams_ai_v7_ntd_recheck_contract -v
           python -m williams_ai.v7_ntd_recheck_contract --input research/williams_v7_ntd_four_dimensions_recheck_20261115.json
