@@ -1,3 +1,5 @@
+> ✅ **АРХИВНАЯ ПРОМЕЖУТОЧНАЯ ВЕРСИЯ.** Полный 100×2 реальный GPU-прогон уже завершён. См. актуальный [ФИНАЛЬНЫЙ отчёт Williams AI v6](https://github.com/19wolfalone92/Williams-AI/blob/research/williams-v6-hist100-hybrid-gpu-20261115/research/WILLIAMS_V6_HIST100_100_BASE_100_V5_FINAL_GPU_RESULTS_20261115_RU.md) и [GitHub Actions 43658377350](https://github.com/19wolfalone92/Williams-AI/actions/runs/43658377350). Информация ниже сохранена только как хронология состояния 98/100.
+
 # Williams AI v6 — доказанный промежуточный итог исторического экзамена 100 H1
 
 **Дата:** 2026-11-15. **Статус: НЕ завершено**. Это исследовательские предсказания, не сертификат торговых сигналов.
