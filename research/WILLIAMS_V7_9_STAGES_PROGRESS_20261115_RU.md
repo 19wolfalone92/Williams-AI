@@ -7,15 +7,25 @@
 - Формальная перекрёстная проверка: [postflight CI 43718298629 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43718298629), [artifact 14163615724](https://github.com/19wolfalone92/Williams-AI/actions/runs/43718298629/artifacts/14163615724). Проверены 100 SHA-пиннинг case/chart исходного корпуса, исходный CPU full prompt SHA записан в GPU output и совпадает; отдельные счётчики `technical ABSTAIN` vs `model ABSTAIN`, нет gold.
 - **Неизвестно:** правильность торговых сигналов, 95–99% знание книг, PnL. Никакой независимой экспертной проверки 100 рыночных решений не было.
 
-## 2. Декодер: РЕАЛИЗОВАН ПРОТОТИП + ЗАПУЩЕН НАСТОЯЩИЙ ПИЛОТ
+## 2. Декодер: РЕАЛЬНЫЙ T4 PILOT ЗАВЕРШЁН, ФОРМАТНЫЙ РЕЗУЛЬТАТ НЕУДОВЛЕТВОРИТЕЛЕН
 
-- Новый, **не меняющий старую модель/веса**, модуль `williams_ai/v7_structured_decoder.py`: schema-guided JSON с `lm-format-enforcer==0.11.3`, проверкой enum решения по ENTRY/EXIT/WAVE, bounded `reason`, явный `decision=null` при формате/length/инфраструктурной ошибке (не подделывать модельный `ABSTAIN`).
+- Новый, **не меняющий старую модель/веса**, модуль `williams_ai/v7_structured_decoder.py`: schema-guided JSON с `lm-format-enforcer==0.11.3`, enum решения по ENTRY/EXIT/WAVE, bounded `reason`, явный `decision=null` при формате/length/инфраструктурной ошибке (не подделывать модельный `ABSTAIN`).
 - [Контрактные unit-тесты и загрузка JSON grammar SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43718621379).
-- [Реальный восемь × два T4-пилот](https://github.com/19wolfalone92/Williams-AI/actions/runs/43719042676): те же исторические prompt/chart SHA, model Base против authentic v5 LoRA, только **format reliability** vs оригинальный v6 на этих же 8. Статус на момент записи: **in_progress**, не заявлять выигрыш без реального завершившегося artifact. Переобучения в пилоте нет.
+- Первоначальный [T4 run 43719042676](https://github.com/19wolfalone92/Williams-AI/actions/runs/43719042676): submit прошёл, но audit monitor остановился после 225 проверок со статусом `KERNELWORKERSTATUS.QUEUED`. Это не доказывало сбой kernel.
+- Исправленный [read-only reuse/check run 43739479560](https://github.com/19wolfalone92/Williams-AI/actions/runs/43739479560): оба jobs SUCCESS; уже существующий kernel переиспользован, `new_kernel_submitted=false`, Kaggle вернул `KERNELWORKERSTATUS.COMPLETE`.
+- Реальный [artifact 14172295276](https://github.com/19wolfalone92/Williams-AI/actions/runs/43739479560/artifacts/14172295276), SHA-256 ZIP `5592a2790e0c22a08677a7c7dda5baa54fde5797d5a472a29b7d1a48feee2ba6). Проверено 8 одинаковых запросов Base/v5, по 2 на TC1/NTD/TC2/COURSE, одинаковые chart/prompt SHA, pinned Qwen3-4B revision и authentic v5 adapter SHA.
+- Технические завершения: Base v6 `stop=3,error=5,length=0`; Base v7 `stop=2,error=6,length=0`; v5 LoRA v6 `stop=5,error=2,length=1`; v5 LoRA v7 `stop=4,error=4,length=0`. Все ошибки v7 — `INVALID_JSON`: 6/8 Base и 4/8 LoRA. Это **не ABSTAIN и не книжная точность**. В v7 валидно получены 2 `WAVE_HYPOTHESIS` у Base и 2 `ABSTAIN` + 2 `WAVE_HYPOTHESIS` у LoRA.
+- Raw artifact сохраняет output SHA, но не невалидный текст; точную причину каждого `INVALID_JSON` нельзя восстановить. Повторный GPU-прогон и переобучение не запускались. Подробности: [отчёт Stage 2](WILLIAMS_V7_GUIDED_JSON_8CASE_PILOT_RESULTS_20261115_RU.md).
 
-## 3. Сверка первоисточников: ВЫПОЛНЕНА ВЫБОРОЧНО, НЕ ВСЯ
+## 3. Сверка первоисточников: ВЫБОРОЧНО ПРОВЕРЕНА, НЕ ВСЯ
 
-[Документ целевых первичных страниц](research/WILLIAMS_AI_V6_PRIMARY_BOOK_SPOTCHECK_AND_GAPS_20261115_RU.md): TC1 PDF72–74/89–93; NTD99/103–104; TC2 121–124,135–139,147–149; Course графические страницы 43–45. Проверены фрактальная отмена, Balance Line 1 vs 2 новых уровней, WM1 angulation, WM2 3 AO-изменения, WM3 Teeth именно на *activation*, W4 переход через AO=0 минимальное условие, а не завершение W4. **Это не проход всех 642 страниц**; не выдавать за самостоятельные gold labels.
+[Первичный spot-check четырёх книг](WILLIAMS_AI_V6_PRIMARY_BOOK_SPOTCHECK_AND_GAPS_20261115_RU.md): TC1 PDF72–74/89–93; NTD99/103–104; TC2 121–124,135–139,147–149; Course графические страницы 43–45. Проверены фрактальная отмена, Balance Line 1 vs 2 новых уровней, WM1 angulation, WM2 3 AO-изменения, WM3 Teeth именно на *activation*, W4 переход через AO=0 как минимальное условие, а не завершение W4. **Это не проход всех 642 страниц** и не gold-разметка.
+
+- Дополнительно завершена точная сверка **RULE_CHECK_005 / TC2 WM1 angulation** по оригинальному Library PDF с совпавшим SHA-256 `055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f`.
+- Физические PDF pages 121–124 соответствуют печатным страницам 106–109. Визуально проверены Figure 9.1–9.5, включая отрицательный UOPX пример.
+- Зафиксированы четыре source rules: начать там, где цена пересекает/проходит пасть Alligator; проследить линию пасти (Jaw и Teeth важнее Lips); проследить нижние края цен при росте и верхние при падении; требовать явного и увеличивающегося расхождения двух траекторий. Параллельные траектории не дают валидной ангуляции.
+- В этих страницах **нет** численного порога наклона, фиксированного lookback или формулы регрессии. Расстояние от Jaw само по себе недостаточно. Это не даёт права изобретать числовое правило или автоматически менять декодер/бот.
+- [Отчёт RULE_CHECK_005](WILLIAMS_V7_RULE_CHECK_005_TC2_ANGULATION_PRIMARY_SOURCE_RECHECK_20261115_RU.md). Машинная запись добавлена в review backlog; [CI #43743422164 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43743422164). Независимых рецензентов по-прежнему 0.
 
 ## 4. Пробелы: ВЫЯВЛЕНЫ
 
