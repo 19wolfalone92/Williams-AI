@@ -18,7 +18,7 @@ class V7SourceReviewBacklogTests(unittest.TestCase):
         review = case["source_recheck"]
         self.assertEqual(review["confirmed_pages"], [131, 149, 150, 151])
         self.assertTrue(review["visual_diagram_page_150_reviewed"])
-        self.assertIn("not an opposite-signal", review["excluded_page_164"])
+        self.assertIn("creative-process", review["excluded_page_164"])\n        self.assertIn("not establish an opposite trading signal", review["excluded_page_164"])
         self.assertFalse(review["independent_experts_verified"])
         self.assertEqual(review["reviewer_signatures_received"], 0)
         self.assertFalse(review["approved_for_SFT"])
