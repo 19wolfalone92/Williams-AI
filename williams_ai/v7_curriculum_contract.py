@@ -14,7 +14,7 @@ def validate(data):
   raise ValueError("V7_CURRICULUM_PREMATURE_APPROVAL")
  cards=registry()["rule_cards"];allowed={x["id"]:x["source"] for x in cards}
  if type(data.get("lesson_cards")) is not list or len(data["lesson_cards"])!=10:
-  raise ValueError("V7_CURRICULUM_EXPECTED_TEN_SPOTCHECK_LESSONS")
+  raise ValueError("V7_CURRICULUM_EXPECTED_FOURTEEN_SOURCE_SPOTCHECK_LESSONS")
  seen=set()
  def reject(obj):
   if isinstance(obj,dict):

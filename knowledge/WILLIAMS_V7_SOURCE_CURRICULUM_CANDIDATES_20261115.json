@@ -390,6 +390,196 @@
       "unresolved": [
         "Волновой счёт и W4 completion остаются гипотезами, пока дополнительные ценовые/структурные подтверждения не получены."
       ]
+    },
+    {
+      "id": "V7.NTD.ALLIGATOR.THREE_BALANCE_LINES",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "rule_ids": [
+        "NTD.ALLIGATOR",
+        "NTD.FRACTAL"
+      ],
+      "concept": "Аллигатор: три Balance Line, фаза сна и направление",
+      "principles": [
+        "Аллигатор — три линии баланса разных временных порядков: Jaw 13-period SMMA +8; Teeth 8-period SMMA +5; Lips 5-period SMMA. На PDF 36 есть внутренняя несогласованность перевода Lips shift: в одном предложении +2, но Figure 3-4 и последующее резюме указывают +3; это расхождение нельзя скрывать или автоматически разрешать.",
+        "Переплетение трёх линий описывает спящую фазу/диапазон; в этот период NTD не рекомендует открывать новые трендовые сделки.",
+        "Когда цена находится выше пасти, направление стратегии — long; ниже пасти — short. После первого действительного внешнего фрактала открывается использование направленных сигналов пяти измерений в том же направлении.",
+        "В NTD описана первая защитная остановка внутри Teeth с правилом stop-only-on-close; при движении в пользу сделки остановка сопровождается после пяти последовательных price bars одного цвета."
+      ],
+      "required_sequence": [
+        "COMPUTE_THREE_BALANCE_LINES_WITH_SHIFT",
+        "CLASSIFY_SLEEP_OR_WAKE",
+        "PRICE_SIDE_OF_MOUTH",
+        "WAIT_FOR_VALID_EXTERNAL_FRACTAL",
+        "SELECT_DIRECTIONAL_SIGNALS_ONLY",
+        "INITIAL_CLOSE_ONLY_PROTECTIVE_STOP"
+      ],
+      "invalid_inferences": [
+        "Считать Jaw/Teeth/Lips несмещёнными обычными SMA.",
+        "Считать сон Alligator сигналом к противоположному входу.",
+        "Скрывать расхождение Lips shift +2/+3 русского текста.",
+        "Считать плановый close-only stop уже выставленным или исполненным на бирже."
+      ],
+      "unresolved": [
+        "Нужна сверка спорного сдвига Lips с английской редакцией и диаграммой; фраза PDF 38 о первом фрактале «внутри челюсти» требует сопоставления с требованиями внешнего фрактала на PDF 35/39."
+      ]
+    },
+    {
+      "id": "V7.NTD.AO.SAUCER_CROSS_TWIN_PEAKS",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71
+      ],
+      "rule_ids": [
+        "NTD.AO",
+        "NTD.ALLIGATOR",
+        "NTD.FRACTAL"
+      ],
+      "concept": "AO в NTD: Saucer, Zero Line Cross и Twin Peaks",
+      "principles": [
+        "АО NTD — histogram momentum; green означает, что текущий столбец выше предыдущего, red — ниже. Цвет не говорит сам по себе, находится ли AO выше или ниже нулевой линии.",
+        "АО-сигналы применяются только после первого действительного фрактала в направлении сделки за пределами пасти Alligator и не противоречат направлению контекста.",
+        "Три buy patterns: Saucer выше нуля; Zero Line Cross снизу вверх; Twin Peaks ниже нуля, где второй минимум менее отрицательный, чем первый и нулевая линия не пересекается между пиками.",
+        "Три sell patterns зеркальны по смыслу: Saucer ниже нуля; Zero Line Cross сверху вниз; Twin Peaks выше нуля, где второй максимум ниже первого, а нулевая линия не пересекается между пиками.",
+        "Сигнальная свеча / AO bar имеет требуемый цвет и цену trigger привязывают к соответствующему price bar: buy stop high+1 tick; sell stop low−1 tick.",
+        "Если AO пересекает ноль между Twin Peaks, Twin Peaks invalid, а пересечение может образовать отдельный Zero Line Cross signal. Если текущий AO color разворачивается до срабатывания price trigger, прежний pending signal отменяется по описанным правилам."
+      ],
+      "required_sequence": [
+        "VERIFY_FIRST_EXTERNAL_FRACTAL_AND_ALLIGATOR_DIRECTION",
+        "CLASSIFY_AO_SIGN_AND_BAR_TO_BAR_COLOR",
+        "MATCH_ONE_OF_THREE_BOOK_PATTERNS",
+        "CHECK_NO_ZERO_CROSS_BETWEEN_TWIN_PEAKS",
+        "MAP_SIGNAL_TO_CORRESPONDING_PRICE_BAR",
+        "PLACE_ONE_TICK_STOP",
+        "WAIT_FOR_TRIGGER_OR_CANCEL_ON_COLOR_CHANGE",
+        "CONFIRM_FILL_SEPARATELY"
+      ],
+      "invalid_inferences": [
+        "Смешивать AO color с положительным/отрицательным значением histogram.",
+        "Принимать Twin Peaks после пересечения нуля между пиками.",
+        "Считать AO Zero Cross и AC Zero Cross одним сигналом.",
+        "Считать signal candle, pending stop и broker fill одним событием."
+      ],
+      "unresolved": [
+        "В данной книге AO patterns формируют три отдельных типа buy и sell signals; нужно хранить точную редакцию правил отдельно от TC2 Super AO WM2."
+      ]
+    },
+    {
+      "id": "V7.NTD.AC.ACCELERATION_SIGNAL_COUNTS",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80
+      ],
+      "rule_ids": [
+        "NTD.AC",
+        "NTD.AO"
+      ],
+      "concept": "AC: ускорение, цветовая последовательность и роль zero-line",
+      "principles": [
+        "AC в NTD описывает ускорение/замедление AO momentum. Green histogram bar выше предыдущего; red ниже предыдущего.",
+        "AC zero-line crossing НЕ является самостоятельным AC signal. Сторона нуля меняет число последовательных направленных histogram bars, необходимых для паттерна.",
+        "BUY при AC выше нуля: после красной впадины требуются два последовательно более высоких green столбца; trigger — high совпадающего ценового бара +1 tick. BUY ниже нуля: три более высоких green столбца.",
+        "SELL при AC ниже нуля: после зелёного пика нужны два последовательно более низких red столбца; trigger — low соответствующего ценового бара −1 tick. SELL выше нуля: три более низких red столбца.",
+        "Если AC пересекает ноль во время развивающейся последовательности, crossing может изменить требуемый count; он не создаёт самостоятельный AC signal.",
+        "Требуемые higher highs/lower lows histogram следует считать от последней swing впадины/вершины, а соответствующий ценовой экстремум брать из того же временного сегмента."
+      ],
+      "required_sequence": [
+        "IDENTIFY_LAST_AC_SWING_EXTREME",
+        "DETERMINE_AC_SIGN_RELATIVE_TO_ZERO",
+        "COUNT_DIRECTIONAL_COLOR_BARS_TWO_OR_THREE",
+        "TREAT_ZERO_CROSS_AS_COUNT_MODIFIER_ONLY",
+        "MAP_SIGNAL_BAR_TO_PRICE_BAR",
+        "PLACE_ONE_TICK_STOP",
+        "WAIT_FOR_TRIGGER_AND_FILL_SEPARATELY"
+      ],
+      "invalid_inferences": [
+        "Принимать AC zero-cross за сигнал сам по себе.",
+        "Считать любое количество двух/трёх подряд баров без поиска базового swing.",
+        "Путать AO zero-line cross со сменой count в AC.",
+        "Не сопоставлять signal histogram bar с соответствующим price bar."
+      ],
+      "unresolved": [
+        "Перевод книги на отдельных местах неидеален; алгоритм должен фиксировать точные экстремумы и смену цветов без выдуманных углов или lookback."
+      ]
+    },
+    {
+      "id": "V7.NTD.ZONES.AO_AC_PRICE_ADDITION",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        91,
+        92,
+        93
+      ],
+      "rule_ids": [
+        "NTD.ZONE",
+        "NTD.ZONE.ADDED",
+        "NTD.AO",
+        "NTD.AC"
+      ],
+      "concept": "NTD MAP и торговые зоны: AO + AC + price close",
+      "principles": [
+        "Zone определяется согласованностью AO и AC: оба растут относительно предыдущих столбцов — Green Zone; оба падают — Red Zone; цвета различаются — Gray Zone.",
+        "Green Zone означает momentum и acceleration в пользу long; Red Zone — в пользу short; Gray Zone — переход и необходимость осторожности.",
+        "В главе 7 Zone прежде всего управляет добавлением к уже существующей позиции, а не заменяет первичные правила первого входа.",
+        "Для добавления long должны быть одновременно AO up, AC up и более высокое price close; для short — AO down, AC down и более низкое price close. Пример NTD показывает проверку условий на close бара.",
+        "Пока карта AO/AC/price сохраняется, возможно дальнейшее добавление на закрытии последующих баров; при смене цвета добавление на основании Zone прекращается, но отдельные сигналы пяти измерений в том же трендовом направлении могут оставаться допустимыми.",
+        "После пятого последовательного price bar одного цвета NTD рекомендует остановить дальнейшие zone-based additions; это не означает закрыть саму позицию или отключить другие сигналы."
+      ],
+      "required_sequence": [
+        "VERIFY_EXISTING_POSITION_AND_DIRECTION",
+        "CLASSIFY_AO_COLOR",
+        "CLASSIFY_AC_COLOR",
+        "CLASSIFY_GREEN_RED_OR_GRAY_ZONE",
+        "REQUIRE_PRICE_CLOSE_CONFIRMATION",
+        "ADD_ONLY_ON_CLOSED_BAR",
+        "STOP_ZONE_ADDS_AFTER_FIFTH_SAME_COLOR_BAR",
+        "RETAIN_OTHER_VALID_DIRECTIONAL_SIGNALS"
+      ],
+      "invalid_inferences": [
+        "Открывать первичную позицию только по цвету Zone без фрактального/Alligator контекста.",
+        "Считать изменение цены без синхронного AO+AC достаточной зоной.",
+        "Продолжать добавления в Gray Zone.",
+        "Закрывать всю позицию автоматически после пятого одноцветного бара."
+      ],
+      "unresolved": [
+        "Конкретные broker fills/размер позиции и риск-лимит не определяются зоной; OHLC close не подтверждает исполнение ордера."
+      ]
     }
   ],
   "cross_book_confusion_guards": [
