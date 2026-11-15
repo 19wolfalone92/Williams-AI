@@ -1,0 +1,21 @@
+name: Williams AI v7 — edition/family mandatory retrieval profile tests (no model inference)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - williams_ai/v7_edition_family_retrieval.py
+      - tests/test_williams_ai_v7_edition_family_retrieval.py
+      - .github/workflows/ai-v7-edition-family-retrieval.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-book-specific-evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test mandatory source coverage, no cross-edition leakage and fail-closed behaviour
+        run: python -m unittest tests.test_williams_ai_v7_edition_family_retrieval -v
