@@ -103,7 +103,7 @@ def summarize(rows):
         "model_abstain_count_not_expert_verified":sum(x["decision"]=="ABSTAIN" and x["finish_reason"]=="stop" for x in ordered),
         "exactly_240_char_reasons":sum(len(s)==240 for s in reasons),
         "exact_insufficient_reason_non_insufficient_label":sum(
-            x.get("model_reason","").strip().upper()=="INSUFFICIENT_DATA"
+            (x.get("model_reason") or "").strip().upper()=="INSUFFICIENT_DATA"
             and x["decision"] not in ("INSUFFICIENT_DATA","ABSTAIN")
             for x in ordered),
         "unique_nonempty_reasons":len(set(reasons)),
