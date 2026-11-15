@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   submit-one-private-T4:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -36,17 +37,19 @@ jobs:
           python -m unittest tests.test_williams_ai_v7_structured_decoder tests.test_ai_v7_guided_json_8_h1 -v
       - name: Install private Kaggle client
         run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
-      - name: Check authentic original LoRA and free quota then submit 1 pinned eight-case T4
+      - name: Reuse existing private T4 kernel or submit exactly once
         run: python -m scripts.ai_v7_guided_json_8_h1_submit
       - uses: actions/upload-artifact@v4
         with:
-          name: Williams-V7-T4-guided-8-SUBMISSION-NOT-RESULTS
+          name: Williams-V7-T4-SUBMISSION-OR-REUSE-NOT-RESULTS
           path: ${{runner.temp}}/v7_guided_pilot_submission.json
           if-no-files-found: error
+
   independent-eight-format-audit:
     needs: submit-one-private-T4
+    if: always() && needs.submit-one-private-T4.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 20
     env:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
       PYTHONUNBUFFERED: '1'
@@ -64,9 +67,19 @@ jobs:
           path: baseline_v6
       - name: Install read-only Kaggle client
         run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
-      - name: Verify exact matching original chart and prompt hashes and real v7 model output
+      - name: Check existing T4 once and validate paired output only when complete
+        id: monitor
         run: python -m scripts.ai_v7_guided_json_8_h1_monitor
-      - name: Preserve genuine eight-case v7 and immutable before-after format metrics
+      - name: Preserve read-only Kaggle status (also when queued/running)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V7-T4-KERNEL-STATUS-NOT-RESULTS
+          path: ${{runner.temp}}/v7_guided_kernel_status.json
+          if-no-files-found: warn
+          retention-days: 45
+      - name: Upload genuine paired v7 answers and same-prompt v6 comparison
+        if: steps.monitor.outputs.state == 'complete'
         uses: actions/upload-artifact@v4
         with:
           name: Williams-V7-T4-REAL-GUIDED-8-vs-V6-RAW-NO-GOLD
