@@ -1,7 +1,7 @@
 """Read-only one-shot status/result fetch for the already submitted v7.1 private T4 kernel.
 
 Never submits a kernel, never retrains weights, never runs new inference.
-Second read-only queue poll after source curriculum expansion; no execution trigger.
+Third read-only status poll after completion of the 29-lesson curriculum audit. This job may only inspect/download the existing kernel; no execution trigger, resubmission or new inference.
 """
 from __future__ import annotations
 from collections import Counter
