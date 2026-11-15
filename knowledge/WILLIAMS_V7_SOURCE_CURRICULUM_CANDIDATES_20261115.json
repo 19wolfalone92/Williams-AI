@@ -3,7 +3,7 @@
   "edition_scope": "TC1, NTD, TC2, COURSE original PDFs pinned by SHA-256",
   "created_utc": "2026-11-15T19:30:00Z",
   "status": {
-    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_SIXTEEN_RULE_LESSONS",
+    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_NINETEEN_RULE_LESSONS",
     "visual_figures": "VISUALLY_INSPECTED_WHERE_REQUIRED",
     "independent_expert_reviews": 0,
     "expert_approval": false,
@@ -676,6 +676,150 @@
       ],
       "unresolved": [
         "A live derivative exchange needs an explicit translation of close-only rules into order monitoring and gap handling; the book's historical examples do not supply modern exchange reconciliation."
+      ]
+    },
+    {
+      "id": "V7.TC1.MFI.PROFITUNITY_WINDOWS.AIRBAG",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "rule_ids": [
+        "TC1.MAGIC.SQUAT"
+      ],
+      "concept": "MFI, четыре окна Profitunity и Air Bag protective layer",
+      "principles": [
+        "TC1 MFI uses range relative to tick volume and compares the current bar with the immediately preceding bar.",
+        "Green is +tick volume/+MFI; Fading is −/−; Fake is −volume/+MFI; Squat is +volume/−MFI. The matrix describes participation and efficiency, not an order.",
+        "Squat reflects high participation and low price movement; it often appears among three extreme bars but may be a measuring Squat within W3 rather than a trend end.",
+        "Air Bag is a protective risk boundary referenced to a higher timeframe bar/earlier bar and one tick beyond its extreme; it is not an entry signal or a confirmed exchange stop.",
+        "OHLCV crypto feeds may not provide exchange tick volume. If only base volume is available, MFI/Squat is a documented proxy, not an exact replication of the book."
+      ],
+      "required_sequence": [
+        "CLASSIFY_BAR_DIRECTION_AND_TICK_VOLUME_CHANGE",
+        "COMPARE_MFI_WITH_IMMEDIATELY_PREVIOUS_BAR",
+        "ASSIGN_ONE_OF_FOUR_VOLUME_MFI_WINDOWS",
+        "CHECK_SQUAT_CONTEXT_AND_EXTREME_LOCATION",
+        "COMPUTE_AIRBAG_FROM_CLOSED_HIGHER_TIMEFRAME_REFERENCE",
+        "KEEP_PROTECTIVE_STOP_STATE_SEPARATE_FROM_EXCHANGE_FILL"
+      ],
+      "invalid_inferences": [
+        "Using base volume as exact tick volume.",
+        "Comparing MFI to arbitrary historical bar instead of previous bar.",
+        "Treating every Squat as terminal reversal.",
+        "Treating Air Bag level as an already acknowledged exchange stop."
+      ],
+      "unresolved": [
+        "Air Bag diagram includes higher-timeframe reference and special two-bars-back wording; exact adaptation must retain source timeframe and closed-bar availability."
+      ]
+    },
+    {
+      "id": "V7.TC1.WAVE.MFI.MACD.W4.W5",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65
+      ],
+      "rule_ids": [
+        "TC1.W3",
+        "TC1.W4",
+        "TC1.W5",
+        "TC1.RHYTHM",
+        "TC1.MAGIC.DIVERGENCE",
+        "TC1.MAGIC.TARGET",
+        "TC1.MAGIC.MOMENTUM"
+      ],
+      "concept": "Wave degree, MFI divergence, MACD W4 minimum and W5 target zone",
+      "principles": [
+        "An Elliott 5-wave impulse and A-B-C correction are nested; a completed lower-degree wave can be one leg of a higher-degree wave.",
+        "TC1 discusses 100–140 bars for the sequence at the selected degree. Fewer may make 5/34/5 describe a higher degree; more may describe a lower degree.",
+        "Average MFI often peaks at W3; W5 may reach a more extreme price while average MFI is weaker, creating a W3–W5 divergence.",
+        "Profitunity MACD is 5/34 oscillator plus 5-bar signal SMA; distinguish histogram vs its signal line and vs zero line.",
+        "At the suitable degree, MACD crossing zero means the minimum W4 requirements have been met, not that W4 has completed.",
+        "After W4 is independently completed, W5 target zone is 62–100% of W1-start to W3-end length projected from W4 end; analyze nested five waves separately."
+      ],
+      "required_sequence": [
+        "SELECT_AND_FREEZE_WAVE_DEGREE",
+        "VERIFY_100_TO_140_BAR_WINDOW_FOR_THAT_DEGREE",
+        "COMPARE_W3_W5_AVERAGE_MFI_AND_PRICE_EXTREMES",
+        "INTERPRET_5_34_5_SIGNAL_LINE_AND_ZERO_SEPARATELY",
+        "ZERO_CROSS_MEETS_W4_MINIMUM_ONLY",
+        "VERIFY_W4_STRUCTURE_COMPLETION",
+        "PROJECT_W5_62_TO_100_PERCENT_AND_NESTED_SUBWAVES"
+      ],
+      "invalid_inferences": [
+        "Treating zero cross as completed W4.",
+        "Projecting W5 before W4 completion.",
+        "Treating lower-degree divergence as termination of a higher degree.",
+        "Changing degree after outcome is known."
+      ],
+      "unresolved": [
+        "Wave count remains a hypothesis until nested price structure and source requirements are satisfied."
+      ]
+    },
+    {
+      "id": "V7.TC1.FIVE_MAGIC_BULLETS.ZERO_POINT",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        82,
+        83,
+        84
+      ],
+      "rule_ids": [
+        "TC1.W3",
+        "TC1.W4",
+        "TC1.W5",
+        "TC1.MAGIC.DIVERGENCE",
+        "TC1.MAGIC.TARGET",
+        "TC1.MAGIC.FRACTAL",
+        "TC1.MAGIC.SQUAT",
+        "TC1.MAGIC.MOMENTUM",
+        "TC1.PSY.PLAN"
+      ],
+      "concept": "Five Magic Bullets and Zero Point as an explicit hypothesis",
+      "principles": [
+        "Five bullets: W3-W5 price/momentum divergence; price in the wave target zone; developing fractal at terminal extreme; Squat among three highest/lowest bars; 5/34/5 momentum direction change.",
+        "When these five factors coincide, the area may be treated as Zero Point candidate; this is not certainty of a reversal.",
+        "After the candidate, shift to a lower timeframe, inspect a five-wave impulse in the new direction, wait for retracement/weakening, and plan a first entry and stop.",
+        "TC1 examples may reference 50–62% retracement of first impulse; this is tied to that example/plan and is not a universal crypto entry percentage.",
+        "An explicit contingency plan is required if Zero Point or wave count is wrong; signals, hypothesis, pending stop, price trigger and broker fill are separate."
+      ],
+      "required_sequence": [
+        "OBSERVE_ALL_FIVE_BULLET_TYPES",
+        "CONFIRM_SAME_WAVE_DEGREE_AND_TARGET_CONTEXT",
+        "FORM_ZERO_POINT_HYPOTHESIS",
+        "SWITCH_TO_LOWER_TIMEFRAME",
+        "VERIFY_NEW_FIVE_WAVE_IMPULSE_AND_RETRACEMENT",
+        "DEFINE_CONTINGENCY_AND_RISK_STOP",
+        "ONLY_THEN_ARM_ENTRY"
+      ],
+      "invalid_inferences": [
+        "Declaring Zero Point from only one bullet.",
+        "Calling Zero Point a guaranteed market reversal.",
+        "Treating a developing fractal as confirmed.",
+        "Copying historical contract sizes or example percentages into a universal risk model."
+      ],
+      "unresolved": [
+        "The source's five bullets are a confluence/hypothesis framework, not a formally calibrated probability model."
       ]
     }
   ],

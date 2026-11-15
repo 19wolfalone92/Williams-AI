@@ -5,7 +5,7 @@ PATH=Path(__file__).resolve().parents[1]/"knowledge"/"WILLIAMS_V7_SOURCE_CURRICU
 class V7CurriculumContractTests(unittest.TestCase):
  def setUp(self):self.data=json.loads(PATH.read_text(encoding="utf-8"))
  def test_fourteen_source_pinned_lessons_cover_four_books_no_gold(self):
-  x=validate(self.data);self.assertEqual(x["lesson_candidate_count"],16)
+  x=validate(self.data);self.assertEqual(x["lesson_candidate_count"],19)
   self.assertEqual(x["books_covered"],4);self.assertFalse(x["sft_ready"])
  def test_ntd_dimensions_are_separate_and_correctly_pinned(self):
   rows={x["id"]:x for x in self.data["lesson_cards"]}
