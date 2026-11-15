@@ -116,7 +116,79 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          89,
+          90,
+          91,
+          92,
+          93
+        ],
+        "printed_pages": [
+          89,
+          90,
+          91,
+          92,
+          93
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 9.8",
+          "Figure 9.9",
+          "Figure 9.10",
+          "Figure 9.11"
+        ],
+        "findings": {
+          "zero_point_hypothesis": "In the Swiss-franc example, the candidate Zero Point is supported by a five-wave count on a smaller timeframe, a downward fractal and a Squat day among the three lowest bars.",
+          "explicit_uncertainty": "The author says the Zero Point is initially only an assumption and cannot be known with certainty at the beginning of the campaign.",
+          "contingency_plan": "The campaign includes a plan for the case where the initial Zero Point calculation is wrong.",
+          "risk_stop_separate": "A retracement entry is paired with a stop-and-reverse level at the proposed Zero Point; the prices and contract counts are specific historical example values, not universal risk rules.",
+          "partial_exit_context": "A downward fractal together with a Squat is used in the example to reduce two of three long contracts while retaining one in case wave 1 extends.",
+          "campaign_management": "The Swiss-franc and soybean examples show partial exits, residual positions, subsequent additions on retracements, protective stops and later campaign exits.",
+          "planned_vs_executed": "The narrative distinguishes contingent stop levels from reported executed buys, sells, partial covers and stop-outs.",
+          "examples_not_universal": "The chapter's conclusion warns that the two campaign examples are illustrative, not a template that generates all trades."
+        },
+        "state_separation": [
+          "WAVE_COUNT_HYPOTHESIS",
+          "ZERO_POINT_CANDIDATE",
+          "RISK_STOP_PLANNED",
+          "STOP_AND_REVERSE_PLANNED",
+          "ENTRY_OR_ADD_TRIGGERED",
+          "ORDER_SUBMITTED",
+          "ORDER_ACKNOWLEDGED",
+          "FILL_CONFIRMED",
+          "PARTIAL_EXIT_PLANNED",
+          "PARTIAL_EXIT_FILLED",
+          "RESIDUAL_POSITION",
+          "CAMPAIGN_EXIT_HYPOTHESIS",
+          "CAMPAIGN_EXIT_FILLED"
+        ],
+        "interpretation_guards": {
+          "zero_point_is_not_certain_at_inception": true,
+          "preserve_contingency_for_wrong_initial_count": true,
+          "planned_stop_not_same_as_trigger_or_fill": true,
+          "partial_reduction_not_full_exit": true,
+          "historical_contract_counts_not_universal_position_size": true,
+          "example_not_universal_mechanical_template": true,
+          "wave_hypothesis_stop_order_fill_and_position_are_distinct": true,
+          "opposite_fractal_does_not_always_close_whole_position": true
+        },
+        "source_does_not_establish": {
+          "deterministic_universally_correct_elliott_count": null,
+          "universal_risk_percentage_or_position_sizing": null,
+          "generic_full_close_on_every_opposite_fractal": null,
+          "broker_acknowledgement_partial_fill_slippage_or_gap_policy": null,
+          "guaranteed_zero_point_or_wave5_target": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_003",
