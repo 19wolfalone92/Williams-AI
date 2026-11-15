@@ -1,0 +1,427 @@
+{
+  "schema": "WILLIAMS_V7_SOURCE_GROUNDED_CURRICULUM_CANDIDATES_NO_GOLD_V1",
+  "edition_scope": "TC1, NTD, TC2, COURSE original PDFs pinned by SHA-256",
+  "created_utc": "2026-11-15T19:30:00Z",
+  "status": {
+    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TEN_RULES",
+    "visual_figures": "VISUALLY_INSPECTED_WHERE_REQUIRED",
+    "independent_expert_reviews": 0,
+    "expert_approval": false,
+    "model_chart_labels": 0,
+    "training_approved": false,
+    "training_permitted": false,
+    "sealed_exam_permitted": false,
+    "trading_permitted": false
+  },
+  "lesson_cards": [
+    {
+      "id": "V7.TC1.FRACTAL.START_SIGNAL_CANCEL",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        72,
+        73,
+        74
+      ],
+      "rule_ids": [
+        "TC1.FRACTAL"
+      ],
+      "concept": "Fractal Start, Fractal Signal и отмена рычага",
+      "principles": [
+        "Различать стартовый и сигнальный фракталы; книжная логика описывает пару смежных фракталов противоположного направления.",
+        "Трёхбарная конфигурация возможного фрактала ещё не означает, что фрактал подтверждён: требуются два последующих бара с нужным отношением экстремумов.",
+        "При возврате цены к Fractal Start рычаг уменьшается; возврат к соответствующему экстремуму стартового бара и проход на один тик отменяет сигналы.",
+        "Стоп по противоположному фракталу и stop-and-reverse по новому противоположному сигналу — разные события."
+      ],
+      "required_sequence": [
+        "POSSIBLE_FRACTAL_SETUP",
+        "FRACTAL_CONFIRMED",
+        "FRACTAL_START_AND_SIGNAL_PAIRED",
+        "PENDING_SIGNAL",
+        "LEVERAGE_DECAY_ON_RETRACE",
+        "INVALIDATE_AT_START_EXTREME_PLUS_TICK"
+      ],
+      "invalid_inferences": [
+        "Считать средний бар трёхбарной формации подтверждённым фракталом.",
+        "Оставлять сигнал активным после книжной ценовой отмены.",
+        "Считать любой противоположный фрактал автоматическим стоп-и-разворотом."
+      ],
+      "unresolved": [
+        "Конкретный сигнал требует полного контекста исходного графика; эти страницы не являются полной спецификацией всех способов определения рыночного режима."
+      ]
+    },
+    {
+      "id": "V7.TC1.WAVE.CAMPAIGN",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        89,
+        90,
+        91,
+        92,
+        93
+      ],
+      "rule_ids": [
+        "TC1.W3",
+        "TC1.W4",
+        "TC1.W5",
+        "TC1.MAGIC.FRACTAL",
+        "TC1.MAGIC.SQUAT"
+      ],
+      "concept": "Волновая гипотеза, Zero Point и управление кампанией",
+      "principles": [
+        "Zero Point — гипотеза, которую нельзя считать доказанной при первоначальном обнаружении.",
+        "Нужен contingency plan на случай неверного волнового сценария.",
+        "Исторические примеры различают плановый стоп/stop-and-reverse, частичное сокращение, удержание остатка позиции, добавление и фактически исполненный выход.",
+        "Числа исторических контрактов, цены и риск из примера не являются универсальным процентом риска или формулой размера позиции."
+      ],
+      "required_sequence": [
+        "WAVE_COUNT_AS_HYPOTHESIS",
+        "ZERO_POINT_CANDIDATE",
+        "ALTERNATIVE_SCENARIO",
+        "RISK_STOP_DEFINED",
+        "POSITION_CHANGE_TRIGGERED",
+        "BROKER_FILL_CONFIRMED"
+      ],
+      "invalid_inferences": [
+        "Приписывать волновой гипотезе статус точного факта.",
+        "Считать уровень стопа доказательством исполнения.",
+        "Переносить один размер контракта из исторического примера в другой рынок."
+      ],
+      "unresolved": [
+        "Волновой разбор требует степени волны и более мелкого временного масштаба; отсутствие нужной истории — основание для неопределённости."
+      ]
+    },
+    {
+      "id": "V7.NTD.BALANCE.BASE.COUNT",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        99,
+        103,
+        104
+      ],
+      "rule_ids": [
+        "NTD.BALANCE"
+      ],
+      "concept": "Линия Баланса: выбор базы и счёт 1 или 2 экстремумов",
+      "principles": [
+        "Для определения базы анализируют бары справа налево.",
+        "В сценарии покупки рассматривают максимумы; в сценарии продажи — минимумы.",
+        "Для покупки базой служит текущий бар или последний бар с наименьшим максимумом; для продажи — текущий бар или бар с наибольшим минимумом.",
+        "Отход от Balance Line требует одного нового более высокого максимума для покупки или нового более низкого минимума для продажи; движение к линии требует двух соответствующих новых экстремумов.",
+        "Это счёт экстремумов, а не просто количества прошедших свечей."
+      ],
+      "required_sequence": [
+        "DIRECTION_RELATIVE_TO_BALANCE_LINE",
+        "SCAN_RIGHT_TO_LEFT",
+        "SELECT_BASE_BAR",
+        "COUNT_ONE_OR_TWO_NEW_EXTREMES",
+        "PENDING_STOP"
+      ],
+      "invalid_inferences": [
+        "Считать N последовательных свечей вместо новых максимумов/минимумов.",
+        "Применять правило без определения направления относительно Balance Line.",
+        "Смешивать Balance Line с Alligator Teeth или фрактальным фильтром TC2."
+      ],
+      "unresolved": [
+        "Требуется точная реализация самой Balance Line из соответствующей редакции; её нельзя подменять произвольной moving average."
+      ]
+    },
+    {
+      "id": "V7.NTD.BALANCE.PENDING_STOP",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "pages": [
+        103,
+        104,
+        105
+      ],
+      "rule_ids": [
+        "NTD.BALANCE"
+      ],
+      "concept": "Сохранение действующего pending buy stop и новая база",
+      "principles": [
+        "После определения базового бара и установки buy stop новые более высокие максимумы сами по себе не двигают pending stop.",
+        "Стоп остаётся неизменным до срабатывания либо до появления нового бара, который действительно становится новой базой по Balance Line процедуре.",
+        "Любой новый максимум нельзя автоматически объявлять новой базой."
+      ],
+      "required_sequence": [
+        "BASE_CONFIRMED",
+        "BUY_STOP_PENDING",
+        "NEW_HIGH_OBSERVED",
+        "RETEST_BASE_RULE",
+        "KEEP_PENDING_OR_REPLACE_ON_NEW_BASE",
+        "PRICE_TRIGGERED"
+      ],
+      "invalid_inferences": [
+        "Передвигать стоп вверх после каждой свечи с более высоким максимумом.",
+        "Использовать неподтверждённую новую базу для перевыставления стопа."
+      ],
+      "unresolved": [
+        "На проверенных страницах подробно показана buy-side механика; не следует заявлять полный sell-side алгоритм замены стопа без отдельной сверки."
+      ]
+    },
+    {
+      "id": "V7.TC2.WM1.ANGULATION",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        121,
+        122,
+        123,
+        124
+      ],
+      "rule_ids": [
+        "TC2.WM1.BAR",
+        "TC2.WM1.ANG"
+      ],
+      "concept": "Первый Мудрец: разворотный бар и геометрия ангуляции",
+      "principles": [
+        "Ангуляция рассматривается начиная с места, где ценовые бары пересекают или проходят через пасть Alligator.",
+        "Нужно оценить путь пасти Alligator, уделяя больше внимания Jaw и Teeth, и отдельный направленный край ценовых баров: нижние края для восходящего движения, верхние для нисходящего.",
+        "Ангуляция существует, когда две линии явно расходятся и угол увеличивается.",
+        "Разворотный бар без растущего расхождения не является действительным WM1 сигналом по этим правилам; отрицательный пример UOPX показывает похожий разворотный бар без подходящей геометрии."
+      ],
+      "required_sequence": [
+        "PRICE_CROSSES_ALLIGATOR_MOUTH",
+        "TRACE_ALLIGATOR_PATH",
+        "TRACE_DIRECTIONAL_PRICE_EDGE",
+        "VERIFY_INCREASING_DIVERGENCE",
+        "VALIDATE_REVERSAL_BAR",
+        "ONLY_THEN_ARM_ENTRY_TRIGGER"
+      ],
+      "invalid_inferences": [
+        "Приравнивать большое расстояние цена–Jaw к ангуляции.",
+        "Задавать несуществующий книжный численный угол в градусах, порог наклона или фиксированный lookback.",
+        "Принимать параллельные траектории за ангуляцию."
+      ],
+      "unresolved": [
+        "Книга на этих страницах не задаёт численный порог, регрессионную формулу или фиксированное окно. Любая формализация — новая инженерная аппроксимация."
+      ]
+    },
+    {
+      "id": "V7.TC2.WM2.AO_THREE_BARS",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        135,
+        136,
+        137,
+        138,
+        139
+      ],
+      "rule_ids": [
+        "TC2.WM2"
+      ],
+      "concept": "Второй Мудрец: импульсное добавление по AO",
+      "principles": [
+        "WM2 описан как добавление к уже открытой после WM1 позиции, когда моментум подтверждает продолжение движения.",
+        "AO histobar окрашивается зелёным при росте относительно предыдущего histobar и красным при снижении; это направление изменения, а не положение AO относительно нуля.",
+        "Для long обычно ждут три последовательных зелёных бара и выставляют buy stop на один тик выше high ценового бара, соответствующего третьему зелёному бару.",
+        "Для short — три последовательных красных/падающих бара и sell stop на один тик ниже low соответствующего ценового бара; пример показывает, что сигнал может запоздать на несколько баров."
+      ],
+      "required_sequence": [
+        "WM1_POSITION_OPEN",
+        "AO_BAR_TO_BAR_DIRECTION",
+        "COUNT_THREE_CONSECUTIVE_DIRECTIONAL_BARS",
+        "MAP_THIRD_AO_BAR_TO_PRICE_BAR",
+        "PLACE_ONE_TICK_PRICE_STOP",
+        "WAIT_FOR_PRICE_TRIGGER",
+        "CONFIRM_FILL_SEPARATELY"
+      ],
+      "invalid_inferences": [
+        "Считать три чередующихся изменения AO.",
+        "Считать три бара по одну сторону zero line достаточным сигналом WM2.",
+        "Считать сам AO цвет или pending stop исполненной добавкой."
+      ],
+      "unresolved": [
+        "Эти страницы не задают универсальный максимальный срок ожидания и индивидуальный размер добавления."
+      ]
+    },
+    {
+      "id": "V7.TC2.WM3.TEETH_ACTIVATION",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        147,
+        148,
+        149
+      ],
+      "rule_ids": [
+        "TC2.WM3"
+      ],
+      "concept": "Третий Мудрец: фрактал и Teeth-фильтр в момент срабатывания",
+      "principles": [
+        "Подтверждённая фрактальная формация создаёт pending сигнал, но ещё не означает ценовое срабатывание.",
+        "Buy stop располагается на один тик выше high восходящего фрактала; sell stop — на один тик ниже low нисходящего фрактала.",
+        "Buy-сигнал действителен только если цена выше Teeth при активации; sell-сигнал — только если цена ниже Teeth при активации.",
+        "Книга прямо различает положение при формировании сигнала и положение при его срабатывании; новый фрактальный сигнал может заменить ещё не активированный."
+      ],
+      "required_sequence": [
+        "FRACTAL_PATTERN_CONFIRMED",
+        "PENDING_FRACTAL_STOP",
+        "PRICE_CROSSES_TRIGGER_LEVEL",
+        "CHECK_TEETH_AT_ACTIVATION",
+        "PASS_OR_REJECT_SIGNAL",
+        "BROKER_FILL_CONFIRMED"
+      ],
+      "invalid_inferences": [
+        "Фильтровать только по Teeth в момент формирования фрактала.",
+        "Покупать фрактал ниже Teeth или продавать выше Teeth при срабатывании.",
+        "Считать подтверждённый фрактал уже открытой позицией."
+      ],
+      "unresolved": [
+        "Для реального fill нужна отдельная биржевая проверка; OHLC пересечение — не доказательство исполнения."
+      ]
+    },
+    {
+      "id": "V7.TC2.OPPOSITE.SIGNAL_POSITION",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "pages": [
+        131,
+        149,
+        150,
+        151
+      ],
+      "rule_ids": [
+        "TC2.REVERSE",
+        "TC2.CAMPAIGN"
+      ],
+      "concept": "Противоположный сигнал и существующая позиция",
+      "principles": [
+        "Книга различает защитный/трейлинг стоп и stop-and-reverse.",
+        "Противоположный qualifying signal не является немедленным закрытием лишь по факту появления: должны быть выполнены фильтры и сработать соответствующий ценовой стоп-триггер.",
+        "В примере кампании описаны защитное сопровождение короткой позиции и последующий переход в длинное направление при срабатывании противоположного разворотного условия."
+      ],
+      "required_sequence": [
+        "POSITION_STATE_VERIFIED",
+        "OPPOSITE_SETUP_DETECTED",
+        "BOOK_FILTERS_PASSED",
+        "STOP_REVERSE_PENDING",
+        "PRICE_TRIGGERED",
+        "FLATTEN_OLD_POSITION",
+        "OPEN_REVERSE_POSITION",
+        "BROKER_FILLS_CONFIRMED"
+      ],
+      "invalid_inferences": [
+        "Закрывать позицию на одном лишь обнаружении противоположной заготовки.",
+        "Приписывать модели биржевой статус открытой позиции, ордера или fill, когда он не представлен.",
+        "Сводить protective stop и reverse order в один сигнал."
+      ],
+      "unresolved": [
+        "Эта модель состояния нуждается в точных размерах заявок и подтверждении обеих биржевых ног; книжная последовательность не доказывает exchange fill."
+      ]
+    },
+    {
+      "id": "V7.COURSE.W4.ZERO_CROSS",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        43,
+        44,
+        45
+      ],
+      "rule_ids": [
+        "COURSE.W4.ZERO",
+        "COURSE.AO5345",
+        "COURSE.RHYTHM"
+      ],
+      "concept": "Profitunity Course: минимум условий W4 и пересечение AO нулевой линии",
+      "principles": [
+        "Сначала выбирается степень волны; Course рассматривает пропорцию около 100–140 баров в волновой последовательности.",
+        "Переход 5/34/5 oscillator через нулевую линию даёт минимальное подтверждение требований W4, но сам по себе не доказывает, что W4 завершена.",
+        "Простое касание/подход к нулю не эквивалентно движению past zero.",
+        "При анализе W4 дополнительно рассматриваются структура a-b-c/треугольника, меньшая волна и четыре регулярных индикатора, упомянутых в материале."
+      ],
+      "required_sequence": [
+        "SELECT_WAVE_DEGREE",
+        "CHECK_100_TO_140_BAR_PROPORTION",
+        "IDENTIFY_W3_AND_CORRECTIVE_W4_CONTEXT",
+        "OSCILLATOR_CROSSES_ZERO",
+        "W4_MINIMUM_REQUIREMENTS_MET",
+        "CHECK_ADDITIONAL_STRUCTURE",
+        "W4_COMPLETION_STILL_UNPROVEN_UNTIL_CONFIRMED"
+      ],
+      "invalid_inferences": [
+        "Считать равенство AO нулю или касание нуля полноценным crossing.",
+        "Считать zero-cross доказательством окончания W4.",
+        "Игнорировать degree/100–140 bar proportion."
+      ],
+      "unresolved": [
+        "В scanned page the four regular indicators are referenced; this passage does not enumerate them in the visible text. Do not fill gaps with handwritten marginal notes."
+      ]
+    },
+    {
+      "id": "V7.COURSE.WAVE_DEGREE.W5_TARGET",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        43,
+        44,
+        45
+      ],
+      "rule_ids": [
+        "COURSE.W4.ZERO",
+        "COURSE.AO5345",
+        "COURSE.RHYTHM"
+      ],
+      "concept": "Степень волны, вложенная дивергенция и зона цели W5",
+      "principles": [
+        "5/34/5 всегда описывает некоторую волну; критично установить правильную степень для рассматриваемой последовательности.",
+        "Пропорция 100–140 баров применяется к той последовательности, которую анализируют; менее 100 и значительно более 140 баров может означать иную степень волны.",
+        "Дивергенция, не возвращающаяся к нулю, в описанном контексте может быть признаком вложенной волны 3 of 3, а не обязательным завершением старшей W5.",
+        "После завершения W4 и начала W5 длина W1–W3 проецируется от конца W4; зона 62%–100% этой длины рассматривается как целевая зона W5. Вложенную пяти-волновую структуру W5 измеряют отдельно."
+      ],
+      "required_sequence": [
+        "SELECT_WAVE_DEGREE",
+        "VERIFY_100_TO_140_BARS",
+        "INTERPRET_NESTED_DIVERGENCE_IN_CONTEXT",
+        "CONFIRM_W4_COMPLETION_SEPARATELY",
+        "PROJECT_W5_FROM_W1_TO_W3_LENGTH",
+        "MEASURE_NESTED_W5_SUBWAVES"
+      ],
+      "invalid_inferences": [
+        "Объявлять каждую divergence без возврата к нулю концом W5.",
+        "Проецировать W5 target до подтверждения завершения W4.",
+        "Считать 100–140 баров универсальным timeframe, а не пропорцией степени волны."
+      ],
+      "unresolved": [
+        "Волновой счёт и W4 completion остаются гипотезами, пока дополнительные ценовые/структурные подтверждения не получены."
+      ]
+    }
+  ],
+  "cross_book_confusion_guards": [
+    {
+      "topic": "Fractals",
+      "separation": "TC1 Fractal Start/Signal/Leverage cancellation is not identical to TC2 Three Wise Men WM3 + Teeth-at-activation."
+    },
+    {
+      "topic": "AO",
+      "separation": "TC2 WM2 three consecutive rising/falling AO histobars is not an AO zero-cross; Course W4 minimum criterion is AO crossing zero."
+    },
+    {
+      "topic": "Momentum/Balance",
+      "separation": "NTD Balance Line fifth dimension uses a separate base-bar and one/two-extreme rule; it must not be replaced by Alligator angulation or fractal trigger logic."
+    },
+    {
+      "topic": "Exits",
+      "separation": "TC1 campaign examples, TC2 stop-and-reverse, and broker-confirmed fills must remain versioned, separate state machines."
+    },
+    {
+      "topic": "Wave",
+      "separation": "Wave projection is not wave certainty; Course W4 AO zero-cross marks minimum requirements, not completion."
+    }
+  ],
+  "review_gate": {
+    "source_sha_pinned": true,
+    "source_pages_and_diagrams_spotchecked": true,
+    "independent_expert_review_count": 0,
+    "expert_approved": false,
+    "chart_answer_labels_included": false,
+    "model_predictions_used": false,
+    "sft_ready": false,
+    "use_before_approval": "READ_ONLY_RESEARCH_CURRICULUM_CANDIDATE_ONLY"
+  }
+}
