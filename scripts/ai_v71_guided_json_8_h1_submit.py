@@ -7,6 +7,14 @@ from williams_ai.v71_guided_json_diagnostics import ENFORCER_COMMIT
 SLUG="williams-v71-patched-lmfe-diagnostics-eight-h1-20261115"
 def need(ok,why):
  if not ok:raise ValueError("V71_SUBMIT_"+why)
+
+def _is_missing_private_slug(exc, authenticated_owner, kernel_id):
+ message=str(exc).lower()
+ try: slug_owner=kernel_id.split("/",1)[0].lower()
+ except Exception:return False
+ return ("404" in message or "not found" in message or
+  ("kernels.get" in message and "permission" in message and
+   authenticated_owner.lower()==slug_owner))
 def main():
  from kaggle.api.kaggle_api_extended import KaggleApi
  from kagglehub.auth import get_username
@@ -19,12 +27,9 @@ def main():
  need(meta["is_private"]=="true" and meta["machine_shape"]=="NvidiaTeslaT4" and meta["kernel_sources"]==[owner+"/"+TRAINING_NAME] and meta["enable_gpu"]=="true","KERNEL_POLICY")
  try:prior=api.kernels_status(meta["id"])
  except Exception as exc:
-  message=str(exc).lower()
-  # Kaggle returns 403 rather than 404 for an uncreated private kernel slug.
-  # The authenticated owner and access to the source kernel were verified above.
-  if "404" in message or "not found" in message or (
-      "403" in message and "kernels.get" in message and
-      owner.lower()==meta["id"].split("/",1)[0].lower()):
+  # The source notebook was successfully accessed above; Kaggle's SDK wraps
+  # an absent private slug as ValueError("Permission 'kernels.get' was denied").
+  if _is_missing_private_slug(exc,owner,meta["id"]):
    prior=None
   else:raise
  root=Path(os.environ["RUNNER_TEMP"])
