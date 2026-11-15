@@ -84,8 +84,10 @@ def main():
     need("ERROR" in state,"NOT_TERMINAL_ERROR_KERNEL")
     with tempfile.TemporaryDirectory(prefix="gpu-hist100-partial-private-") as tmp:
         proc=subprocess.run(
-            ["kaggle","kernels","output",kernel,"-p",tmp,"-o"],
-            capture_output=True,text=True,timeout=120)
+            ["kaggle","kernels","output",kernel,"-p",tmp,"-o",
+             "--file-pattern",r".*ACTUAL_GPU_HIST100_QWEN_BASE_V5_NO_GOLD\.json$",
+             "--page-size","200"],
+            capture_output=True,text=True,timeout=540)
         if proc.returncode != 0:
             # A failed Kaggle kernel may not publish outputs. No data fabrication.
             print("HIST100_GPU_PARTIAL_OUTPUT_UNAVAILABLE_FROM_KAGGLE_ERROR",flush=True)
