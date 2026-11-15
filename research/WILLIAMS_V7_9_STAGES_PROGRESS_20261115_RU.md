@@ -57,3 +57,49 @@
 ### Stop Conditions
 
 При отсутствии экспертных меток сохраняй статус `book_accuracy=UNKNOWN`, `trading_qualification=false`, `training_approved=false`; никакие изменения синтаксиса JSON, скорость GPU или процент совпадающих Base/LoRA классов не заменяют экспертное знание.
+
+---
+
+# Дополнение после первичного отчёта — 15 ноября 2026, 22:00 +03
+
+## Stage 2.1 — исправление guided JSON: v7.1 запущен, результат ещё не получен
+
+Установлена вероятная причина ошибок v7: upstream LM Format Enforcer имел дефект incremental tokenizer decoding, где нормализация пробелов могла терять запятые/кавычки и преждевременно разрешать EOS. Официальное исправление upstream — commit `d4d9b7cc20937bcd3a643be7a8dafb7b1ca20dfb` от 4 апреля 2026 года, в котором декодирование выполняется с `clean_up_tokenization_spaces=False`. Это совпадает с короткими invalid JSON в v7, однако не доказывает причину каждого старого ответа: raw generation text в v7 не был сохранён. Старая v7 выборка остаётся неизменной.
+
+Ветка теперь содержит отдельный v7.1 decoder `williams_ai/v71_guided_json_diagnostics.py`, который закрепляет точный upstream commit, записывает raw decode (с/без special tokens), IDs/токены, EOS и prefix-token trace. Новые веса не обучаются и не меняются.
+
+- Настоящий приватный Kaggle T4 kernel создан с коротким slug `wolf19loner92/williams-v71-lmfe8-20261115`: [submit CI 43752606966 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752606966), artifact [14177175095](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752606966/artifacts/14177175095).
+- Read-only проверка существующего kernel: [CI 43752856794 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752856794), artifact [14176916708](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752856794/artifacts/14176916708).
+- Последний фактический Kaggle status на момент отчёта: **QUEUED**. Новая инференция ещё не подтверждена как выполненная; paired result artifact не появился. Следующий контроль может только прочитать статус/результаты того же kernel — повторная отправка не нужна.
+
+## Stage 3 — десять проверок source rules по оригинальным книгам
+
+Подготовлены отдельные SHA-проверенные recheck документы (выборочные страницы, не полное чтение книг):
+
+1. [RULE_CHECK_001 — TC1 Fractal Start/Signal и отмена](WILLIAMS_V7_RULE_CHECK_001_TC1_FRACTAL_START_SIGNAL_CANCEL_PRICE_INVALIDATION_SOURCE_RECHECK_20261115_RU.md).
+2. [RULE_CHECK_002 — TC1 Zero Point и волновая кампания](WILLIAMS_V7_RULE_CHECK_002_TC1_WAVE_CAMPAIGN_RISK_STOP_AND_EXECUTED_EXITS_SOURCE_RECHECK_20261115_RU.md).
+3. [RULE_CHECK_003 — NTD Balance Line base и 1/2 экстремума](WILLIAMS_V7_RULE_CHECK_003_NTD_BALANCE_LINE_BASE_AND_ONE_TWO_EXTREMES_SOURCE_RECHECK_20261115_RU.md).
+4. [RULE_CHECK_004 — NTD pending buy stop и новая база](WILLIAMS_V7_RULE_CHECK_004_NTD_PENDING_BALANCE_LINE_BUY_STOP_BASE_REPLACEMENT_SOURCE_RECHECK_20261115_RU.md).
+5. [RULE_CHECK_005 — TC2 WM1 angulation](WILLIAMS_V7_RULE_CHECK_005_TC2_ANGULATION_PRIMARY_SOURCE_RECHECK_20261115_RU.md).
+6. [RULE_CHECK_006 — TC2 WM2 три AO bars](WILLIAMS_V7_RULE_CHECK_006_TC2_WM2_THREE_AO_BARS_SOURCE_RECHECK_20261115_RU.md).
+7. [RULE_CHECK_007 — TC2 WM3 Teeth при активации](WILLIAMS_V7_RULE_CHECK_007_TC2_WM3_TEETH_AT_ACTIVATION_SOURCE_RECHECK_20261115_RU.md).
+8. [RULE_CHECK_008 — TC2 противоположный сигнал при открытой позиции](WILLIAMS_V7_RULE_CHECK_008_TC2_OPPOSITE_POSITION_SOURCE_RECHECK_20261115_RU.md).
+9. [RULE_CHECK_009 — Course W4: zero-cross, не касание](WILLIAMS_V7_RULE_CHECK_009_COURSE_W4_AO_ZERO_CROSS_NOT_TOUCH_SOURCE_RECHECK_20261115_RU.md).
+10. [RULE_CHECK_010 — Course степень волны и W5 target zone](WILLIAMS_V7_RULE_CHECK_010_COURSE_WAVE_DEGREE_W5_TARGET_DIVERGENCE_SOURCE_RECHECK_20261115_RU.md).
+
+Результат — проверенные источниковые формулировки, негативные условия и состояния. Это не экспертная разметка реальных графиков и не подтверждение правильности модели.
+
+## Stage 5 — source-grounded curriculum подготовлен, но не одобрен для SFT
+
+Создан `knowledge/WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json`: 10 тематических уроков, привязанных к редакции, SHA PDF, PDF pages и rule IDs. В каждом уроке выделены книжные принципы, последовательность состояний, недопустимые выводы и открытые вопросы. Есть cross-book confusion guards (например, WM2 three AO bars не смешивается с Course W4 AO zero-cross).
+
+- CI [43752708130 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752708130) проверил все десять карточек, точные PDF SHA, привязку Rule IDs к своей книге и отсутствие псевдо-gold/решений.
+- В `williams_ai/v7_training_data_contract.py` добавлен отдельный приватный конструктор train/dev кандидатов и sealed holdout. Он требует две разные подписи Ed25519 по одной frozen выборке, согласованные метки и общие страницы источника, проверенный rule map, предзарегистрированный split, отсекает пересекающиеся same-symbol окна, запрещает model-prediction labels и пишет файлы локально create-only 0600. CI [43752095880 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752095880) использовал исключительно синтетические fixture/key для проверки кода — **это не реальные экспертные метки**.
+- Статус базы: содержимое подготовлено для экспертного рассмотрения, но `expert_approved=false`, `independent_expert_reviews=0`, `sft_ready=false`. Исторические 100 кейсов не превращаются в train data; будущий H1 остаётся holdout.
+
+## Остальные gates без изменений
+
+- Stage 6: новая LoRA не обучалась; без действительных независимых expert labels она заблокирована.
+- Stage 7: независимый gold-exam не проводился; протокол freeze/grade готов, личности/компетентность подписантов должны проверяться вне кода.
+- Stage 8: 32 prospective H1 остаются под зафиксированным планом; сбор после cutoff 22 ноября 2026, дальнейшая holdout выборка — январь 2027.
+- Stage 9: Williams Bot repo не менялся; ни API торговли, ни ордеров, ни интеграции нет.
