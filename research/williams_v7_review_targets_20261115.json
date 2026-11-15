@@ -208,7 +208,52 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "pdf_page_labels_reviewed": [
+          99,
+          103,
+          104
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 8.1",
+          "Figure 8.7",
+          "Figure 8.8",
+          "Figure 8.9"
+        ],
+        "findings": {
+          "scan_direction": "Read the Balance Line chart from right to left, beginning with the most recent bars.",
+          "relevant_extreme": "Use highs only for buy signals and lows only for sell signals.",
+          "buy_base": "For a buy, the base is the current bar or the bar with the lowest high.",
+          "sell_base": "For a sell, the base is the current bar or the bar with the highest low.",
+          "buy_count": "One new higher high is required when moving away from the Balance Line; two new higher highs are required when moving toward it.",
+          "sell_count": "One new lower low is required when moving away from the Balance Line; two new lower lows are required when moving toward it.",
+          "buy_above_balance_line_special_case": "When the buy signal bar is above the Balance Line, the whole formation is treated as above the line and the illustrated requirement is the base plus one higher high.",
+          "fresh_highs_need_pullback": "While the market is making new highs, the text says a Balance Line or Fractal buy signal is not available; a pullback and lower highs are required before a new signal can form."
+        },
+        "interpretation_guards": {
+          "base_identified_before_counting_extremes": true,
+          "highs_only_for_buy_lows_only_for_sell": true,
+          "one_or_two_counts_new_extremes_not_elapsed_bars": true,
+          "two_required_when_moving_toward_balance_line": true,
+          "do_not_form_buy_signal_during_uninterrupted_new_highs_without_pullback": true,
+          "special_case_evidence_is_buy_side_only": true
+        },
+        "source_does_not_establish": {
+          "full_numeric_balance_line_formula_on_reviewed_pages": null,
+          "equal_high_low_gap_or_tick_rounding_tolerance": null,
+          "broker_order_or_fill_mechanics": null,
+          "universal_sell_side_special_case_mirroring_the_buy_example": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_004",
@@ -227,7 +272,59 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "pdf_page_labels_reviewed": [
+          103,
+          104
+        ],
+        "additional_context_page_reviewed": [
+          105
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 8.9",
+          "Figure 8.10",
+          "Figure 8.11"
+        ],
+        "findings": {
+          "pending_buy_stop_stability": "After a buy base is established, subsequent bars with higher highs do not by themselves move the pending buy stop.",
+          "stop_replacement_conditions": "The buy stop remains at its current level until it triggers or another bar with a higher high becomes a new base.",
+          "new_base_retest": "A candidate higher-high bar must be re-evaluated under the Balance Line base-selection procedure; a raw higher high is not automatically a new base.",
+          "visual_non_moving_bars": "The text identifies the last three bars in Figure 8.10 and the last two bars in Figure 8.11 as not moving the Balance Line buy signal.",
+          "scope": "The cited paragraph and diagrams describe the buy-side pending stop; these pages do not provide a complete sell-side stop-replacement sequence."
+        },
+        "pending_state_separation": [
+          "BASE_CONFIRMED",
+          "BUY_STOP_PENDING",
+          "HIGHER_HIGH_OBSERVED_STOP_UNCHANGED",
+          "NEW_BASE_CONFIRMED",
+          "BUY_STOP_TRIGGERED",
+          "ORDER_ACKNOWLEDGED",
+          "FILL_CONFIRMED"
+        ],
+        "interpretation_guards": {
+          "do_not_slide_stop_for_every_higher_high": true,
+          "reapply_base_selection_before_replacing_stop": true,
+          "no_stop_move_before_new_base_confirmed": true,
+          "triggered_stop_not_still_pending": true,
+          "chart_trigger_not_same_as_broker_fill": true,
+          "do_not_claim_sell_side_algorithm_from_buy_side_examples": true
+        },
+        "source_does_not_establish": {
+          "complete_sell_side_pending_stop_replacement_sequence": null,
+          "broker_order_modification_acknowledgement_or_fill_policy": null,
+          "universal_signed_tick_offset_for_every_instrument": null,
+          "numeric_new_base_tolerance": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_005",
