@@ -237,7 +237,64 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          147,
+          148,
+          149
+        ],
+        "printed_pages": [
+          132,
+          133,
+          134
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 11.3",
+          "Figure 11.4",
+          "Figure 11.5",
+          "Figure 11.6"
+        ],
+        "findings": {
+          "formation_vs_activation": "Fractal formation creates a pending candidate; completion of the pattern alone does not mean its breakout trigger has fired.",
+          "buy_stop": "Place the buy stop one tick above the high of the upward fractal.",
+          "sell_stop": "Place the sell stop one tick below the low of the downward fractal.",
+          "teeth_filter_at_activation": "A buy signal is used only if price is above the red balance line (Alligator Teeth) when it fires; a sell signal is used only if price is below the red line when it fires.",
+          "formation_location_not_decisive": "The source distinguishes where the fractal signal forms from where it fires; activation location relative to the red line determines validity.",
+          "pending_lifetime": "A formed fractal signal remains pending until it fires or a new fractal signal forms.",
+          "valid_invalid_examples": "Figures 11.5 and 11.6 contrast a valid breakout and fractals whose activation occurs on the wrong side of the Alligator Teeth."
+        },
+        "state_separation": [
+          "FRACTAL_FORMED",
+          "FRACTAL_PENDING",
+          "PRICE_TRIGGER_TOUCHED",
+          "TEETH_FILTER_PASS_AT_ACTIVATION or TEETH_FILTER_FAIL_AT_ACTIVATION",
+          "SIGNAL_QUALIFIED",
+          "BROKER_ORDER/FILL (not established by these pages)"
+        ],
+        "interpretation_guards": {
+          "formation_above_or_below_teeth_alone_is_not_sufficient": true,
+          "evaluate_teeth_at_activation_not_formation": true,
+          "fractal_confirmation_is_not_a_filled_entry": true,
+          "pending_signal_lifetime_until_trigger_or_new_fractal": true,
+          "do_not_infer_intrabar_order_from_ohlc_without_evidence": true
+        },
+        "source_does_not_establish": {
+          "numeric_teeth_tolerance_or_buffer": null,
+          "tie_breaking_for_multiple_overlapping_pending_signals": "Only the stated lifetime rule is explicit; a complete software selection policy is not specified.",
+          "intrabar_order_reconstruction_from_single_ohlc_candle": null,
+          "broker_gap_partial_fill_slippage_tick_rounding_or_acknowledgement_policy": null
+        },
+        "engineering_implication": "If closed H1 OHLC alone cannot establish whether the trigger occurred above/below the moving Teeth line at the activation instant, preserve UNRESOLVED/ABSTAIN; do not substitute candle close or the Teeth value at fractal formation. This is an engineering limitation inferred from the source timing requirement, not a Williams numeric rule.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_008",
