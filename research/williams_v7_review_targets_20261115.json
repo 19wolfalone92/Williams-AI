@@ -1,0 +1,218 @@
+{
+  "schema": "WILLIAMS_V7_SOURCE_BOOK_REVIEW_BACKLOG_NO_TRAINING_OR_GOLD_V1",
+  "created_utc": "2026-11-15T13:10:00Z",
+  "purpose": "prepare independent review and candidate training needs, not scored trading labels",
+  "source_selection": "EXACT_ORIGINAL_PDF_SHA_REVIEW_PENDING",
+  "expert_reviews_received": 0,
+  "independent_experts_verified": false,
+  "training_approved": false,
+  "valid_gold_labels": null,
+  "no_trading": true,
+  "do_not_expose_frozen_future_holdout": true,
+  "forbidden_source": "historical100 model predictions and post-cutoff market labels",
+  "cases": [
+    {
+      "review_id": "RULE_CHECK_001",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pdf_pages": [
+        72,
+        73,
+        74
+      ],
+      "capability": "FRACTAL_CANCEL_OR_REPRICE",
+      "independent_review_question": "distinguish confirmed origin fractal, candidate, opposite fractal and price invalidation, zero lookahead",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_002",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pdf_pages": [
+        89,
+        90,
+        91,
+        92,
+        93
+      ],
+      "capability": "WAVE_CAMPAIGN_NOT_CERTAIN",
+      "independent_review_question": "separate wave estimate, risk stop and executed exit with fractal context",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_003",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pdf_pages": [
+        99,
+        103,
+        104
+      ],
+      "capability": "BALANCE_1_OR_2",
+      "independent_review_question": "find base bar, toward vs away balance line, one vs two new highs/lows",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_004",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pdf_pages": [
+        103,
+        104
+      ],
+      "capability": "PENDING_BASE_STOP",
+      "independent_review_question": "test whether base actually changes before moving pending stop",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_005",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        121,
+        122,
+        123,
+        124
+      ],
+      "capability": "WM1_ANGULATION",
+      "independent_review_question": "reversal bar and divergence of slopes, not distance from jaw",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_006",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        135,
+        136,
+        137,
+        138,
+        139
+      ],
+      "capability": "WM2_THREE_AO_BARS",
+      "independent_review_question": "third consecutive AO direction change and stop trigger beyond candle extreme",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_007",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        147,
+        148,
+        149
+      ],
+      "capability": "WM3_TEETH_AT_ACTIVATION",
+      "independent_review_question": "fractal formation vs price trigger with teeth filter AT activation",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_008",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        131,
+        164
+      ],
+      "capability": "OPPOSITE_SIGNAL_WITH_POSITION",
+      "independent_review_question": "not reviewed here; requires original book check and audited position state",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "PRIMARY_PAGES_NOT_RECHECKED"
+    },
+    {
+      "review_id": "RULE_CHECK_009",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "capability": "W4_AO_ZERO_CROSS_NOT_TOUCH",
+      "independent_review_question": "separate AO zero touch and actual crossing; minimum requirements not completion",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    },
+    {
+      "review_id": "RULE_CHECK_010",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "capability": "W5_WAVE_DEGREE_TARGET",
+      "independent_review_question": "nested wave degree 100–140 bars, W5 momentum divergence and alternative counts",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+    }
+  ]
+}
