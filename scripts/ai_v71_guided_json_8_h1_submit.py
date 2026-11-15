@@ -53,7 +53,12 @@ subprocess.run([sys.executable,"-m","scripts.ai_v71_guided_json_8_h1_worker","--
  with tempfile.TemporaryDirectory(prefix="v71-kaggle-") as d:
   q=Path(d);(q/"worker.py").write_text(kernel);(q/"kernel-metadata.json").write_text(json.dumps(meta))
   result=subprocess.run(["kaggle","kernels","push","-p",d,"--accelerator","NvidiaTeslaT4","--timeout","7200"],capture_output=True,text=True,timeout=180)
-  need(result.returncode==0,"KERNEL_PUSH_FAILED")
+  if result.returncode != 0:
+   detail=(result.stdout+"\n"+result.stderr).replace(token,"[REDACTED]")
+   print("V71_KAGGLE_PUSH_DIAGNOSTIC_BEGIN",flush=True)
+   print(detail[-5000:],flush=True)
+   print("V71_KAGGLE_PUSH_DIAGNOSTIC_END",flush=True)
+   need(False,"KERNEL_PUSH_FAILED")
  status=str(api.kernels_status(meta["id"]).status).upper()
  result={"schema":"V71_T4_SUBMISSION_NOT_RESULTS","kernel":meta["id"],"status":status,"new_kernel_submitted":True,"enforcer_commit":ENFORCER_COMMIT,"training_started":False,"trading_allowed":False}
  (root/"v71_submission.json").write_text(json.dumps(result,indent=2));print(json.dumps(result))
