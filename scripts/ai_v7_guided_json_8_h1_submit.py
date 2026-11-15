@@ -53,7 +53,8 @@ def main():
             "new_kernel_submitted": False,
             "existing_kernel_reused": True,
             "status": status,
-            "source_commit": sha,
+            "existing_kernel_worker_source_commit": "c2ef68aa71a5cbdf007a56909bc7a5660f4137fb",
+            "monitor_code_commit": sha,
             "trading_allowed": False,
         })
         print("V7_GUIDED_EXISTING_PRIVATE_T4_REUSED_NO_RESUBMISSION", status, flush=True)
