@@ -186,3 +186,35 @@
 - SFT-ready: **false**; новая LoRA не обучалась.
 - Независимый gold-exam: не проводился.
 - Historical 100 model answers остаются без expert gold и не используются для обучения.
+
+---
+
+# Финальное дополнение по доступной сейчас работе — 15 ноября 2026
+
+## Дополнительные первичные проверки: RULE_CHECK_027–029
+- **027 TC1:** страницы 129–136 — четыре авторские психологические программы Fear/Self-Preservation, Greed, Confidence, Pleasure. Доли пользователей и объяснения «мозговых программ» рассматриваются как модель автора, не доказанная нейронаука. AI нельзя автоматически диагностировать по OHLCV.
+- **028 TC1:** страницы 136–138 — Inside Risk → Structure → I Can → Pleasure/Capital. Worst-case потери всех защитных стопов оцениваются до рынка; если совокупный риск выше пользовательского болевого порога, объём сокращается заранее. «Risk-free» не означает отсутствие денежного риска.
+- **029 Course:** визуальная страница 56 — родительские 1–5 и A–B–C коррекции со вложенными подволнами разных степеней. Диаграмма не является алгоритмом определения Elliott count по силуэту.
+
+## Итог Stage 5: 29 уроков, 37/37 текущих rule IDs покрыты
+Текущая source-based curriculum в `knowledge/WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json`:
+- TC1 — 7 уроков, 14/14 rule IDs;
+- NTD — 8 уроков, 8/8;
+- TC2 — 7 уроков, 8/8;
+- Trading Chaos Course — 7 уроков, 7/7.
+Итого 29 уроков покрывают все 37 rule cards текущего Source Rule Registry. [Curriculum quality CI 43755098705 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43755098705).
+
+**Ограничение:** это покрытие текущего реестра rule cards, а не исчерпывающее прочтение всех 642 страниц книг, всех схем, примеров или психологических разделов. Несогласованности переводов/иллюстраций остаются предметом независимого review.
+
+## Stage 9: интеграция с ботом — документирован NO-GO
+Добавлен [Stage 9 GO/NO-GO gate](WILLIAMS_AI_STAGE9_BOT_INTEGRATION_NO_GO_GATE_20261115_RU.md). Он фиксирует, что AI не должен владеть API-ключами, ордерами, Execution Door, risk state или position state. Будущая допустимая ступень после независимой проверки — отдельный read-only shadow, а не автономная торговля. Репозиторий Williams Bot не менялся.
+
+## Важная терминологическая поправка по Stage 1 / Stage 7
+Сравнительный CPU inference на 100 исторических H1 charts для Base и v5 LoRA завершён технически. Но поскольку историческим 100 графикам не присвоен независимый экспертный gold, **это не завершённый независимый экспертный экзамен модели** и не доказательство, что она усвоила книги. Stage 7 remains BLOCKED until an externally vetted independent gold cohort is prepared and graded. GPU/CPU model agreement is not correctness.
+
+## Статусы, которые не изменились
+- Stage 2: decoder v7.1 private T4 job `wolf19loner92/williams-v71-lmfe8-20261115` last reported QUEUED by read-only status workflow 43753869176; no new inference or training has been launched. The original 0.11.3 constrained-decoder pilot on eight cases showed worse JSON validity than v6; the upstream tokenizer whitespace fix awaits an actual run.
+- Stage 6: no additional LoRA trained; training is BLOCKED by lack of real independent expert-approved supervision.
+- Stage 7: no genuine independent gold exam yet.
+- Stage 8: 32 prospective H1 cases remain frozen under original plan; they cannot be collected/graded ahead of the locked future cutoff. Existing prospective workflow/automation should not be duplicated.
+- Stage 9: NO-GO for any code or order integration; only the future read-only shadow design has been specified.
