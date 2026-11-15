@@ -29,7 +29,72 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          72,
+          73,
+          74
+        ],
+        "printed_pages": [
+          72,
+          73,
+          74
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 8.4",
+          "Figure 8.5",
+          "Figure 8.6",
+          "Figure 8.7",
+          "Figure 8.8",
+          "Figure 8.9",
+          "Figure 8.10"
+        ],
+        "findings": {
+          "paired_structure": "Two adjacent oppositely directed fractals establish the Fractal Start and Fractal Signal; the source names these as distinct elements.",
+          "candidate_confirmation": "The three-bar hand/thumb arrangement is only a possible-fractal setup; a full fractal requires two subsequent bars with the required lower highs (up fractal) or higher lows (down fractal).",
+          "signal_initiation": "When the Fractal Signal is initiated, action is in the direction indicated by that signal.",
+          "leverage_decay": "As price returns toward the Fractal Start, leverage is progressively reduced.",
+          "price_invalidation": "When price returns through the relevant extreme of the start bar by one minimum price movement (one tick), leverage is fully lost and the buy/sell signals are immediately cancelled.",
+          "fractal_stop": "The fractal stop is the most distant of the last two oppositely directed fractals; the text says it is often, but not invariably, the second-to-last opposite fractal.",
+          "stop_vs_stop_reverse": "A protective fractal stop and a newly created opposite-direction buy/sell signal (stop-and-reverse case) are described as distinct."
+        },
+        "causal_state_separation": [
+          "FRACTAL_CANDIDATE",
+          "FRACTAL_CONFIRMED",
+          "FRACTAL_START",
+          "FRACTAL_SIGNAL_PENDING",
+          "FRACTAL_SIGNAL_INITIATED",
+          "LEVERAGE_REDUCING",
+          "LEVERAGE_CANCELLED",
+          "FRACTAL_STOP",
+          "STOP_AND_REVERSE_SIGNAL"
+        ],
+        "interpretation_guards": {
+          "three_bar_candidate_not_confirmed_fractal": true,
+          "wait_for_two_subsequent_closed_bars": true,
+          "do_not_backdate_confirmation_to_central_bar": true,
+          "start_and_signal_are_distinct": true,
+          "return_toward_start_not_immediate_cancellation": true,
+          "fractal_stop_not_same_as_stop_and_reverse": true,
+          "signal_not_equivalent_to_broker_fill": true
+        },
+        "source_does_not_establish": {
+          "signed_one_tick_arithmetic_for_both_long_and_short_cases": "The passage gives generic start-extreme plus one-minimum-movement wording but not a full signed long/short arithmetic table.",
+          "broker_order_acknowledgement_or_fill_policy": null,
+          "gap_through_slippage_partial_fill_or_exchange_stop_replacement": null,
+          "implementation_specific_origin_fractal_label_mapping": null
+        },
+        "engineering_boundary": "Confirm a candidate only after the two required subsequent bars are closed. Preserve distinct start, signal, pending, initiated and cancelled states. Implement the one-tick invalidation boundary directionally and validate it separately; do not apply the same signed +1 tick operation to both sides. This source recheck does not authorize code changes to a trading engine.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_002",
