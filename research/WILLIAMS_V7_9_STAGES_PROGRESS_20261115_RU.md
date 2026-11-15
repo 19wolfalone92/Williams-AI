@@ -103,3 +103,38 @@
 - Stage 7: независимый gold-exam не проводился; протокол freeze/grade готов, личности/компетентность подписантов должны проверяться вне кода.
 - Stage 8: 32 prospective H1 остаются под зафиксированным планом; сбор после cutoff 22 ноября 2026, дальнейшая holdout выборка — январь 2027.
 - Stage 9: Williams Bot repo не менялся; ни API торговли, ни ордеров, ни интеграции нет.
+
+---
+
+# Дополнение по дальнейшей первичной сверке и Stage 5 — обновление 15 ноября 2026
+
+## Stage 3: NTD расширен с 4 до 6 отдельных проверок (RULE_CHECK_011–016)
+
+Углублённо изучены оригинальные страницы NTD, включая сканы Figures 3-1…3-8, 5-1…5-35, 6-1…6-14, 7-1…7-4, 8-7…8-23 и 9-1…9-9. Исходный PDF закреплён SHA-256 `855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4`.
+
+11. RULE_CHECK_011 — Alligator: три временных уровня Balance Lines, фаза сна/пробуждения, направление по стороне пасти, first external fractal, close-only stop. **Найдено противоречие перевода:** Lips shift на PDF36 описан как +2 в одном предложении, но Figure 3-4/резюме и следующий текст указывают +3. Также фраза PDF38 о фрактале «внутри челюсти» требует сверки с внешним условием на PDF35/39.
+12. RULE_CHECK_012 — NTD AO: три самостоятельных buy и sell паттерна Saucer, Zero Line Cross, Twin Peaks. Цвет столбца — направление изменения histogram, не знак относительно нуля. AO Zero Cross — сигнал; Twin Peaks действителен только при сохранении стороны нуля между пиками. Не смешивать с TC2 WM2.
+13. RULE_CHECK_013 — NTD AC: сторона нуля меняет счёт последовательных растущих/падающих histogram bars. Сам AC zero-cross самостоятельным сигналом не является; он корректирует необходимое число столбцов. Не путать с AO Zero Cross.
+14. RULE_CHECK_014 — NTD Zone: согласованность AO+AC создаёт Green/Red/Gray; добавление требует согласованной цены на close и текущей позиции; после пятого подряд одноцветного price bar зональные добавления прекращаются, но другие допустимые сигналы в том же направлении остаются.
+15. RULE_CHECK_015 — Balance Line + Alligator + Zone filters: правая-к-левой поиск базы, 1/2 экстремума от/к линии, Special Blue Light/rebase, запрет покупать под Alligator mouth и продавать над пастью, удвоение числа требуемых экстремумов для BUY in Red Zone и SELL in Green Zone.
+16. RULE_CHECK_016 — четыре рыночных выхода NTD: Teeth close-only; trailing stop после пяти последовательных баров одного цвета; Lips close-only на running market; противоположный qualifying signal как менее предпочтительное exit decision, а не автоматическое reverse.
+
+[CI NTD source rechecks 43753636409](https://github.com/19wolfalone92/Williams-AI/actions/runs/43753636409) проверяет PDF SHA, страницы, допустимые NTD rule IDs, и отсутствие model labels. [Curriculum CI 43753636502](https://github.com/19wolfalone92/Williams-AI/actions/runs/43753636502) проверяет расширенный source lesson backlog (на момент записи запущены).
+
+## Stage 5: учебный curriculum расширен с 10 до 16 кандидатов
+
+`knowledge/WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json` содержит 16 отдельных lessons, из них 6 NTD: Alligator, AO, AC, Zone additions, Balance Line with Zone filters, exit hierarchy. В карточках хранятся первоисточник SHA, страницы, разрешённые Rule IDs, требуемая последовательность состояний, недопустимые выводы и нерешённые вопросы.
+
+Это source-grounded curriculum candidate, а не самостоятельные экспертные метки графиков: `independent_expert_reviews=0`, `chart_labels=0`, `sft_ready=false`. Stage 6 по-прежнему заблокирован до появления независимых качественных labels; никакой новой LoRA не обучалось.
+
+## Stage 2: v7.1 GPU pilot без нового запуска
+
+Последний подтверждённый one-shot read-only статус прежнего kernel `wolf19loner92/williams-v71-lmfe8-20261115` — **QUEUED**: [CI 43752856794 SUCCESS](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752856794), [status artifact 14176916708](https://github.com/19wolfalone92/Williams-AI/actions/runs/43752856794/artifacts/14176916708). В этом workflow явно записано: новый kernel не submitted, новая инференция не начата, обучение не начато. Поэтому результат эффективности upstream fix пока **неизвестен**; не подавать дубль. Предполагаемая причина v7 invalid JSON — tokenizer punctuation-cleanup bug в старом LM Format Enforcer; это правдоподобная техническая гипотеза, но отсутствие raw текста из первоначального прогона не позволяет восстановить конкретный каждый ответ.
+
+## Рамки доказательности остаются неизменными
+
+- 100 historical H1 решений на CPU/GPU не имеют экспертного gold и не измеряют accuracy.
+- 16 curriculum lessons охватывают конкретные проверенные страницы четырёх книг, но не все 37 записей rule registry и не все 642 PDF-страницы.
+- Психологические и визуальные элементы книг требуют отдельной review: их нельзя свести только к механическим карточкам.
+- Пока нет внешне верифицированных экспертов и согласованных подписанных решений, Stage 6 LoRA retraining и Stage 7 independent gold exam — BLOCKED.
+- Перспективный Stage 8 остаётся замороженным до cutoff по существующим планам; Williams Bot не менялся.
