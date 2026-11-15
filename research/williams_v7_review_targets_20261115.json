@@ -172,7 +172,25 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "PRIMARY_PAGES_NOT_RECHECKED"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "confirmed_pages": [
+          131,
+          149,
+          150,
+          151
+        ],
+        "visual_diagram_page_150_reviewed": true,
+        "page_131_finding": "TC2 describes protecting an established long entry and a stop-and-reverse strategy if the qualified Fractal sell signal is hit; the cited example reverses after a bearish divergent bar.",
+        "pages_149_151_finding": "TC2's short-side sequence specifies the bearish divergent-bar setup, protective stop, and a conditional buy-Fractal reversal; the example describes reversing to the long side after a bullish divergent bar.",
+        "excluded_page_164": "Page 164 concerns the creative-process/morning-pages discussion, not an opposite-signal or position-management rule; it is not evidence for this review target.",
+        "implementation_boundary": "A qualified opposite signal may establish a stop/reverse trigger; it is not an instruction to close immediately on signal appearance. Reversal depends on the specified price trigger and position sizing. This source check is not executable bot approval.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false
+      }
     },
     {
       "review_id": "RULE_CHECK_009",
