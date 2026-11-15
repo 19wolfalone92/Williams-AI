@@ -3,7 +3,7 @@
   "edition_scope": "TC1, NTD, TC2, COURSE original PDFs pinned by SHA-256",
   "created_utc": "2026-11-15T19:30:00Z",
   "status": {
-    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TWENTY_TWO_RULE_LESSONS",
+    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TWENTY_SIX_RULE_LESSONS",
     "visual_figures": "VISUALLY_INSPECTED_WHERE_REQUIRED",
     "independent_expert_reviews": 0,
     "expert_approval": false,
@@ -959,6 +959,145 @@
       ],
       "unresolved": [
         "Order-level implementation and partial-fill handling remain engineering requirements outside this book example."
+      ]
+    },
+    {
+      "id": "V7.COURSE.MFI.PROFITUNITY_WINDOWS",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29
+      ],
+      "rule_ids": [
+        "COURSE.MFI"
+      ],
+      "concept": "MFI and the four Profitunity Windows",
+      "principles": [
+        "Course MFI is price range divided by tick volume and should be compared with the immediately preceding bar; the absolute value alone is not a universal signal.",
+        "Green is plus volume/plus MFI; Fade is minus/minus; Fake is minus volume/plus MFI; Squat is plus volume/minus MFI.",
+        "Fade means participation and efficiency diminish, which can be a pause or Wave 4 context, not an automatic reversal. Fake means facilitation on reduced volume and is less robust. Squat means more activity but less price travel and may be trend-ending or a measuring Squat inside W3.",
+        "Windows describe market state; price and wave context are still required before any trade decision.",
+        "Course MFI uses tick volume. Base-asset volume from Binance klines is only a proxy."
+      ],
+      "required_sequence": [
+        "COMPARE_MFI_WITH_PREVIOUS_BAR",
+        "COMPARE_TICK_VOLUME_WITH_PREVIOUS_BAR",
+        "CLASSIFY_GREEN_FADE_FAKE_OR_SQUAT",
+        "LOCATE_WINDOW_IN_WAVE_AND_PRICE_CONTEXT",
+        "RECORD_TICK_VOLUME_OR_PROXY_QUALITY",
+        "ONLY_THEN_CONSIDER_ACTION"
+      ],
+      "invalid_inferences": [
+        "Treating MFI as an absolute threshold.",
+        "Claiming base volume is exact tick volume.",
+        "Calling every Squat a reversal.",
+        "Treating a Window as a standalone entry signal."
+      ]
+    },
+    {
+      "id": "V7.COURSE.THUMB.EARLY_FRACTAL_ENTRY",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        69,
+        70,
+        71
+      ],
+      "rule_ids": [
+        "COURSE.THUMB"
+      ],
+      "concept": "Thumb early entry, non-counted inside bars and SQUAT/GREEN quality",
+      "principles": [
+        "Short Thumb: three successive counted fingers each have a higher high and higher low than the prior finger; Long is the mirror with lower highs and lower lows.",
+        "Inside bars do not count as separate fingers; the setup may span more than three clock bars.",
+        "PDF 69 says two of three fingers must be SQUAT or GREEN in any combination and have increasing volume; PDF 71 describes the ideal formation as at least one SQUAT and one GREEN. Preserve the wording difference.",
+        "Thumb is an early setup within a potential fractal, not a completed TC2 WM3 fractal or Hump.",
+        "Stop is placed one tick outside the Thumb extreme; if a new qualifying Thumb forms before activation, the pending stop may be updated."
+      ],
+      "required_sequence": [
+        "SELECT_THREE_NON_INSIDE_FINGERS",
+        "VERIFY_THREE_SUCCESSIVE_HIGHER_HIGH_HIGHER_LOW_FOR_SHORT_OR_MIRROR_LONG",
+        "CHECK_SQUAT_GREEN_VOLUME_QUALITY",
+        "ARM_ONE_TICK_OUTSIDE_THUMB_EXTREME",
+        "UPDATE_ONLY_ON_NEW_QUALIFYING_THUMB",
+        "WAIT_FOR_PRICE_TRIGGER_AND_FILL"
+      ],
+      "invalid_inferences": [
+        "Counting inside bars as fingers.",
+        "Treating Thumb as a confirmed five-bar fractal.",
+        "Ignoring the quality filter or source discrepancy.",
+        "Treating a pending stop as an executed position."
+      ]
+    },
+    {
+      "id": "V7.COURSE.HUMP.OPPOSITE_NONOVERLAPPING_FRACTALS",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        72
+      ],
+      "rule_ids": [
+        "COURSE.HUMP"
+      ],
+      "concept": "Hump: opposite fractals with non-overlapping extreme bars",
+      "principles": [
+        "The Hump is the Course's Five Fingered Boogie and depends on a pair of opposite-direction fractal formations.",
+        "The two extreme formation bars must not overlap; first fractal is Hump Start and second is Hump Signal.",
+        "Long trigger is above Hump Signal high by configured ticks; short trigger is below its low by configured ticks.",
+        "Movement between the two fractals is considered an Elliott wave of some degree, not a fully confirmed wave count.",
+        "All confirmation bars must be closed before the pattern is known."
+      ],
+      "required_sequence": [
+        "CONFIRM_FIRST_FRACTAL_HUMP_START",
+        "CONFIRM_OPPOSITE_FRACTAL_HUMP_SIGNAL",
+        "VERIFY_EXTREME_FORMATION_BARS_NONOVERLAPPING",
+        "MAP_TICK_TRIGGER_TO_HUMP_SIGNAL_EXTREME",
+        "WAIT_FOR_TRIGGER_AND_FILL"
+      ],
+      "invalid_inferences": [
+        "Calling one fractal a Hump.",
+        "Allowing overlapping extreme bars.",
+        "Using future bars to confirm a fractal.",
+        "Confusing Hump with TC2 WM3 Teeth filter."
+      ]
+    },
+    {
+      "id": "V7.COURSE.TRADING_PARTNER.MULTITIMEFRAME_TABLE",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        88,
+        89
+      ],
+      "rule_ids": [
+        "COURSE.TRADING_PARTNER"
+      ],
+      "concept": "Trading Partner worksheet: multi-timeframe rhythm, setup, position and planned action",
+      "principles": [
+        "Trading Partner records higher and current trading timeframes, including their 5/34/5 rhythm state.",
+        "It combines Hump Start/Signal, Thumb evidence, actual position, planned position and next action in separate table fields.",
+        "Higher timeframe supplies context; current/lower timeframe supplies actionable timing.",
+        "The Course asks for the higher-timeframe rhythm and current-timeframe rhythm to be compared; an isolated signal is not enough when the broader rhythm conflicts.",
+        "Trading Partner is a structured decision worksheet, not an indicator conjunction or order-submission authority. Position unavailable from broker is UNKNOWN."
+      ],
+      "required_sequence": [
+        "RECORD_HIGHER_TIMEFRAME_RHYTHM",
+        "RECORD_CURRENT_TIMEFRAME_RHYTHM",
+        "COMPARE_DIRECTIONAL_ALIGNMENT",
+        "RECORD_HUMP_AND_THUMB_SIGNALS",
+        "VERIFY_EXISTING_POSITION_AND_ORDERS",
+        "SET_PLANNED_POSITION_AND_RISK",
+        "ONLY_THEN_FORM_EXECUTION_INTENT"
+      ],
+      "invalid_inferences": [
+        "Reducing the method to a Boolean conjunction.",
+        "Inventing an existing position or fill.",
+        "Treating a completed worksheet as exchange order authorization."
       ]
     }
   ],
