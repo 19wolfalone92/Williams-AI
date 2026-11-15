@@ -89,7 +89,7 @@ def _set_output(state: str):
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as f:
-            f.write(f"state={state}\\n")
+            f.write(f"state={state}\n")
 
 
 def main():
