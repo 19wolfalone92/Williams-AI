@@ -351,7 +351,52 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          43,
+          44,
+          45
+        ],
+        "printed_pagination": "Profitunity Trading Level II, pages 12-14",
+        "high_resolution_page_scans_reviewed": true,
+        "handwritten_marginal_annotations_excluded": true,
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false,
+        "visual_diagrams_reviewed": [
+          "physical page 43 weekly wave chart",
+          "physical page 44 Fibonacci time-projection diagram"
+        ],
+        "findings": {
+          "wave_degree_window": "For the wave sequence being counted, the Course recommends a 100-140 bar proportion.",
+          "less_than_100": "A sequence shorter than 100 bars causes the 5/34/5 MACD to reflect a larger-degree wave.",
+          "more_than_140": "A sequence substantially longer than 140 bars causes the MACD to reflect a smaller-degree wave.",
+          "signal_line_context": "During the retracing W4 example the histogram falls below the signal line; the text warns that this is not a good place to initiate a long position.",
+          "zero_line_trigger": "The stated trigger is the oscillator moving past/through the zero line; a mere touch or approach is not the described trigger.",
+          "minimum_not_completion": "The zero-line trigger indicates minimum requirements for W4 have been met, but does not indicate that W4 is over.",
+          "structural_context": "For more precise W4 assessment the Course recommends examining an a-b-c or triangle correction and the last smaller wave, referring to four regular indicators inside that smaller wave."
+        },
+        "interpretation_guards": {
+          "touch_or_approach_is_not_crossing": true,
+          "zero_cross_means_minimum_w4_requirements_not_w4_completion": true,
+          "bar_window_applies_to_wave_sequence_not_total_loaded_history": true,
+          "histogram_below_signal_line_not_long_confirmation": true,
+          "no_unconditional_w5_order_from_zero_cross": true
+        },
+        "source_does_not_establish": {
+          "deterministic_elliott_degree_selection": null,
+          "universal_fixed_chart_timeframe": null,
+          "complete_enumeration_of_four_regular_indicators_on_reviewed_page": null,
+          "broker_entry_fill_or_guaranteed_w4_completion": null
+        },
+        "implementation_boundary": "Keep the 5/34 zero-line crossing distinct from a touch and from a completed W4 label. If wave degree or crossing evidence is ambiguous, preserve a hypothesis/unresolved state rather than promoting it to a confirmed wave or trade."
+      }
     },
     {
       "review_id": "RULE_CHECK_010",
@@ -371,7 +416,55 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          43,
+          44,
+          45
+        ],
+        "printed_pagination": "Profitunity Trading Level II, pages 12-14",
+        "high_resolution_page_scans_reviewed": true,
+        "handwritten_marginal_annotations_excluded": true,
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false,
+        "visual_diagrams_reviewed": [
+          "physical page 43 weekly wave chart",
+          "physical page 44 Fibonacci time-projection diagram"
+        ],
+        "findings": {
+          "wave_degree_window": "The 100-140 bars apply to the actual wave sequence under consideration, not simply to the number of candles loaded.",
+          "under_100": "Below 100 bars, the 5/34/5 MACD reflects a larger-degree wave than the sequence being counted.",
+          "over_140": "Substantially above 140 bars, it reflects a smaller-degree wave.",
+          "nested_divergence": "With the correct bar proportion, a divergence that does not return to zero is described as a wave-3 peak inside a larger wave 3; MACD retraces but not to zero, returns and generates another divergence.",
+          "alternative_count": "The described pattern is interpreted as wave 3 of wave 3, with the larger wave-3 peak at that point; it is not automatically a wave-5 exhaustion signal.",
+          "larger_w4_minimum": "A later MACD return to zero indicates that the minimum requirements for the larger wave 4 have been met, not that W4 is necessarily complete.",
+          "w5_target": "After W4 is over and W5 is underway, measure W1 start to W3 end; project 100% of that distance from W4 end and use 62%-100% of the same distance as the preferred W5 target zone.",
+          "nested_w5_target": "Count the five waves inside W5 and repeat the target measurement for the internal sequence to derive a smaller target zone, including W5 of W5.",
+          "w4_time_context": "The same pages describe a Fibonacci time-projection interval of 1.38-1.62 measured from the bottom of W2 as a W4 timing context."
+        },
+        "interpretation_guards": {
+          "do_not_use_total_loaded_candle_count_as_wave_degree_proof": true,
+          "non_zero_return_divergence_not_automatically_wave5": true,
+          "nested_wave3_of_wave3_alternative_must_be_preserved": true,
+          "zero_return_indicates_minimum_w4_requirements_not_completion": true,
+          "w5_target_requires_verified_wave_degree_and_count": true,
+          "w5_target_zone_not_guaranteed_take_profit": true
+        },
+        "source_does_not_establish": {
+          "deterministic_unique_elliott_count_or_degree": null,
+          "guaranteed_w5_termination_or_target_hit": null,
+          "complete_machine_readable_definition_of_four_regular_indicators": null,
+          "universal_fixed_timeframe": null
+        },
+        "implementation_boundary": "Represent wave count and degree as hypotheses with alternatives. Do not convert the nested wave-3 divergence pattern into a confirmed W5 label; do not calculate or apply a W5 target until the wave sequence and degree are independently justified."
+      }
     }
   ]
 }
