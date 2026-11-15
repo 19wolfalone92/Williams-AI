@@ -9,7 +9,7 @@ class V7CurriculumContractTests(unittest.TestCase):
   self.assertEqual(x["books_covered"],4);self.assertFalse(x["sft_ready"])
  def test_course_hump_thumb_mfi_and_trading_partner_are_separate(self):
   rows={x["id"]:x for x in self.data["lesson_cards"]}
-  for key,rule in (("V7.COURSE.MFI.PROFITUNITY_WINDOWS","COURSE.MFI"),
+  for key,rule in (("V7.COURSE.MFI.PROFITUNITY_WINDOWS","COURSE.AO5345"),
                    ("V7.COURSE.THUMB.EARLY_FRACTAL_ENTRY","COURSE.THUMB"),
                    ("V7.COURSE.HUMP.OPPOSITE_NONOVERLAPPING_FRACTALS","COURSE.HUMP"),
                    ("V7.COURSE.TRADING_PARTNER.MULTITIMEFRAME_TABLE","COURSE.TRADING_PARTNER")):
