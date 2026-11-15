@@ -14,17 +14,23 @@ def main():
  sha=os.environ.get("GITHUB_SHA","");token=os.environ.get("KAGGLE_API_TOKEN","")
  need(re.fullmatch("[a-f0-9]{40}",sha) is not None and len(token)>=20,"CREDENTIAL_OR_SHA")
  api=KaggleApi();api.authenticate();owner=get_username()
+ need("COMPLETE" in str(api.kernels_status(owner+"/"+TRAINING_NAME).status).upper(),"TRAINED_ADAPTER_SOURCE_NOT_READY")
  meta,_=make_metadata(owner,sha);meta["id"]=owner+"/"+SLUG;meta["title"]=SLUG
  need(meta["is_private"]=="true" and meta["machine_shape"]=="NvidiaTeslaT4" and meta["kernel_sources"]==[owner+"/"+TRAINING_NAME] and meta["enable_gpu"]=="true","KERNEL_POLICY")
  try:prior=api.kernels_status(meta["id"])
  except Exception as exc:
-  if "404" in str(exc).lower() or "not found" in str(exc).lower():prior=None
+  message=str(exc).lower()
+  # Kaggle returns 403 rather than 404 for an uncreated private kernel slug.
+  # The authenticated owner and access to the source kernel were verified above.
+  if "404" in message or "not found" in message or (
+      "403" in message and "kernels.get" in message and
+      owner.lower()==meta["id"].split("/",1)[0].lower()):
+   prior=None
   else:raise
  root=Path(os.environ["RUNNER_TEMP"])
  if prior is not None:
   result={"schema":"V71_EXISTING_KERNEL_REUSED_NOT_RESULTS","status":str(prior.status),"new_kernel_submitted":False,"training_started":False}
   (root/"v71_submission.json").write_text(json.dumps(result,indent=2));print(json.dumps(result));return
- need("COMPLETE" in str(api.kernels_status(owner+"/"+TRAINING_NAME).status).upper(),"TRAINED_ADAPTER_SOURCE_MISSING")
  with api.build_kaggle_client() as c:q=c.kernels.kernels_api_client.get_accelerator_quota_statistics(ApiGetAcceleratorQuotaStatisticsRequest()).gpu_quota
  seconds=(q.total_time_allowed-q.time_used).total_seconds() if q else None
  need(seconds is not None and seconds>7200,"GPU_QUOTA_LT_2H")
