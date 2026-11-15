@@ -1,0 +1,91 @@
+name: Williams AI v6 — REAL Kaggle T4 remaining 2 HF inference, verify total 200
+on:
+  push:
+    branches: [research/williams-v6-hist100-hybrid-gpu-20261115]
+    paths:
+      - scripts/ai_v6_hist100_kaggle_last2_worker.py
+      - scripts/ai_v6_hist100_kaggle_last2_submit.py
+      - scripts/ai_v6_hist100_kaggle_last2_verify.py
+      - tests/test_ai_v6_hist100_kaggle_last2.py
+      - .github/workflows/ai-v6-hist100-last2-gpu.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: williams-v6-HIST100-exactly2-gpu-and-merge-98
+  cancel-in-progress: false
+
+jobs:
+  gpu-only-two-missing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: 
+          python-version: '3.11'
+      - name: Freeze protocol, validate that GPU fallback changes ONLY last two cases
+        run: |
+          python -m py_compile scripts/ai_v6_hist100_kaggle_gpu_worker.py scripts/ai_v6_hist100_kaggle_last2_worker.py scripts/ai_v6_hist100_kaggle_last2_submit.py scripts/ai_v6_hist100_kaggle_last2_verify.py
+          python -m unittest tests.test_ai_v6_hist100_kaggle_gpu tests.test_ai_v6_hist100_kaggle_last2 -v
+      - name: Install authenticated Kaggle CLI
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
+      - name: Submit ONE private Kaggle T4 inference for the exact TWO missing cases only
+        run: python -m scripts.ai_v6_hist100_kaggle_last2_submit
+      - name: Report actual submission receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-HIST100-final-two-GPU-submission-NOT-PREDICTIONS
+          path: ${{runner.temp}}/hist100_last2_gpu_submit.json
+          if-no-files-found: error
+          retention-days: 30
+
+  verify-real-two-and-join-original-98:
+    needs: gpu-only-two-missing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          repository: 19wolfalone92/Williams-AI
+          run-id: 43658053110
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Williams-v6-HIST100-GPU-REAL-PARTIAL-NOT-COMPLETE-NO-GOLD
+          path: historical98
+      - name: Verify pinned 98-case source archive before any 100-case final assertions
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("historical98/hist100_gpu_verified_PARTIAL_not_complete.json")
+          x=json.loads(p.read_bytes())
+          assert x["complete"] is False and x["completed_paired_cases"]==98
+          assert x["real_model_inference_rows"]==196 and x["expert_gold"] is None
+          assert x["gpu_prompt_is_compacted_vs_cpu_protocol"] is True
+          print("PINNED_98_BASE_PLUS_98_V5_GENUINE_GPU_PARTIAL_VALIDATED")
+          PY
+      - name: Install read-only Kaggle client
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
+      - name: Verify real 2+2 remaining Kaggle GPU answers and combine exact 100+100
+        run: python -m scripts.ai_v6_hist100_kaggle_last2_verify
+      - name: Publish complete REAL 100 Base vs 100 LoRA research answers, NO GOLD
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-HIST100-REAL-GPU-100-BASE-100-V5-COMPLETE-NO-GOLD
+          path: ${{runner.temp}}/WILLIAMS_V6_HIST100_ALL_100_BASE_100_V5_REAL_GPU_NOT_GOLD.json
+          if-no-files-found: error
+          retention-days: 30

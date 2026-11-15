@@ -48,6 +48,25 @@ class KaggleGPUContract(unittest.TestCase):
         self.assertEqual(len(json.loads(messages[1]["content"])["closed_bars"]),96)
         self.assertEqual(json.loads(compact[1]["content"])["causal_H1_H4_D1_indicators_not_book_signals"],{"ao":12})
 
+
+    def test_fallback_only_for_extreme_final_case(self):
+        import json
+        from scripts.ai_v6_hist100_kaggle_gpu_worker import compact_gpu_prompt
+        class Dummy:
+            def apply_chat_template(self, messages, **kwargs):
+                n=len(json.loads(messages[1]["content"])["closed_bars"])
+                return list(range(3000+35*n))
+        m=[{"role":"system","content":"causal"},
+           {"role":"user","content":json.dumps({"closed_bars":[[i] for i in range(96)],
+                "book_source_cards_not_expert_gold":[{"rule_id":"fixed"}]})}]
+        with self.assertRaisesRegex(ValueError,"GPU_PROMPT_TOO_LARGE"):
+            compact_gpu_prompt(Dummy(),m)
+        compact,hashval,tokens,n=compact_gpu_prompt(Dummy(),m,max_input_tokens=4096,min_closed_h1_bars=16)
+        self.assertLessEqual(tokens,4096)
+        self.assertGreaterEqual(n,16)
+        self.assertEqual(json.loads(compact[1]["content"])["closed_bars"],[[i] for i in range(96-n,96)])
+        self.assertEqual(len(hashval),64)
+
     def test_invalid_input_rejected(self):
         with self.assertRaisesRegex(ValueError, "INVALID_KAGGLE_OWNER"):
             make_metadata("../escape", "e" * 40)

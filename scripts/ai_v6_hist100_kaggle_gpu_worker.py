@@ -61,7 +61,7 @@ def find_trained_lora():
     return adapter_path.parent
 
 
-def compact_gpu_prompt(tokenizer, original_messages):
+def compact_gpu_prompt(tokenizer, original_messages, *, max_input_tokens=GPU_MAX_INPUT_TOKENS, min_closed_h1_bars=GPU_VISIBLE_CLOSED_H1_MIN):
     """Causally compact ONLY the HF GPU prompt; never change stored 1024 H1 input.
 
     A 96-candle HF prompt caused real torch.OutOfMemoryError on Tesla T4
@@ -71,6 +71,9 @@ def compact_gpu_prompt(tokenizer, original_messages):
     receive EXACTLY identical compact bytes. Refuse a case rather than
     silently throw away all price context.
     """
+    need(type(max_input_tokens) is int and 3200 <= max_input_tokens <= 4096 and
+         type(min_closed_h1_bars) is int and 16 <= min_closed_h1_bars <= 20,
+         "UNSAFE_UNPINNED_GPU_COMPACT_POLICY")
     need(len(original_messages) == 2, "MALFORMED_TWO_MESSAGE_GPU_PROMPT")
     base=json.loads(original_messages[1]["content"])
     original_bars=base["closed_bars"]
@@ -85,9 +88,9 @@ def compact_gpu_prompt(tokenizer, original_messages):
             messages,tokenize=True,add_generation_prompt=True,
             enable_thinking=False)
         count=len(tokens)
-        if count <= GPU_MAX_INPUT_TOKENS:
+        if count <= max_input_tokens:
             return messages, sha256(canonical(messages)).hexdigest(), count, len(base["closed_bars"])
-        need(len(base["closed_bars"]) > GPU_VISIBLE_CLOSED_H1_MIN,
+        need(len(base["closed_bars"]) > min_closed_h1_bars,
              "GPU_PROMPT_TOO_LARGE_WITH_20_CLOSED_BARS")
         base["closed_bars"]=base["closed_bars"][2:]
 
