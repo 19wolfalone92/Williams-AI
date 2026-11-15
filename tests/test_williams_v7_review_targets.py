@@ -251,5 +251,62 @@ class V7SourceReviewBacklogTests(unittest.TestCase):
         self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
 
 
+    def test_rule_check_003_ntd_balance_line_base_and_one_two_extremes(self):
+        data = json.loads((ROOT / "research/williams_v7_review_targets_20261115.json").read_text())
+        self.assertFalse(data["training_approved"])
+        self.assertFalse(data["independent_experts_verified"])
+        self.assertEqual(data["expert_reviews_received"], 0)
+        self.assertIsNone(data["valid_gold_labels"])
+        case = next(x for x in data["cases"] if x["review_id"] == "RULE_CHECK_003")
+        review = case["source_recheck"]
+        self.assertEqual(review["source_pdf_sha256"],
+                         "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4")
+        self.assertTrue(review["source_sha256_recomputed_from_original_library_pdf"])
+        self.assertTrue(review["source_sha256_verified_against_pinned_target"])
+        self.assertEqual(review["pdf_page_labels_reviewed"], [99, 103, 104])
+        findings = review["findings"]
+        for key in ("scan_direction", "relevant_extreme", "buy_base", "sell_base",
+                    "buy_count", "sell_count", "buy_above_balance_line_special_case",
+                    "fresh_highs_need_pullback"):
+            self.assertTrue(findings[key])
+        guards = review["interpretation_guards"]
+        self.assertTrue(guards["base_identified_before_counting_extremes"])
+        self.assertTrue(guards["one_or_two_counts_new_extremes_not_elapsed_bars"])
+        self.assertTrue(guards["two_required_when_moving_toward_balance_line"])
+        self.assertTrue(guards["special_case_evidence_is_buy_side_only"])
+        self.assertFalse(review["independent_experts_verified"])
+        self.assertEqual(review["reviewer_signatures_received"], 0)
+        self.assertFalse(review["approved_for_SFT"])
+        self.assertFalse(review["approved_for_trading"])
+        self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
+
+    def test_rule_check_004_ntd_pending_buy_stop_moves_only_on_trigger_or_new_base(self):
+        data = json.loads((ROOT / "research/williams_v7_review_targets_20261115.json").read_text())
+        self.assertFalse(data["training_approved"])
+        self.assertFalse(data["independent_experts_verified"])
+        self.assertEqual(data["expert_reviews_received"], 0)
+        self.assertIsNone(data["valid_gold_labels"])
+        case = next(x for x in data["cases"] if x["review_id"] == "RULE_CHECK_004")
+        review = case["source_recheck"]
+        self.assertEqual(review["source_pdf_sha256"],
+                         "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4")
+        self.assertEqual(review["pdf_page_labels_reviewed"], [103, 104])
+        self.assertEqual(review["additional_context_page_reviewed"], [105])
+        findings = review["findings"]
+        for key in ("pending_buy_stop_stability", "stop_replacement_conditions",
+                    "new_base_retest", "visual_non_moving_bars", "scope"):
+            self.assertTrue(findings[key])
+        guards = review["interpretation_guards"]
+        self.assertTrue(guards["do_not_slide_stop_for_every_higher_high"])
+        self.assertTrue(guards["reapply_base_selection_before_replacing_stop"])
+        self.assertTrue(guards["no_stop_move_before_new_base_confirmed"])
+        self.assertTrue(guards["chart_trigger_not_same_as_broker_fill"])
+        self.assertFalse(review["independent_experts_verified"])
+        self.assertEqual(review["reviewer_signatures_received"], 0)
+        self.assertFalse(review["approved_for_SFT"])
+        self.assertFalse(review["approved_for_trading"])
+        self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
+
+
 if __name__ == "__main__":
     unittest.main()
