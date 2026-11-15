@@ -4,7 +4,7 @@ import json,os,re,subprocess,tempfile
 from pathlib import Path
 from scripts.ai_v6_hist100_kaggle_gpu_submit import make_metadata,TRAINING_NAME
 from williams_ai.v71_guided_json_diagnostics import ENFORCER_COMMIT
-SLUG="williams-v71-patched-lmfe-diagnostics-eight-h1-20261115"
+SLUG="williams-v71-lmfe8-20261115"
 def need(ok,why):
  if not ok:raise ValueError("V71_SUBMIT_"+why)
 
