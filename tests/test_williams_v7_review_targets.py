@@ -92,5 +92,41 @@ class V7SourceReviewBacklogTests(unittest.TestCase):
         self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
 
 
+    def test_rule_check_007_wm3_teeth_filter_is_at_activation_not_formation(self):
+        data = json.loads((ROOT / "research/williams_v7_review_targets_20261115.json").read_text())
+        self.assertFalse(data["training_approved"])
+        self.assertFalse(data["independent_experts_verified"])
+        self.assertEqual(data["expert_reviews_received"], 0)
+        self.assertIsNone(data["valid_gold_labels"])
+        self.assertTrue(data["no_trading"])
+        case = next(x for x in data["cases"] if x["review_id"] == "RULE_CHECK_007")
+        review = case["source_recheck"]
+        self.assertEqual(review["source_pdf_sha256"],
+                         "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f")
+        self.assertTrue(review["source_sha256_recomputed_from_original_library_pdf"])
+        self.assertTrue(review["source_sha256_verified_against_pinned_target"])
+        self.assertEqual(review["physical_pdf_pages"], [147, 148, 149])
+        self.assertEqual(review["printed_pages"], [132, 133, 134])
+        self.assertEqual(review["visual_diagrams_reviewed"],
+                         ["Figure 11.3", "Figure 11.4", "Figure 11.5", "Figure 11.6"])
+        findings = review["findings"]
+        for key in ("formation_vs_activation", "buy_stop", "sell_stop",
+                    "teeth_filter_at_activation", "formation_location_not_decisive",
+                    "pending_lifetime", "valid_invalid_examples"):
+            self.assertTrue(findings[key])
+        guards = review["interpretation_guards"]
+        self.assertTrue(guards["formation_above_or_below_teeth_alone_is_not_sufficient"])
+        self.assertTrue(guards["evaluate_teeth_at_activation_not_formation"])
+        self.assertTrue(guards["fractal_confirmation_is_not_a_filled_entry"])
+        self.assertTrue(guards["pending_signal_lifetime_until_trigger_or_new_fractal"])
+        self.assertTrue(guards["do_not_infer_intrabar_order_from_ohlc_without_evidence"])
+        self.assertIsNone(review["source_does_not_establish"]["numeric_teeth_tolerance_or_buffer"])
+        self.assertFalse(review["independent_experts_verified"])
+        self.assertEqual(review["reviewer_signatures_received"], 0)
+        self.assertFalse(review["approved_for_SFT"])
+        self.assertFalse(review["approved_for_trading"])
+        self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
+
+
 if __name__ == "__main__":
     unittest.main()
