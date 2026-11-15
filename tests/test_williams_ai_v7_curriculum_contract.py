@@ -4,16 +4,21 @@ from williams_ai.v7_curriculum_contract import validate
 PATH=Path(__file__).resolve().parents[1]/"knowledge"/"WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json"
 class V7CurriculumContractTests(unittest.TestCase):
  def setUp(self):self.data=json.loads(PATH.read_text(encoding="utf-8"))
- def test_twenty_six_source_pinned_lessons_cover_four_books_no_gold(self):
-  x=validate(self.data);self.assertEqual(x["lesson_candidate_count"],26)
+ def test_twenty_nine_source_pinned_lessons_cover_four_books_no_gold(self):
+  x=validate(self.data);self.assertEqual(x["lesson_candidate_count"],29)
   self.assertEqual(x["books_covered"],4);self.assertFalse(x["sft_ready"])
- def test_course_hump_thumb_mfi_and_trading_partner_are_separate(self):
+ def test_course_hump_thumb_mfi_trading_partner_and_visual_waves(self):
   rows={x["id"]:x for x in self.data["lesson_cards"]}
   for key,rule in (("V7.COURSE.MFI.PROFITUNITY_WINDOWS","COURSE.AO5345"),
                    ("V7.COURSE.THUMB.EARLY_FRACTAL_ENTRY","COURSE.THUMB"),
                    ("V7.COURSE.HUMP.OPPOSITE_NONOVERLAPPING_FRACTALS","COURSE.HUMP"),
-                   ("V7.COURSE.TRADING_PARTNER.MULTITIMEFRAME_TABLE","COURSE.TRADING_PARTNER")):
+                   ("V7.COURSE.TRADING_PARTNER.MULTITIMEFRAME_TABLE","COURSE.TRADING_PARTNER"),
+                   ("V7.COURSE.WAVE_VISUAL.NESTED_ABC_DEGREES","COURSE.VISUAL.NESTED_ABC")):
    self.assertIn(rule,rows[key]["rule_ids"]);self.assertEqual(rows[key]["edition"],"COURSE")
+ def test_tc1_psychology_is_coaching_not_chart_label(self):
+  rows={x["id"]:x for x in self.data["lesson_cards"]}
+  self.assertTrue({"TC1.PSY.FEAR","TC1.PSY.GREED","TC1.PSY.BELIEF"}.issubset(set(rows["V7.TC1.PSYCHOLOGY.FOUR_TRADING_PROGRAMS"]["rule_ids"])))
+  self.assertIn("NEVER_DIAGNOSE_STATE_FROM_PRICE_CHART",rows["V7.TC1.PSYCHOLOGY.FOUR_TRADING_PROGRAMS"]["required_sequence"])
  def test_ntd_dimensions_remain_separate(self):
   rows={x["id"]:x for x in self.data["lesson_cards"]}
   for key,rule in (("V7.NTD.ALLIGATOR.THREE_BALANCE_LINES","NTD.ALLIGATOR"),

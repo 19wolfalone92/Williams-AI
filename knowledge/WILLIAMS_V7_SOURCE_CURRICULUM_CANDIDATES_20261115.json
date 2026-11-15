@@ -3,7 +3,7 @@
   "edition_scope": "TC1, NTD, TC2, COURSE original PDFs pinned by SHA-256",
   "created_utc": "2026-11-15T19:30:00Z",
   "status": {
-    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TWENTY_SIX_RULE_LESSONS",
+    "source_pages": "PRIMARY_SOURCE_SPOTCHECKED_FOR_THESE_TWENTY_NINE_RULE_LESSONS",
     "visual_figures": "VISUALLY_INSPECTED_WHERE_REQUIRED",
     "independent_expert_reviews": 0,
     "expert_approval": false,
@@ -1098,6 +1098,114 @@
         "Reducing the method to a Boolean conjunction.",
         "Inventing an existing position or fill.",
         "Treating a completed worksheet as exchange order authorization."
+      ]
+    },
+    {
+      "id": "V7.TC1.PSYCHOLOGY.FOUR_TRADING_PROGRAMS",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136
+      ],
+      "rule_ids": [
+        "TC1.PSY.FEAR",
+        "TC1.PSY.GREED",
+        "TC1.PSY.BELIEF"
+      ],
+      "concept": "Four trading software programs: fear, greed, confidence and pleasure",
+      "principles": [
+        "TC1 presents four belief/behaviour programs: self-preservation/fear, greed, trading confidence and pleasure. Their population percentages are the author's estimates and must not be presented as empirically validated statistics.",
+        "Fear mode may appear as protecting from loss, difficulty exiting a losing trade, arbitrary tightening/widening of stops and missed valid actions. The author recommends journaling reactions during loss sequences.",
+        "Greed mode focuses on price rather than value, quick profits and over-optimization/black-box systems. The author views it as better suited to analysis and market research than to improvised live execution.",
+        "Confidence mode is calm implementation of an already prepared plan; Pleasure mode is flexible participation in the market with less struggle and easier position changes.",
+        "These are coaching concepts and must not be inferred as a person's psychological state from OHLCV, PnL or one market signal."
+      ],
+      "required_sequence": [
+        "RECORD_ONLY_USER_REPORTED_OR_OBSERVED_PROCESS_STATE",
+        "SEPARATE_ANALYSIS_FROM_LIVE_EXECUTION",
+        "CHECK_FOR_STOP_EDIT_OR_LOSS_AVOIDANCE_BEHAVIOUR",
+        "USE_TRADE_JOURNAL_AS_EXTERNAL_EVIDENCE",
+        "NEVER_DIAGNOSE_STATE_FROM_PRICE_CHART"
+      ],
+      "invalid_inferences": [
+        "Treating the author's percentages as established population statistics.",
+        "Inferring fear/greed/confidence/pleasure automatically from candles.",
+        "Turning psychological categories into hard market-entry Boolean filters.",
+        "Overriding a previously planned stop in response to fear."
+      ]
+    },
+    {
+      "id": "V7.TC1.PSYCHOLOGY.INSIDE_RISK_STRUCTURE_I_CAN",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "pages": [
+        136,
+        137,
+        138
+      ],
+      "rule_ids": [
+        "TC1.PSY.BELIEF",
+        "TC1.PSY.FEAR"
+      ],
+      "concept": "Inside Risk → Structure → I Can → Pleasure / Capital",
+      "principles": [
+        "Use the fear/self-preservation program outside market hours to calculate catastrophic aggregate loss if all planned protective stops execute.",
+        "Compare that worst-case total with the trader's predeclared pain limit; reduce exposure before trading if the risk exceeds that level. The book's example is not a universal numerical risk percentage.",
+        "Structure means selecting wave context/degree, checking a higher timeframe and Air Bag protection, assessing rhythm, then identifying exact initiating/retracing fractal levels and planned actions.",
+        "Only after risk and structure are prepared does the author describe executing with confidence and pleasure. Risk-free is a psychological framing about preserving the ability to continue, not zero financial risk.",
+        "During market action, do not invent new stop levels from emotion; actual orders and fills remain separate broker-confirmed states."
+      ],
+      "required_sequence": [
+        "CALCULATE_WORST_CASE_ALL_STOPS_BEFORE_MARKET",
+        "COMPARE_WITH_USER_DEFINED_PAIN_LIMIT",
+        "REDUCE_EXPOSURE_IF_LIMIT_EXCEEDED",
+        "DEFINE_WAVE_AND_HIGHER_TIMEFRAME_STRUCTURE",
+        "DEFINE_AIRBAG_RHYTHM_FRACTAL_ENTRIES_EXITS",
+        "ONLY_THEN_EXECUTE_PREPLANNED_ACTION"
+      ],
+      "invalid_inferences": [
+        "Interpreting risk-free as no possible loss.",
+        "Copying the book's illustrative dollar threshold to a different account.",
+        "Using emotions to resize or move stops mid-candle.",
+        "Treating chart stop prices as acknowledged exchange orders."
+      ]
+    },
+    {
+      "id": "V7.COURSE.WAVE_VISUAL.NESTED_ABC_DEGREES",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "pages": [
+        56
+      ],
+      "rule_ids": [
+        "COURSE.VISUAL.NESTED_ABC"
+      ],
+      "concept": "Nested Elliott 1–5 impulses and A–B–C corrections across degrees",
+      "principles": [
+        "The Course diagram shows a parent upward 0–1–2–3–4–5 sequence followed by an A–B–C correction.",
+        "Smaller degree impulse and corrective labels are drawn inside the larger legs, demonstrating that a parent wave can be composed of a full child-degree structure.",
+        "The illustration is evidence for nested degree/context, not a deterministic pattern template. Each degree requires its own pivots, confirmations and alternative counts.",
+        "A single price leg must not be labelled simultaneously at two degrees without explicitly stating parent-child relationship and timeframe."
+      ],
+      "required_sequence": [
+        "SELECT_PARENT_WAVE_DEGREE",
+        "IDENTIFY_PARENT_PIVOTS_AND_CONFIRMATION_TIMES",
+        "MAP_CHILD_WAVES_WITHIN_EACH_PARENT_LEG",
+        "LABEL_IMPULSE_OR_CORRECTIVE_STRUCTURE",
+        "RETAIN_ALTERNATIVE_COUNTS_AND_INVALIDATION"
+      ],
+      "invalid_inferences": [
+        "Copying the visual zigzag shape without pivot evidence.",
+        "Promoting child wave labels to parent degree.",
+        "Using future bars to confirm a historical wave count.",
+        "Treating the diagram as an entry/exit trigger."
       ]
     }
   ],
