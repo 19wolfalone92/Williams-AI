@@ -128,5 +128,64 @@ class V7SourceReviewBacklogTests(unittest.TestCase):
         self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
 
 
+    def test_rule_check_009_course_w4_zero_line_cross_is_minimum_not_completion(self):
+        data = json.loads((ROOT / "research/williams_v7_review_targets_20261115.json").read_text())
+        self.assertFalse(data["training_approved"])
+        self.assertFalse(data["independent_experts_verified"])
+        self.assertEqual(data["expert_reviews_received"], 0)
+        self.assertIsNone(data["valid_gold_labels"])
+        case = next(x for x in data["cases"] if x["review_id"] == "RULE_CHECK_009")
+        review = case["source_recheck"]
+        self.assertEqual(review["source_pdf_sha256"],
+                         "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca")
+        self.assertTrue(review["source_sha256_recomputed_from_original_library_pdf"])
+        self.assertTrue(review["source_sha256_verified_against_pinned_target"])
+        self.assertEqual(review["physical_pdf_pages"], [43, 44, 45])
+        self.assertTrue(review["high_resolution_page_scans_reviewed"])
+        findings = review["findings"]
+        for key in ("wave_degree_window", "less_than_100", "more_than_140",
+                    "signal_line_context", "zero_line_trigger",
+                    "minimum_not_completion", "structural_context"):
+            self.assertTrue(findings[key])
+        guards = review["interpretation_guards"]
+        self.assertTrue(guards["touch_or_approach_is_not_crossing"])
+        self.assertTrue(guards["zero_cross_means_minimum_w4_requirements_not_w4_completion"])
+        self.assertTrue(guards["bar_window_applies_to_wave_sequence_not_total_loaded_history"])
+        self.assertTrue(guards["no_unconditional_w5_order_from_zero_cross"])
+        self.assertFalse(review["independent_experts_verified"])
+        self.assertEqual(review["reviewer_signatures_received"], 0)
+        self.assertFalse(review["approved_for_SFT"])
+        self.assertFalse(review["approved_for_trading"])
+        self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
+
+    def test_rule_check_010_course_preserves_nested_wave3_alternative_and_w5_target_zone(self):
+        data = json.loads((ROOT / "research/williams_v7_review_targets_20261115.json").read_text())
+        self.assertFalse(data["training_approved"])
+        self.assertFalse(data["independent_experts_verified"])
+        self.assertEqual(data["expert_reviews_received"], 0)
+        self.assertIsNone(data["valid_gold_labels"])
+        case = next(x for x in data["cases"] if x["review_id"] == "RULE_CHECK_010")
+        review = case["source_recheck"]
+        self.assertEqual(review["source_pdf_sha256"],
+                         "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca")
+        self.assertEqual(review["physical_pdf_pages"], [43, 44, 45])
+        self.assertTrue(review["source_sha256_recomputed_from_original_library_pdf"])
+        findings = review["findings"]
+        for key in ("wave_degree_window", "under_100", "over_140",
+                    "nested_divergence", "alternative_count", "larger_w4_minimum",
+                    "w5_target", "nested_w5_target"):
+            self.assertTrue(findings[key])
+        guards = review["interpretation_guards"]
+        self.assertTrue(guards["non_zero_return_divergence_not_automatically_wave5"])
+        self.assertTrue(guards["nested_wave3_of_wave3_alternative_must_be_preserved"])
+        self.assertTrue(guards["zero_return_indicates_minimum_w4_requirements_not_completion"])
+        self.assertTrue(guards["w5_target_zone_not_guaranteed_take_profit"])
+        self.assertFalse(review["independent_experts_verified"])
+        self.assertEqual(review["reviewer_signatures_received"], 0)
+        self.assertFalse(review["approved_for_SFT"])
+        self.assertFalse(review["approved_for_trading"])
+        self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
+
+
 if __name__ == "__main__":
     unittest.main()
