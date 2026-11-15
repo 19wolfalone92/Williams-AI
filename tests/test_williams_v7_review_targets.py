@@ -187,5 +187,36 @@ class V7SourceReviewBacklogTests(unittest.TestCase):
         self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
 
 
+    def test_rule_check_001_tc1_fractal_candidate_start_signal_and_leverage_cancel_are_distinct(self):
+        data = json.loads((ROOT / "research/williams_v7_review_targets_20261115.json").read_text())
+        self.assertFalse(data["training_approved"])
+        self.assertFalse(data["independent_experts_verified"])
+        self.assertEqual(data["expert_reviews_received"], 0)
+        self.assertIsNone(data["valid_gold_labels"])
+        case = next(x for x in data["cases"] if x["review_id"] == "RULE_CHECK_001")
+        review = case["source_recheck"]
+        self.assertEqual(review["source_pdf_sha256"],
+                         "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c")
+        self.assertTrue(review["source_sha256_recomputed_from_original_library_pdf"])
+        self.assertTrue(review["source_sha256_verified_against_pinned_target"])
+        self.assertEqual(review["physical_pdf_pages"], [72, 73, 74])
+        findings = review["findings"]
+        for key in ("paired_structure", "candidate_confirmation", "signal_initiation",
+                    "leverage_decay", "price_invalidation", "fractal_stop",
+                    "stop_vs_stop_reverse"):
+            self.assertTrue(findings[key])
+        guards = review["interpretation_guards"]
+        self.assertTrue(guards["three_bar_candidate_not_confirmed_fractal"])
+        self.assertTrue(guards["wait_for_two_subsequent_closed_bars"])
+        self.assertTrue(guards["do_not_backdate_confirmation_to_central_bar"])
+        self.assertTrue(guards["start_and_signal_are_distinct"])
+        self.assertTrue(guards["fractal_stop_not_same_as_stop_and_reverse"])
+        self.assertFalse(review["independent_experts_verified"])
+        self.assertEqual(review["reviewer_signatures_received"], 0)
+        self.assertFalse(review["approved_for_SFT"])
+        self.assertFalse(review["approved_for_trading"])
+        self.assertEqual(case["status"], "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING")
+
+
 if __name__ == "__main__":
     unittest.main()
