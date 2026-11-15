@@ -8,6 +8,18 @@ class FailClosedPostflightTests(unittest.TestCase):
         self.assertEqual(status({"decision":"ABSTAIN","finish_reason":"length"}),"TECHNICAL_LENGTH")
         self.assertEqual(status({"decision":"ABSTAIN","finish_reason":"stop"}),"MODEL_ABSTAIN_NOT_EXPERT_REVIEWED")
         self.assertEqual(status({"decision":"INSUFFICIENT_DATA","finish_reason":"stop"}),"MODEL_CLAIMS_INSUFFICIENT_DATA")
+    def test_missing_reason_is_safe_and_measured_not_scored(self):
+        from scripts.ai_v6_hist100_postflight import summarize
+        records={
+            "A":{"id":"A","edition":"NTD","finish_reason":"error",
+                 "decision":"ABSTAIN","model_reason":None},
+            "B":{"id":"B","edition":"TC2","finish_reason":"stop",
+                 "decision":"HOLD","model_reason":"INSUFFICIENT_DATA"},
+        }
+        result=summarize(records)
+        self.assertEqual(result["technical_abstain_count"],1)
+        self.assertEqual(result["exact_insufficient_reason_non_insufficient_label"],1)
+
     def test_fake_200_answers_never_get_accepted(self):
         with self.assertRaisesRegex(ValueError,"NOT_COMPLETE_OR_HAS_GOLD"):
             check("cpu",{"complete":False,"accuracy":None,"gold_labels":None})
