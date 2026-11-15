@@ -171,7 +171,53 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "source_sha256_verified_against_original_library_pdf": true,
+        "physical_pdf_pages": [
+          135,
+          136,
+          137,
+          138,
+          139
+        ],
+        "printed_pages": [
+          120,
+          121,
+          122,
+          123,
+          124
+        ],
+        "visual_diagrams_reviewed": true,
+        "findings": {
+          "setup_context": "WM2 is the momentum-follow-through/add-on signal after an initial WM1 reversal-bar entry; the book explicitly describes it as increasing an existing position, not opening an unrelated standalone position.",
+          "histogram_color": "The histogram is green when the current AO bar is higher than the preceding AO bar and red when it is lower. The color describes bar-to-bar momentum change, not whether AO is above or below zero.",
+          "long_sequence": "For the bullish WM1 setup, AO is expected to be red initially. When momentum turns and AO bars turn green, the book says this commonly occurs within 2–4 bars after entry and that the position is usually increased after three consecutive green AO bars.",
+          "long_price_trigger": "Place a buy stop one tick above the high of the price bar corresponding to the third consecutive green AO bar.",
+          "short_sequence": "For the bearish WM1 setup, the Canadian-dollar example shows AO continuing to rise for two bars after the reversal bar; the sell signal is the third declining/red AO bar and may occur six bars after the WM1 reversal bar. The source warns not to expect it immediately.",
+          "short_price_trigger": "Figure 10.5 shows the add-on sell order one tick below the price bar corresponding to the third declining/red AO bar.",
+          "visual_examples": "Figure 10.3 illustrates three green AO bars as the add-on signal; Figure 10.4 shows the bullish example; Figure 10.5 shows the bearish example."
+        },
+        "interpretation_guards": {
+          "not_three_alternating_color_changes": true,
+          "not_three_bars_above_or_below_zero": true,
+          "zero_crossing_not_required_by_this_wm2_rule": true,
+          "not_fixed_three_bars_after_wm1_entry": true,
+          "count_consecutive_rising_or_falling_ao_histogram_bars": true
+        },
+        "implementation_boundary": "Keep WM2 as a campaign add-on candidate linked to a prior qualified WM1 position. The third consecutive rising/falling AO histogram bar identifies the corresponding price bar; the price stop trigger still has to be crossed before the add-on is considered triggered. Do not mark an order filled from the AO signal alone. This source recheck does not approve executable bot logic.",
+        "source_does_not_establish": {
+          "universal_maximum_wait_after_wm1": null,
+          "independent_position_size_rule": null,
+          "exchange_fill_confirmation_rule": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_007",
