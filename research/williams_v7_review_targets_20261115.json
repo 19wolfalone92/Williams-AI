@@ -111,7 +111,45 @@
       "reviewers_minimum": 2,
       "reviewer_signatures_received": 0,
       "approved_for_SFT": false,
-      "status": "SPOT_CHECK_ONLY_NEEDS_INDEPENDENT_EXPERT_APPROVAL"
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "source_sha256_verified_against_original_library_pdf": true,
+        "physical_pdf_pages": [
+          121,
+          122,
+          123,
+          124
+        ],
+        "printed_pages": [
+          106,
+          107,
+          108,
+          109
+        ],
+        "visual_diagrams_reviewed": true,
+        "findings": {
+          "definition": "Angulation is an opening divergence between the path of price bars and the path of the Alligator mouth; price must move at a steeper angle away from the Alligator.",
+          "rule_1": "Begin at the point where price bars cross or pass through the Alligator mouth (jaw, teeth and lips).",
+          "rule_2": "Trace or imagine the Alligator-mouth path; the source gives more attention to jaw and teeth than to lips.",
+          "rule_3": "Trace the outer edges of price bars: lower edges for an up move and upper edges for a down move.",
+          "rule_4": "Angulation exists only when the two paths clearly move away from each other; the angle must be increasing.",
+          "negative_example": "The UOPX example shows a divergent-bar shape that is invalid when prices move at a similar/parallel angle instead of angling away; the source also identifies penetration into the Alligator as invalid.",
+          "consequence": "A bullish or bearish divergent-bar signal is not taken without increasing angulation."
+        },
+        "not_established_by_source": {
+          "numeric_slope_threshold": null,
+          "fixed_lookback_bar_count": null,
+          "regression_formula": null,
+          "distance_from_jaw_alone_sufficient": false
+        },
+        "implementation_boundary": "Do not reduce angulation to current price-to-Jaw distance, a fixed angle threshold or an invented lookback. Any future operational measurement must preserve the source's crossing-origin, path-edge, Alligator-mouth and increasing-divergence conditions, be causal on closed bars, and remain separately validated. This source review does not authorize bot or decoder changes.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
     },
     {
       "review_id": "RULE_CHECK_006",
