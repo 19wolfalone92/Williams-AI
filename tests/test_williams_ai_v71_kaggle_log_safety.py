@@ -11,6 +11,13 @@ class KaggleLogSafetyTests(unittest.TestCase):
   self.assertIn("UPSTREAM_ENFORCER",out["evidence_flags"])
   self.assertNotIn(secret,str(out))
   self.assertNotIn("log_text",out)
+ def test_known_public_missing_dependencies_only(self):
+  log=("ModuleNotFoundError: No module named 'interegular'\\n"
+       "ModuleNotFoundError: No module named 'veryprivate_secret_43'\\n")
+  out=_safe_kernel_failure_diagnostic(log)
+  self.assertEqual(out["missing_module_names_allowlisted"],["interegular"])
+  self.assertTrue(out["missing_module_unclassified"])
+  self.assertNotIn("veryprivate_secret_43",str(out))
  def test_empty_log_is_safe(self):
   out=_safe_kernel_failure_diagnostic("")
   self.assertEqual(out["log_length"],0)
