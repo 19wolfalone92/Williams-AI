@@ -34,7 +34,7 @@ REQUIRED={
                     "COURSE.RHYTHM","COURSE.VISUAL.NESTED_ABC"),
 }
 FORBIDDEN_TERMS={
- "TC1":("alligator",),
+ "TC1":("alligator","аллигатор"),
 }
 
 def need(ok,why):
@@ -42,7 +42,7 @@ def need(ok,why):
         raise ValueError("V7_RETRIEVAL_PROFILE_"+why)
 
 def _registry_cards(data:dict|None=None)->dict[str,dict[str,Any]]:
-    source=data or registry()
+    source=registry() if data is None else data
     rows=source.get("rule_cards")
     need(isinstance(rows,list),"INVALID_RULE_REGISTRY")
     result={}
@@ -88,7 +88,12 @@ def build_evidence_bundle(question:str,*,edition:str,family:str,
             rid=match["rule_id"]
             if rid in have:
                 continue
-            row=cards[rid]
+            row=cards.get(rid)
+            need(row is not None,"OPTIONAL_RULE_MISSING_"+rid)
+            need(row.get("source")==edition,"OPTIONAL_RULE_WRONG_EDITION_"+rid)
+            need(row.get("status")=="REVIEWED_PAGES","OPTIONAL_RULE_NOT_PAGE_REVIEWED_"+rid)
+            need(isinstance(row.get("pdf_pages"),list) and bool(row["pdf_pages"]),
+                 "OPTIONAL_RULE_NO_PAGE_CITATION_"+rid)
             optional.append({
                 "rule_id":rid,"edition":edition,"status":row["status"],
                 "pdf_pages":list(row["pdf_pages"]),"title":row["title"],
