@@ -37,7 +37,8 @@ def _safe_kernel_failure_diagnostic(logs: str) -> dict:
  safe_modules={"lmformatenforcer","transformers","peft","bitsandbytes","torch","numpy",
   "safetensors","accelerate","kaggle","kagglehub","pandas","scripts",
   "williams_ai","huggingface_hub","tokenizers","requests","packaging"}
- missing_modules=sorted({n for n in module_hits if n in safe_modules})
+ missing_modules=sorted({n for n in module_hits if n in safe_modules
+  or n.startswith(("scripts.","williams_ai.","lmformatenforcer.","transformers.","peft.","kaggle."))})
  return {"missing_module_names_allowlisted":missing_modules,
   "missing_module_unclassified":len(module_hits)>len(missing_modules),
   "log_sha256":sha256(logs.encode("utf-8",errors="replace")).hexdigest(),
