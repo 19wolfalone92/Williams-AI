@@ -21,6 +21,19 @@ class V7EditionFamilyRetrievalTests(unittest.TestCase):
  def test_historical_tc1_query_with_alligator_is_rejected_as_cross_edition(self):
   with self.assertRaisesRegex(ValueError,"CROSS_EDITION_TERM"):
    build_evidence_bundle("TC1: фрактал, AO и Аллигатор",edition="TC1",family="ENTRY")
+ def test_cross_edition_russian_inflections_and_english(self):
+  for phrase in ("Аллигатор","аллигатора","ALLIGATOR"):
+   with self.subTest(phrase=phrase):
+    with self.assertRaisesRegex(ValueError,"CROSS_EDITION_TERM"):
+     build_evidence_bundle(f"TC1: фрактал и {phrase}",edition="TC1",family="ENTRY")
+ def test_empty_registry_override_is_not_ignored(self):
+  with self.assertRaisesRegex(ValueError,"INVALID_RULE_REGISTRY"):
+   build_evidence_bundle(question("NTD","ENTRY"),edition="NTD",family="ENTRY",registry_data={})
+ def test_optional_cards_must_be_from_the_same_reviewed_edition(self):
+  from unittest.mock import patch
+  with patch("williams_ai.v7_edition_family_retrieval.rank_reviewed_rules",return_value=[{"rule_id":"NTD.AO"}]):
+   with self.assertRaisesRegex(ValueError,"OPTIONAL_RULE_WRONG_EDITION"):
+    build_evidence_bundle(question("TC2","EXIT"),edition="TC2",family="EXIT")
  def test_ntd_entry_contains_all_mandatory_prerequisites_even_if_lexical_ranker_omits_them(self):
   x=build_evidence_bundle(question("NTD","ENTRY"),edition="NTD",family="ENTRY")
   self.assertEqual(x["schema"],PROFILE_SCHEMA)
