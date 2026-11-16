@@ -33,7 +33,14 @@ def _safe_kernel_failure_diagnostic(logs: str) -> dict:
   "ARCHIVE_COLLECTION":r"(?i)(?:collect_archive|bad_corpus|gather\(a\.plan)",
   "KAGGLE_RESOURCE":r"(?i)(?:quota exceeded|no accelerator|gpu quota|resource exhausted)",
  }
- return {"log_sha256":sha256(logs.encode("utf-8",errors="replace")).hexdigest(),
+ module_hits=re.findall(r"No module named ['\\\"]([A-Za-z_][A-Za-z0-9_.]{0,60})['\\\"]",logs)
+ safe_modules={"lmformatenforcer","transformers","peft","bitsandbytes","torch","numpy",
+  "safetensors","accelerate","kaggle","kagglehub","pandas","scripts",
+  "williams_ai","huggingface_hub","tokenizers","requests","packaging"}
+ missing_modules=sorted({n for n in module_hits if n in safe_modules})
+ return {"missing_module_names_allowlisted":missing_modules,
+  "missing_module_unclassified":len(module_hits)>len(missing_modules),
+  "log_sha256":sha256(logs.encode("utf-8",errors="replace")).hexdigest(),
   "log_length":len(logs),"exception_types":[x for x in types
    if re.search(r"(?<![a-zA-Z])"+re.escape(x)+r"(?![a-zA-Z])",logs)],
   "evidence_flags":[code for code,pattern in markers.items()
