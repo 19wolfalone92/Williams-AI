@@ -6,6 +6,7 @@ Third read-only status poll after completion of the 29-lesson curriculum audit. 
 from __future__ import annotations
 from collections import Counter
 import json,os,re,subprocess,tempfile
+from hashlib import sha256
 from pathlib import Path
 from scripts.ai_v71_guided_json_8_h1_submit import SLUG
 from williams_ai.v71_guided_json_diagnostics import ENFORCER_COMMIT
@@ -16,6 +17,37 @@ MODEL_ROLES=("matched_base","candidate_v5")
 
 def need(ok,why):
  if not ok:raise ValueError("V71_STATUS_"+why)
+
+
+def _safe_kernel_failure_diagnostic(logs: str) -> dict:
+ """Return bounded, allowlisted diagnostic metadata only; NEVER publish private logs."""
+ types=("ModuleNotFoundError","ImportError","AttributeError","TypeError",
+        "ValueError","RuntimeError","AssertionError","FileNotFoundError",
+        "CalledProcessError","TimeoutExpired","OSError","OutOfMemoryError")
+ markers={
+  "CUDA_OOM":r"(?i)(?:cuda out of memory|outofmemoryerror)",
+  "DEPENDENCY_INSTALL":r"(?i)(?:pip install|failed building wheel|no matching distribution)",
+  "CLONE_OR_NETWORK":r"(?i)(?:git clone|could not resolve host|connection timed out)",
+  "MODEL_OR_ADAPTER":r"(?i)(?:MODEL_NOT_CUDA|TRAINED_ADAPTER|find_trained_lora|adapter_model)",
+  "UPSTREAM_ENFORCER":r"(?i)(?:_decode_function|lmformatenforcer|PATCH_MISSING)",
+  "ARCHIVE_COLLECTION":r"(?i)(?:collect_archive|bad_corpus|gather\(a\.plan)",
+  "KAGGLE_RESOURCE":r"(?i)(?:quota exceeded|no accelerator|gpu quota|resource exhausted)",
+ }
+ return {"log_sha256":sha256(logs.encode("utf-8",errors="replace")).hexdigest(),
+  "log_length":len(logs),"exception_types":[x for x in types
+   if re.search(r"(?<![a-zA-Z])"+re.escape(x)+r"(?![a-zA-Z])",logs)],
+  "evidence_flags":[code for code,pattern in markers.items()
+   if re.search(pattern,logs)]}
+
+def _read_existing_kernel_error(kernel:str)->dict:
+ """One read-only CLI call. No kernel submission, no raw stdout or stderr saved."""
+ try:
+  p=subprocess.run(["kaggle","kernels","logs",kernel],
+   capture_output=True,text=True,timeout=120)
+  info=_safe_kernel_failure_diagnostic((p.stdout+"\n"+p.stderr)[-100000:])
+  return {"log_read_success":p.returncode==0,**info}
+ except (OSError,subprocess.TimeoutExpired):
+  return {"log_read_success":False,"reason":"KAGGLE_LOG_API_UNAVAILABLE"}
 
 def _summary(rows):
  return {
@@ -101,8 +133,11 @@ def main():
   "book_accuracy":None,"trading_allowed":False}
  out=Path(os.environ["RUNNER_TEMP"])
  if "COMPLETE" not in status:
-  (out/"v71_existing_kernel_status.json").write_text(json.dumps(result,indent=2))
-  print("V71_EXISTING_KERNEL_NOT_COMPLETE",status,flush=True)
+  if "ERROR" in status:
+   result["safe_failure_diagnostic"]=_read_existing_kernel_error(kernel)
+  (out/"v71_existing_kernel_status.json").write_text(
+   json.dumps(result,ensure_ascii=False,indent=2))
+  print("V71_EXISTING_KERNEL_NOT_COMPLETE",json.dumps(result,ensure_ascii=False),flush=True)
   return
  with tempfile.TemporaryDirectory(prefix="v71-status-fetch-") as tmp:
   p=subprocess.run(["kaggle","kernels","output",kernel,"-p",tmp,"-o",
