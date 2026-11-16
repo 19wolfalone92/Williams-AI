@@ -36,7 +36,10 @@ def _safe_kernel_failure_diagnostic(logs: str) -> dict:
  module_hits=re.findall(r"No module named ['\\\"]([A-Za-z_][A-Za-z0-9_.]{0,60})['\\\"]",logs)
  safe_modules={"lmformatenforcer","transformers","peft","bitsandbytes","torch","numpy",
   "safetensors","accelerate","kaggle","kagglehub","pandas","scripts",
-  "williams_ai","huggingface_hub","tokenizers","requests","packaging"}
+  "williams_ai","huggingface_hub","tokenizers","requests","packaging",
+  "interegular","yaml","pydantic","pyparsing","typing_extensions","orjson",
+  "jsonschema","llama_cpp","sentencepiece","antlr4","fsspec","attrs",
+  "hf_transfer","tiktoken","einops","optimum"}
  missing_modules=sorted({n for n in module_hits if n in safe_modules
   or n.startswith(("scripts.","williams_ai.","lmformatenforcer.","transformers.","peft.","kaggle."))})
  return {"missing_module_names_allowlisted":missing_modules,
