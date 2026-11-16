@@ -4,7 +4,7 @@ import json,os,re,subprocess,tempfile
 from pathlib import Path
 from scripts.ai_v6_hist100_kaggle_gpu_submit import make_metadata,TRAINING_NAME
 from williams_ai.v71_guided_json_diagnostics import ENFORCER_COMMIT
-SLUG="williams-v71-lmfe8-20261115"
+SLUG="williams-v71-lmfe8-deps-20261116"
 def need(ok,why):
  if not ok:raise ValueError("V71_SUBMIT_"+why)
 
@@ -45,8 +45,9 @@ assert torch.cuda.is_available()
 sha="{sha}";root=Path("/kaggle/working/williams_v71")
 subprocess.run(["git","clone","--quiet","https://github.com/19wolfalone92/Williams-AI.git",str(root)],check=True,timeout=180)
 subprocess.run(["git","checkout","--quiet",sha],cwd=root,check=True)
-subprocess.run([sys.executable,"-m","pip","install","--disable-pip-version-check","transformers==4.57.1","peft==0.17.1","accelerate==1.10.1","safetensors==0.6.2","bitsandbytes==0.48.1","huggingface_hub>=0.30,<2","jinja2>=3.1.6,<4"],check=True,timeout=600)
+subprocess.run([sys.executable,"-m","pip","install","--disable-pip-version-check","transformers==4.57.1","peft==0.17.1","accelerate==1.10.1","safetensors==0.6.2","bitsandbytes==0.48.1","huggingface_hub>=0.30,<2","jinja2>=3.1.6,<4","interegular==0.3.3","PyYAML==6.0.2","packaging==25.0","pydantic==2.11.7"],check=True,timeout=600)
 subprocess.run([sys.executable,"-m","pip","install","--no-deps","git+https://github.com/noamgat/lm-format-enforcer.git@{ENFORCER_COMMIT}"],check=True,timeout=300)
+subprocess.run([sys.executable,"-c","import interegular, yaml, packaging, pydantic, lmformatenforcer"],check=True,timeout=60)
 subprocess.run([sys.executable,"-m","scripts.ai_v71_guided_json_8_h1_worker","--plan","research/williams_v6_historical100_selection_20261114.json","--out-dir","/kaggle/working/v71_diagnostics"],cwd=root,env={{**os.environ,"PYTHONPATH":str(root),"HF_HUB_DISABLE_TELEMETRY":"1","TOKENIZERS_PARALLELISM":"false"}},check=True,timeout=6400)
 '''
  need(token not in kernel and "KAGGLE_API_TOKEN" not in kernel,"TOKEN_LEAK")

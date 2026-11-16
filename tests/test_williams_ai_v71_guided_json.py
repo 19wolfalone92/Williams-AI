@@ -11,7 +11,15 @@ class V71Tests(unittest.TestCase):
  def test_new_kernel_title_slug_is_conservative_length_and_matches_id(self):
   from scripts.ai_v71_guided_json_8_h1_submit import SLUG
   self.assertLessEqual(len(SLUG),50)
-  self.assertEqual(SLUG,"williams-v71-lmfe8-20261115")
+  self.assertEqual(SLUG,"williams-v71-lmfe8-deps-20261116")
+ def test_previous_kernel_missing_interegular_must_be_preinstalled(self):
+  import inspect
+  from scripts.ai_v71_guided_json_8_h1_submit import main
+  implementation=inspect.getsource(main)
+  for required in ("interegular==0.3.3","PyYAML==6.0.2",
+                   "packaging==25.0","pydantic==2.11.7",
+                   "import interegular, yaml, packaging, pydantic, lmformatenforcer"):
+   self.assertIn(required,implementation)
  def test_pin_and_strict_schema(self):
   self.assertEqual(ENFORCER_COMMIT,"d4d9b7cc20937bcd3a643be7a8dafb7b1ca20dfb")
   for family in ("ENTRY","EXIT","WAVE"):self.assertFalse(schema(family)["additionalProperties"])
