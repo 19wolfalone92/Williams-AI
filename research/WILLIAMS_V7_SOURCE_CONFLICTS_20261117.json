@@ -1,0 +1,97 @@
+{
+  "schema": "WILLIAMS_V7_SOURCE_CONFLICTS_NOT_EXPERT_ADJUDICATED_V1",
+  "expert_approved": false,
+  "sft_ready": false,
+  "labels_generated": false,
+  "independent_experts": 0,
+  "issues": [
+    {
+      "id": "SOURCE_CONFLICT_AO_MEDIAN_PRICE_ENGLISH_TC2",
+      "severity": "BLOCKING",
+      "source_edition": "TC2_EN",
+      "source_pdf_sha256": "eb734089bb19e72a92e023602bf558e43b7cb20aecf77469fdfe28f8e6cd3523",
+      "source_pages": [
+        155,
+        247
+      ],
+      "conflicting_source_evidence": [
+        "English Trading Chaos 2nd Edition PDF physical page 155, printed 126: Figure 10.1 describes bar midpoints with (H-L)/2.",
+        "Same English edition PDF physical page 247, printed 218: EasyLanguage Profitunity Awesome Oscillator code INPUTS PRICE((H+L)/2), VALUE1=AVERAGE(PRICE,5), VALUE2=AVERAGE(PRICE,34), AO=VALUE1-VALUE2.",
+        "Russian pinned TC2 PDF physical page 136 also prints (H-L)/2, so this inconsistency is not solely a Russian translation artifact."
+      ],
+      "affected_probe_ids": [
+        "W7R-007",
+        "W7R-014"
+      ],
+      "unresolved_question": "English printed AO figure uses (H-L)/2 but mathematical midpoint and the edition's EasyLanguage appendix use (H+L)/2. Research strategy.py currently implements (H+L)/2; keep source editorial conflict open for human adjudication, do not call this a model accuracy score.",
+      "review_required": true,
+      "suggested_resolution_status": "OPEN_NOT_GOLD",
+      "training_approved": false
+    },
+    {
+      "id": "SOURCE_CONFLICT_NTD_LIPS_SHIFT",
+      "severity": "BLOCKING",
+      "source_edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pages": [
+        36
+      ],
+      "conflicting_source_evidence": [
+        "NTD original Russian PDF physical page 36 Figure 3-4 boxed label states Lips 5 period SMMA shifted +2 bars.",
+        "The adjacent narrative and repeated formula list on the same page state Lips 5 SMMA shifted +3 bars."
+      ],
+      "affected_probe_ids": [
+        "W7R-012"
+      ],
+      "unresolved_question": "NTD translated page 36 conflicts (+2 boxed label vs +3 text twice). Research strategy.py uses 5-SMMA shifted +3, consistent with repeated list; independent English-source adjudication is still outstanding.",
+      "review_required": true,
+      "suggested_resolution_status": "OPEN_NOT_GOLD",
+      "training_approved": false
+    },
+    {
+      "id": "SOURCE_AMBIGUITY_TC1_W4_OVERLAP",
+      "severity": "INTERPRETATION_REVIEW",
+      "source_edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pages": [
+        53,
+        54
+      ],
+      "conflicting_source_evidence": [
+        "TC1 Russian PDF physical page 54 refers to a rigid W4 / W1 overlap rule ('never below W1 top' in bullish context).",
+        "The following sentence on physical page 54 explicitly acknowledges observed exceptions in real market trading; determine whether this is a wave-degree/scoping caveat or source contradiction."
+      ],
+      "affected_probe_ids": [
+        "W7R-005",
+        "W7R-013"
+      ],
+      "unresolved_question": "Document impulse vs correction distinction and invalidation level per wave degree, rather than hard-label every possible overlap as a fully confirmed count.",
+      "review_required": true,
+      "suggested_resolution_status": "OPEN_NOT_GOLD",
+      "training_approved": false
+    },
+    {
+      "id": "SOURCE_AMBIGUITY_COURSE_W4_MINIMUM",
+      "severity": "INTERPRETATION_REVIEW",
+      "source_edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pages": [
+        43,
+        44
+      ],
+      "conflicting_source_evidence": [
+        "Course original scanned PDF physical page 44 states oscillator 'moving past the zero line' satisfies minimum requirements for wave 4.",
+        "The same page warns this does not indicate wave 4 is over; it additionally mentions correction A-B-C/triangle and four regular indications not enumerated on the inspected page."
+      ],
+      "affected_probe_ids": [
+        "W7R-003",
+        "W7R-004",
+        "W7R-005"
+      ],
+      "unresolved_question": "Determine evidence obligations for W4 completion and wave degree in a way that does not convert a minimum condition into a guaranteed terminal wave label.",
+      "review_required": true,
+      "suggested_resolution_status": "OPEN_NOT_GOLD",
+      "training_approved": false
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+name: Williams AI v7.2 — existing single T4 safe status + validated 8x2 output (NO submissions)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - scripts/ai_v72_existing_kernel_status.py
+      - tests/test_williams_ai_v72_existing_kernel_status.py
+      - .github/workflows/ai-v72-existing-kernel-status.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  safe-existing-kernel-read-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read immutable 100x2 original GPU v6 reference
+        uses: actions/download-artifact@v4
+        with:
+          repository: 19wolfalone92/Williams-AI
+          run-id: 43658377350
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Williams-v6-HIST100-REAL-GPU-100-BASE-100-V5-COMPLETE-NO-GOLD
+          path: baseline_v6
+      - name: Read immutable original v7.1 8x2 verified output
+        uses: actions/download-artifact@v4
+        with:
+          repository: 19wolfalone92/Williams-AI
+          run-id: 44095124520
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Williams-v71-existing-private-T4-status-and-results-NO-GOLD
+          path: baseline_v71
+      - name: Verify no fabricated gold and no private log disclosure
+        run: |
+          python -m unittest tests.test_williams_ai_v72_existing_kernel_status tests.test_williams_ai_v71_kaggle_log_safety -v
+          python -m py_compile scripts/ai_v72_existing_kernel_status.py
+      - name: Query existing private Kaggle kernel only; no new execution
+        run: |
+          python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
+          python -m scripts.ai_v72_existing_kernel_status
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v72-existing-private-T4-readonly-status-and-if-complete-verified-results
+          path: |
+            ${{runner.temp}}/v72_existing_kernel_status.json
+            ${{runner.temp}}/v72_real_paired_8x2_NO_GOLD.json
+            ${{runner.temp}}/v72_source_matched_comparison_NO_GOLD.json
+          if-no-files-found: error
+          retention-days: 45

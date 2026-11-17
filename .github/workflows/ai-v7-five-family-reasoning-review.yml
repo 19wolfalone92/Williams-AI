@@ -1,0 +1,25 @@
+name: Williams AI v7 — five-family reasoning review candidates (NO training)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - knowledge/WILLIAMS_V7_REASONING_REVIEW_CANDIDATES_20261117.json
+      - williams_ai/v7_reasoning_review_contract.py
+      - tests/test_williams_ai_v7_reasoning_review_contract.py
+      - .github/workflows/ai-v7-five-family-reasoning-review.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-30-unlabelled-probes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify pinned four-book counterfactuals without gold labels
+        run: |
+          python -m unittest tests.test_williams_ai_v7_reasoning_review_contract -v
+          python -m williams_ai.v7_reasoning_review_contract --input knowledge/WILLIAMS_V7_REASONING_REVIEW_CANDIDATES_20261117.json

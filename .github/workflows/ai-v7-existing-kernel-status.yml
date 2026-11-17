@@ -1,0 +1,45 @@
+name: Williams AI v7 — one-shot existing Kaggle T4 status (NO SUBMIT)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - scripts/ai_v7_existing_kernel_status.py
+      - .github/workflows/ai-v7-existing-kernel-status.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  status-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download frozen original v6 GPU receipt for exact-prompt comparison
+        uses: actions/download-artifact@v4
+        with:
+          repository: 19wolfalone92/Williams-AI
+          run-id: 43658377350
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Williams-v6-HIST100-REAL-GPU-100-BASE-100-V5-COMPLETE-NO-GOLD
+          path: baseline_v6
+      - name: Authenticate read-only Kaggle status and inspect the existing kernel only
+        run: |
+          python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
+          python -m scripts.ai_v7_existing_kernel_status
+      - name: Preserve one-shot status or exact-input comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-V7-existing-private-T4-status-only
+          path: |
+            ${{runner.temp}}/v7_one_shot_kernel_status.json
+            ${{runner.temp}}/v7_GUIDED_REAL_8_MODEL_ANSWERS.json
+            ${{runner.temp}}/v7_VS_V6_IDENTICAL_EIGHT_PROMPTS_NO_GOLD.json
+          if-no-files-found: error
+          retention-days: 45

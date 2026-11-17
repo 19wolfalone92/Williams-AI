@@ -1,0 +1,132 @@
+{
+  "schema": "WILLIAMS_V7_NTD_FOUR_DIMENSIONS_SPOTCHECK_NO_GOLD_V1",
+  "book": "NTD",
+  "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+  "original_pdf_filename": "Билл_Вильямс_Новые_измерения_в_биржевой_торговле_2_книга.pdf",
+  "status": "SOURCE_SPOTCHECK_ONLY_NO_EXPERT_GOLD",
+  "expert_reviews": 0,
+  "model_labels": 0,
+  "training_approved": false,
+  "reviews": [
+    {
+      "id": "RULE_CHECK_011",
+      "pages": [
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "rule_ids": [
+        "NTD.ALLIGATOR"
+      ],
+      "scope": "Three balance lines, sleep/wake, direction, stop-only-on-close, source discrepancy Lips shift +2 vs +3."
+    },
+    {
+      "id": "RULE_CHECK_012",
+      "pages": [
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71
+      ],
+      "rule_ids": [
+        "NTD.AO",
+        "NTD.ALLIGATOR",
+        "NTD.FRACTAL"
+      ],
+      "scope": "Saucer, zero-line cross, twin peaks; precondition first external fractal; cancellation and direction."
+    },
+    {
+      "id": "RULE_CHECK_013",
+      "pages": [
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80
+      ],
+      "rule_ids": [
+        "NTD.AC",
+        "NTD.AO"
+      ],
+      "scope": "AC bar acceleration, two/three bar count depending on zero-line side, crossing only modifies count."
+    },
+    {
+      "id": "RULE_CHECK_014",
+      "pages": [
+        91,
+        92,
+        93
+      ],
+      "rule_ids": [
+        "NTD.ZONE",
+        "NTD.ZONE.ADDED",
+        "NTD.AO",
+        "NTD.AC"
+      ],
+      "scope": "Green/red/gray based on AO+AC, add at close with price confirmation, stop zone add after fifth same-colour bar."
+    },
+    {
+      "id": "RULE_CHECK_015",
+      "pages": [
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        114
+      ],
+      "rule_ids": [
+        "NTD.BALANCE",
+        "NTD.ALLIGATOR",
+        "NTD.ZONE",
+        "NTD.ZONE.ADDED"
+      ],
+      "scope": "Full base/one-vs-two/extreme procedure, pending-stop replacement / special blue light, Alligator mouth filter, zone-based doubling for adverse-side Balance Line signal."
+    },
+    {
+      "id": "RULE_CHECK_016",
+      "pages": [
+        115,
+        116,
+        117,
+        118,
+        119,
+        120
+      ],
+      "rule_ids": [
+        "NTD.EXITS",
+        "NTD.ALLIGATOR",
+        "NTD.ZONE",
+        "NTD.AO",
+        "NTD.AC"
+      ],
+      "scope": "Four exit approaches: Teeth close-only; five same-color bars trailing stop; Lips line for running markets; lowest-preference opposite-direction signal as exit rather than automatic reverse."
+    }
+  ]
+}

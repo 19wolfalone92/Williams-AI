@@ -1,0 +1,26 @@
+name: Williams AI v7 — four-book review backlog safely NOT train data
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - research/williams_v7_review_targets_20261115.json
+      - williams_ai/v7_training_gate.py
+      - tests/test_williams_ai_v7_training_gate.py
+      - tests/test_williams_v7_review_targets.py
+      - .github/workflows/ai-v7-training-data-approval-gate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  assert-no-unreviewed-training:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Book-source and human-gold guard
+        run: |
+          python -m unittest tests.test_williams_ai_v7_training_gate tests.test_williams_v7_review_targets -v
+          python -m williams_ai.v7_training_gate --input research/williams_v7_review_targets_20261115.json

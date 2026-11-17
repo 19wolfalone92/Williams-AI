@@ -1,0 +1,44 @@
+name: Williams AI v7.2 — one private T4 EOS-guard paired diagnostic (NO LoRA training)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - williams_ai/v72_eos_guard.py
+      - scripts/ai_v72_guided_json_8_h1_worker.py
+      - scripts/ai_v72_guided_json_8_h1_submit.py
+      - tests/test_williams_ai_v72_eos_gate.py
+      - tests/test_williams_ai_v72_submission_guard.py
+      - .github/workflows/ai-v72-eosguard-real-t4.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: williams-ai-v72-one-eosguard-t4
+  cancel-in-progress: false
+jobs:
+  submit-one-kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Only one new private research kernel, no training, strict source identity
+        run: |
+          python -m py_compile williams_ai/v72_eos_guard.py scripts/ai_v72_guided_json_8_h1_worker.py scripts/ai_v72_guided_json_8_h1_submit.py
+          python -m unittest tests.test_williams_ai_v72_eos_gate tests.test_williams_ai_v72_submission_guard -v
+      - name: Install pinned Kaggle client (not a trainer)
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'
+      - name: Reuse existing kernel if slug exists, otherwise submit ONE private T4 diagnostic
+        run: python -m scripts.ai_v72_guided_json_8_h1_submit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v72-existing-or-single-private-T4-submission-NO-TRAINING
+          path: ${{runner.temp}}/v72_submission.json
+          if-no-files-found: error
+          retention-days: 45

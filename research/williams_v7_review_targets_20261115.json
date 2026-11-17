@@ -1,0 +1,704 @@
+{
+  "schema": "WILLIAMS_V7_SOURCE_BOOK_REVIEW_BACKLOG_NO_TRAINING_OR_GOLD_V1",
+  "created_utc": "2026-11-15T13:10:00Z",
+  "purpose": "prepare independent review and candidate training needs, not scored trading labels",
+  "source_selection": "EXACT_ORIGINAL_PDF_SHA_REVIEW_PENDING",
+  "expert_reviews_received": 0,
+  "independent_experts_verified": false,
+  "training_approved": false,
+  "valid_gold_labels": null,
+  "no_trading": true,
+  "do_not_expose_frozen_future_holdout": true,
+  "forbidden_source": "historical100 model predictions and post-cutoff market labels",
+  "cases": [
+    {
+      "review_id": "RULE_CHECK_001",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pdf_pages": [
+        72,
+        73,
+        74
+      ],
+      "capability": "FRACTAL_CANCEL_OR_REPRICE",
+      "independent_review_question": "distinguish confirmed origin fractal, candidate, opposite fractal and price invalidation, zero lookahead",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          72,
+          73,
+          74
+        ],
+        "printed_pages": [
+          72,
+          73,
+          74
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 8.4",
+          "Figure 8.5",
+          "Figure 8.6",
+          "Figure 8.7",
+          "Figure 8.8",
+          "Figure 8.9",
+          "Figure 8.10"
+        ],
+        "findings": {
+          "paired_structure": "Two adjacent oppositely directed fractals establish the Fractal Start and Fractal Signal; the source names these as distinct elements.",
+          "candidate_confirmation": "The three-bar hand/thumb arrangement is only a possible-fractal setup; a full fractal requires two subsequent bars with the required lower highs (up fractal) or higher lows (down fractal).",
+          "signal_initiation": "When the Fractal Signal is initiated, action is in the direction indicated by that signal.",
+          "leverage_decay": "As price returns toward the Fractal Start, leverage is progressively reduced.",
+          "price_invalidation": "When price returns through the relevant extreme of the start bar by one minimum price movement (one tick), leverage is fully lost and the buy/sell signals are immediately cancelled.",
+          "fractal_stop": "The fractal stop is the most distant of the last two oppositely directed fractals; the text says it is often, but not invariably, the second-to-last opposite fractal.",
+          "stop_vs_stop_reverse": "A protective fractal stop and a newly created opposite-direction buy/sell signal (stop-and-reverse case) are described as distinct."
+        },
+        "causal_state_separation": [
+          "FRACTAL_CANDIDATE",
+          "FRACTAL_CONFIRMED",
+          "FRACTAL_START",
+          "FRACTAL_SIGNAL_PENDING",
+          "FRACTAL_SIGNAL_INITIATED",
+          "LEVERAGE_REDUCING",
+          "LEVERAGE_CANCELLED",
+          "FRACTAL_STOP",
+          "STOP_AND_REVERSE_SIGNAL"
+        ],
+        "interpretation_guards": {
+          "three_bar_candidate_not_confirmed_fractal": true,
+          "wait_for_two_subsequent_closed_bars": true,
+          "do_not_backdate_confirmation_to_central_bar": true,
+          "start_and_signal_are_distinct": true,
+          "return_toward_start_not_immediate_cancellation": true,
+          "fractal_stop_not_same_as_stop_and_reverse": true,
+          "signal_not_equivalent_to_broker_fill": true
+        },
+        "source_does_not_establish": {
+          "signed_one_tick_arithmetic_for_both_long_and_short_cases": "The passage gives generic start-extreme plus one-minimum-movement wording but not a full signed long/short arithmetic table.",
+          "broker_order_acknowledgement_or_fill_policy": null,
+          "gap_through_slippage_partial_fill_or_exchange_stop_replacement": null,
+          "implementation_specific_origin_fractal_label_mapping": null
+        },
+        "engineering_boundary": "Confirm a candidate only after the two required subsequent bars are closed. Preserve distinct start, signal, pending, initiated and cancelled states. Implement the one-tick invalidation boundary directionally and validate it separately; do not apply the same signed +1 tick operation to both sides. This source recheck does not authorize code changes to a trading engine.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_002",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pdf_pages": [
+        89,
+        90,
+        91,
+        92,
+        93
+      ],
+      "capability": "WAVE_CAMPAIGN_NOT_CERTAIN",
+      "independent_review_question": "separate wave estimate, risk stop and executed exit with fractal context",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          89,
+          90,
+          91,
+          92,
+          93
+        ],
+        "printed_pages": [
+          89,
+          90,
+          91,
+          92,
+          93
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 9.8",
+          "Figure 9.9",
+          "Figure 9.10",
+          "Figure 9.11"
+        ],
+        "findings": {
+          "zero_point_hypothesis": "In the Swiss-franc example, the candidate Zero Point is supported by a five-wave count on a smaller timeframe, a downward fractal and a Squat day among the three lowest bars.",
+          "explicit_uncertainty": "The author says the Zero Point is initially only an assumption and cannot be known with certainty at the beginning of the campaign.",
+          "contingency_plan": "The campaign includes a plan for the case where the initial Zero Point calculation is wrong.",
+          "risk_stop_separate": "A retracement entry is paired with a stop-and-reverse level at the proposed Zero Point; the prices and contract counts are specific historical example values, not universal risk rules.",
+          "partial_exit_context": "A downward fractal together with a Squat is used in the example to reduce two of three long contracts while retaining one in case wave 1 extends.",
+          "campaign_management": "The Swiss-franc and soybean examples show partial exits, residual positions, subsequent additions on retracements, protective stops and later campaign exits.",
+          "planned_vs_executed": "The narrative distinguishes contingent stop levels from reported executed buys, sells, partial covers and stop-outs.",
+          "examples_not_universal": "The chapter's conclusion warns that the two campaign examples are illustrative, not a template that generates all trades."
+        },
+        "state_separation": [
+          "WAVE_COUNT_HYPOTHESIS",
+          "ZERO_POINT_CANDIDATE",
+          "RISK_STOP_PLANNED",
+          "STOP_AND_REVERSE_PLANNED",
+          "ENTRY_OR_ADD_TRIGGERED",
+          "ORDER_SUBMITTED",
+          "ORDER_ACKNOWLEDGED",
+          "FILL_CONFIRMED",
+          "PARTIAL_EXIT_PLANNED",
+          "PARTIAL_EXIT_FILLED",
+          "RESIDUAL_POSITION",
+          "CAMPAIGN_EXIT_HYPOTHESIS",
+          "CAMPAIGN_EXIT_FILLED"
+        ],
+        "interpretation_guards": {
+          "zero_point_is_not_certain_at_inception": true,
+          "preserve_contingency_for_wrong_initial_count": true,
+          "planned_stop_not_same_as_trigger_or_fill": true,
+          "partial_reduction_not_full_exit": true,
+          "historical_contract_counts_not_universal_position_size": true,
+          "example_not_universal_mechanical_template": true,
+          "wave_hypothesis_stop_order_fill_and_position_are_distinct": true,
+          "opposite_fractal_does_not_always_close_whole_position": true
+        },
+        "source_does_not_establish": {
+          "deterministic_universally_correct_elliott_count": null,
+          "universal_risk_percentage_or_position_sizing": null,
+          "generic_full_close_on_every_opposite_fractal": null,
+          "broker_acknowledgement_partial_fill_slippage_or_gap_policy": null,
+          "guaranteed_zero_point_or_wave5_target": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_003",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pdf_pages": [
+        99,
+        103,
+        104
+      ],
+      "capability": "BALANCE_1_OR_2",
+      "independent_review_question": "find base bar, toward vs away balance line, one vs two new highs/lows",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "pdf_page_labels_reviewed": [
+          99,
+          103,
+          104
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 8.1",
+          "Figure 8.7",
+          "Figure 8.8",
+          "Figure 8.9"
+        ],
+        "findings": {
+          "scan_direction": "Read the Balance Line chart from right to left, beginning with the most recent bars.",
+          "relevant_extreme": "Use highs only for buy signals and lows only for sell signals.",
+          "buy_base": "For a buy, the base is the current bar or the bar with the lowest high.",
+          "sell_base": "For a sell, the base is the current bar or the bar with the highest low.",
+          "buy_count": "One new higher high is required when moving away from the Balance Line; two new higher highs are required when moving toward it.",
+          "sell_count": "One new lower low is required when moving away from the Balance Line; two new lower lows are required when moving toward it.",
+          "buy_above_balance_line_special_case": "When the buy signal bar is above the Balance Line, the whole formation is treated as above the line and the illustrated requirement is the base plus one higher high.",
+          "fresh_highs_need_pullback": "While the market is making new highs, the text says a Balance Line or Fractal buy signal is not available; a pullback and lower highs are required before a new signal can form."
+        },
+        "interpretation_guards": {
+          "base_identified_before_counting_extremes": true,
+          "highs_only_for_buy_lows_only_for_sell": true,
+          "one_or_two_counts_new_extremes_not_elapsed_bars": true,
+          "two_required_when_moving_toward_balance_line": true,
+          "do_not_form_buy_signal_during_uninterrupted_new_highs_without_pullback": true,
+          "special_case_evidence_is_buy_side_only": true
+        },
+        "source_does_not_establish": {
+          "full_numeric_balance_line_formula_on_reviewed_pages": null,
+          "equal_high_low_gap_or_tick_rounding_tolerance": null,
+          "broker_order_or_fill_mechanics": null,
+          "universal_sell_side_special_case_mirroring_the_buy_example": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_004",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pdf_pages": [
+        103,
+        104
+      ],
+      "capability": "PENDING_BASE_STOP",
+      "independent_review_question": "test whether base actually changes before moving pending stop",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "pdf_page_labels_reviewed": [
+          103,
+          104
+        ],
+        "additional_context_page_reviewed": [
+          105
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 8.9",
+          "Figure 8.10",
+          "Figure 8.11"
+        ],
+        "findings": {
+          "pending_buy_stop_stability": "After a buy base is established, subsequent bars with higher highs do not by themselves move the pending buy stop.",
+          "stop_replacement_conditions": "The buy stop remains at its current level until it triggers or another bar with a higher high becomes a new base.",
+          "new_base_retest": "A candidate higher-high bar must be re-evaluated under the Balance Line base-selection procedure; a raw higher high is not automatically a new base.",
+          "visual_non_moving_bars": "The text identifies the last three bars in Figure 8.10 and the last two bars in Figure 8.11 as not moving the Balance Line buy signal.",
+          "scope": "The cited paragraph and diagrams describe the buy-side pending stop; these pages do not provide a complete sell-side stop-replacement sequence."
+        },
+        "pending_state_separation": [
+          "BASE_CONFIRMED",
+          "BUY_STOP_PENDING",
+          "HIGHER_HIGH_OBSERVED_STOP_UNCHANGED",
+          "NEW_BASE_CONFIRMED",
+          "BUY_STOP_TRIGGERED",
+          "ORDER_ACKNOWLEDGED",
+          "FILL_CONFIRMED"
+        ],
+        "interpretation_guards": {
+          "do_not_slide_stop_for_every_higher_high": true,
+          "reapply_base_selection_before_replacing_stop": true,
+          "no_stop_move_before_new_base_confirmed": true,
+          "triggered_stop_not_still_pending": true,
+          "chart_trigger_not_same_as_broker_fill": true,
+          "do_not_claim_sell_side_algorithm_from_buy_side_examples": true
+        },
+        "source_does_not_establish": {
+          "complete_sell_side_pending_stop_replacement_sequence": null,
+          "broker_order_modification_acknowledgement_or_fill_policy": null,
+          "universal_signed_tick_offset_for_every_instrument": null,
+          "numeric_new_base_tolerance": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_005",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        121,
+        122,
+        123,
+        124
+      ],
+      "capability": "WM1_ANGULATION",
+      "independent_review_question": "reversal bar and divergence of slopes, not distance from jaw",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "source_sha256_verified_against_original_library_pdf": true,
+        "physical_pdf_pages": [
+          121,
+          122,
+          123,
+          124
+        ],
+        "printed_pages": [
+          106,
+          107,
+          108,
+          109
+        ],
+        "visual_diagrams_reviewed": true,
+        "findings": {
+          "definition": "Angulation is an opening divergence between the path of price bars and the path of the Alligator mouth; price must move at a steeper angle away from the Alligator.",
+          "rule_1": "Begin at the point where price bars cross or pass through the Alligator mouth (jaw, teeth and lips).",
+          "rule_2": "Trace or imagine the Alligator-mouth path; the source gives more attention to jaw and teeth than to lips.",
+          "rule_3": "Trace the outer edges of price bars: lower edges for an up move and upper edges for a down move.",
+          "rule_4": "Angulation exists only when the two paths clearly move away from each other; the angle must be increasing.",
+          "negative_example": "The UOPX example shows a divergent-bar shape that is invalid when prices move at a similar/parallel angle instead of angling away; the source also identifies penetration into the Alligator as invalid.",
+          "consequence": "A bullish or bearish divergent-bar signal is not taken without increasing angulation."
+        },
+        "not_established_by_source": {
+          "numeric_slope_threshold": null,
+          "fixed_lookback_bar_count": null,
+          "regression_formula": null,
+          "distance_from_jaw_alone_sufficient": false
+        },
+        "implementation_boundary": "Do not reduce angulation to current price-to-Jaw distance, a fixed angle threshold or an invented lookback. Any future operational measurement must preserve the source's crossing-origin, path-edge, Alligator-mouth and increasing-divergence conditions, be causal on closed bars, and remain separately validated. This source review does not authorize bot or decoder changes.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_006",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        135,
+        136,
+        137,
+        138,
+        139
+      ],
+      "capability": "WM2_THREE_AO_BARS",
+      "independent_review_question": "third consecutive AO direction change and stop trigger beyond candle extreme",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "source_sha256_verified_against_original_library_pdf": true,
+        "physical_pdf_pages": [
+          135,
+          136,
+          137,
+          138,
+          139
+        ],
+        "printed_pages": [
+          120,
+          121,
+          122,
+          123,
+          124
+        ],
+        "visual_diagrams_reviewed": true,
+        "findings": {
+          "setup_context": "WM2 is the momentum-follow-through/add-on signal after an initial WM1 reversal-bar entry; the book explicitly describes it as increasing an existing position, not opening an unrelated standalone position.",
+          "histogram_color": "The histogram is green when the current AO bar is higher than the preceding AO bar and red when it is lower. The color describes bar-to-bar momentum change, not whether AO is above or below zero.",
+          "long_sequence": "For the bullish WM1 setup, AO is expected to be red initially. When momentum turns and AO bars turn green, the book says this commonly occurs within 2–4 bars after entry and that the position is usually increased after three consecutive green AO bars.",
+          "long_price_trigger": "Place a buy stop one tick above the high of the price bar corresponding to the third consecutive green AO bar.",
+          "short_sequence": "For the bearish WM1 setup, the Canadian-dollar example shows AO continuing to rise for two bars after the reversal bar; the sell signal is the third declining/red AO bar and may occur six bars after the WM1 reversal bar. The source warns not to expect it immediately.",
+          "short_price_trigger": "Figure 10.5 shows the add-on sell order one tick below the price bar corresponding to the third declining/red AO bar.",
+          "visual_examples": "Figure 10.3 illustrates three green AO bars as the add-on signal; Figure 10.4 shows the bullish example; Figure 10.5 shows the bearish example."
+        },
+        "interpretation_guards": {
+          "not_three_alternating_color_changes": true,
+          "not_three_bars_above_or_below_zero": true,
+          "zero_crossing_not_required_by_this_wm2_rule": true,
+          "not_fixed_three_bars_after_wm1_entry": true,
+          "count_consecutive_rising_or_falling_ao_histogram_bars": true
+        },
+        "implementation_boundary": "Keep WM2 as a campaign add-on candidate linked to a prior qualified WM1 position. The third consecutive rising/falling AO histogram bar identifies the corresponding price bar; the price stop trigger still has to be crossed before the add-on is considered triggered. Do not mark an order filled from the AO signal alone. This source recheck does not approve executable bot logic.",
+        "source_does_not_establish": {
+          "universal_maximum_wait_after_wm1": null,
+          "independent_position_size_rule": null,
+          "exchange_fill_confirmation_rule": null
+        },
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_007",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        147,
+        148,
+        149
+      ],
+      "capability": "WM3_TEETH_AT_ACTIVATION",
+      "independent_review_question": "fractal formation vs price trigger with teeth filter AT activation",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          147,
+          148,
+          149
+        ],
+        "printed_pages": [
+          132,
+          133,
+          134
+        ],
+        "visual_diagrams_reviewed": [
+          "Figure 11.3",
+          "Figure 11.4",
+          "Figure 11.5",
+          "Figure 11.6"
+        ],
+        "findings": {
+          "formation_vs_activation": "Fractal formation creates a pending candidate; completion of the pattern alone does not mean its breakout trigger has fired.",
+          "buy_stop": "Place the buy stop one tick above the high of the upward fractal.",
+          "sell_stop": "Place the sell stop one tick below the low of the downward fractal.",
+          "teeth_filter_at_activation": "A buy signal is used only if price is above the red balance line (Alligator Teeth) when it fires; a sell signal is used only if price is below the red line when it fires.",
+          "formation_location_not_decisive": "The source distinguishes where the fractal signal forms from where it fires; activation location relative to the red line determines validity.",
+          "pending_lifetime": "A formed fractal signal remains pending until it fires or a new fractal signal forms.",
+          "valid_invalid_examples": "Figures 11.5 and 11.6 contrast a valid breakout and fractals whose activation occurs on the wrong side of the Alligator Teeth."
+        },
+        "state_separation": [
+          "FRACTAL_FORMED",
+          "FRACTAL_PENDING",
+          "PRICE_TRIGGER_TOUCHED",
+          "TEETH_FILTER_PASS_AT_ACTIVATION or TEETH_FILTER_FAIL_AT_ACTIVATION",
+          "SIGNAL_QUALIFIED",
+          "BROKER_ORDER/FILL (not established by these pages)"
+        ],
+        "interpretation_guards": {
+          "formation_above_or_below_teeth_alone_is_not_sufficient": true,
+          "evaluate_teeth_at_activation_not_formation": true,
+          "fractal_confirmation_is_not_a_filled_entry": true,
+          "pending_signal_lifetime_until_trigger_or_new_fractal": true,
+          "do_not_infer_intrabar_order_from_ohlc_without_evidence": true
+        },
+        "source_does_not_establish": {
+          "numeric_teeth_tolerance_or_buffer": null,
+          "tie_breaking_for_multiple_overlapping_pending_signals": "Only the stated lifetime rule is explicit; a complete software selection policy is not specified.",
+          "intrabar_order_reconstruction_from_single_ohlc_candle": null,
+          "broker_gap_partial_fill_slippage_tick_rounding_or_acknowledgement_policy": null
+        },
+        "engineering_implication": "If closed H1 OHLC alone cannot establish whether the trigger occurred above/below the moving Teeth line at the activation instant, preserve UNRESOLVED/ABSTAIN; do not substitute candle close or the Teeth value at fractal formation. This is an engineering limitation inferred from the source timing requirement, not a Williams numeric rule.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_008",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pdf_pages": [
+        131,
+        164
+      ],
+      "capability": "OPPOSITE_SIGNAL_WITH_POSITION",
+      "independent_review_question": "not reviewed here; requires original book check and audited position state",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": false,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+        "confirmed_pages": [
+          131,
+          149,
+          150,
+          151
+        ],
+        "visual_diagram_page_150_reviewed": true,
+        "page_131_finding": "TC2 describes protecting an established long entry and a stop-and-reverse strategy if the qualified Fractal sell signal is hit; the cited example reverses after a bearish divergent bar.",
+        "pages_149_151_finding": "TC2's short-side sequence specifies the bearish divergent-bar setup, protective stop, and a conditional buy-Fractal reversal; the example describes reversing to the long side after a bullish divergent bar.",
+        "excluded_page_164": "Page 164 concerns the creative-process/morning-pages discussion, not an opposite-signal or position-management rule; it is not evidence for this review target.",
+        "implementation_boundary": "A qualified opposite signal may establish a stop/reverse trigger; it is not an instruction to close immediately on signal appearance. Reversal depends on the specified price trigger and position sizing. This source check is not executable bot approval.",
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_009",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "capability": "W4_AO_ZERO_CROSS_NOT_TOUCH",
+      "independent_review_question": "separate AO zero touch and actual crossing; minimum requirements not completion",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          43,
+          44,
+          45
+        ],
+        "printed_pagination": "Profitunity Trading Level II, pages 12-14",
+        "high_resolution_page_scans_reviewed": true,
+        "handwritten_marginal_annotations_excluded": true,
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false,
+        "visual_diagrams_reviewed": [
+          "physical page 43 weekly wave chart",
+          "physical page 44 Fibonacci time-projection diagram"
+        ],
+        "findings": {
+          "wave_degree_window": "For the wave sequence being counted, the Course recommends a 100-140 bar proportion.",
+          "less_than_100": "A sequence shorter than 100 bars causes the 5/34/5 MACD to reflect a larger-degree wave.",
+          "more_than_140": "A sequence substantially longer than 140 bars causes the MACD to reflect a smaller-degree wave.",
+          "signal_line_context": "During the retracing W4 example the histogram falls below the signal line; the text warns that this is not a good place to initiate a long position.",
+          "zero_line_trigger": "The stated trigger is the oscillator moving past/through the zero line; a mere touch or approach is not the described trigger.",
+          "minimum_not_completion": "The zero-line trigger indicates minimum requirements for W4 have been met, but does not indicate that W4 is over.",
+          "structural_context": "For more precise W4 assessment the Course recommends examining an a-b-c or triangle correction and the last smaller wave, referring to four regular indicators inside that smaller wave."
+        },
+        "interpretation_guards": {
+          "touch_or_approach_is_not_crossing": true,
+          "zero_cross_means_minimum_w4_requirements_not_w4_completion": true,
+          "bar_window_applies_to_wave_sequence_not_total_loaded_history": true,
+          "histogram_below_signal_line_not_long_confirmation": true,
+          "no_unconditional_w5_order_from_zero_cross": true
+        },
+        "source_does_not_establish": {
+          "deterministic_elliott_degree_selection": null,
+          "universal_fixed_chart_timeframe": null,
+          "complete_enumeration_of_four_regular_indicators_on_reviewed_page": null,
+          "broker_entry_fill_or_guaranteed_w4_completion": null
+        },
+        "implementation_boundary": "Keep the 5/34 zero-line crossing distinct from a touch and from a completed W4 label. If wave degree or crossing evidence is ambiguous, preserve a hypothesis/unresolved state rather than promoting it to a confirmed wave or trade."
+      }
+    },
+    {
+      "review_id": "RULE_CHECK_010",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pdf_pages": [
+        43,
+        44,
+        45
+      ],
+      "capability": "W5_WAVE_DEGREE_TARGET",
+      "independent_review_question": "nested wave degree 100–140 bars, W5 momentum divergence and alternative counts",
+      "proposed_trade_decision": null,
+      "verified_chart_gold": null,
+      "raw_model_prediction_forbidden_in_review": true,
+      "original_diagram_review_required": true,
+      "reviewers_minimum": 2,
+      "reviewer_signatures_received": 0,
+      "approved_for_SFT": false,
+      "status": "SOURCE_RECHECKED_EXPERT_REVIEW_PENDING",
+      "source_recheck": {
+        "reviewed_date": "2026-11-15",
+        "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+        "source_sha256_recomputed_from_original_library_pdf": true,
+        "source_sha256_verified_against_pinned_target": true,
+        "physical_pdf_pages": [
+          43,
+          44,
+          45
+        ],
+        "printed_pagination": "Profitunity Trading Level II, pages 12-14",
+        "high_resolution_page_scans_reviewed": true,
+        "handwritten_marginal_annotations_excluded": true,
+        "independent_experts_verified": false,
+        "reviewer_signatures_received": 0,
+        "approved_for_SFT": false,
+        "approved_for_trading": false,
+        "visual_diagrams_reviewed": [
+          "physical page 43 weekly wave chart",
+          "physical page 44 Fibonacci time-projection diagram"
+        ],
+        "findings": {
+          "wave_degree_window": "The 100-140 bars apply to the actual wave sequence under consideration, not simply to the number of candles loaded.",
+          "under_100": "Below 100 bars, the 5/34/5 MACD reflects a larger-degree wave than the sequence being counted.",
+          "over_140": "Substantially above 140 bars, it reflects a smaller-degree wave.",
+          "nested_divergence": "With the correct bar proportion, a divergence that does not return to zero is described as a wave-3 peak inside a larger wave 3; MACD retraces but not to zero, returns and generates another divergence.",
+          "alternative_count": "The described pattern is interpreted as wave 3 of wave 3, with the larger wave-3 peak at that point; it is not automatically a wave-5 exhaustion signal.",
+          "larger_w4_minimum": "A later MACD return to zero indicates that the minimum requirements for the larger wave 4 have been met, not that W4 is necessarily complete.",
+          "w5_target": "After W4 is over and W5 is underway, measure W1 start to W3 end; project 100% of that distance from W4 end and use 62%-100% of the same distance as the preferred W5 target zone.",
+          "nested_w5_target": "Count the five waves inside W5 and repeat the target measurement for the internal sequence to derive a smaller target zone, including W5 of W5.",
+          "w4_time_context": "The same pages describe a Fibonacci time-projection interval of 1.38-1.62 measured from the bottom of W2 as a W4 timing context."
+        },
+        "interpretation_guards": {
+          "do_not_use_total_loaded_candle_count_as_wave_degree_proof": true,
+          "non_zero_return_divergence_not_automatically_wave5": true,
+          "nested_wave3_of_wave3_alternative_must_be_preserved": true,
+          "zero_return_indicates_minimum_w4_requirements_not_completion": true,
+          "w5_target_requires_verified_wave_degree_and_count": true,
+          "w5_target_zone_not_guaranteed_take_profit": true
+        },
+        "source_does_not_establish": {
+          "deterministic_unique_elliott_count_or_degree": null,
+          "guaranteed_w5_termination_or_target_hit": null,
+          "complete_machine_readable_definition_of_four_regular_indicators": null,
+          "universal_fixed_timeframe": null
+        },
+        "implementation_boundary": "Represent wave count and degree as hypotheses with alternatives. Do not convert the nested wave-3 divergence pattern into a confirmed W5 label; do not calculate or apply a W5 target until the wave sequence and degree are independently justified."
+      }
+    }
+  ]
+}

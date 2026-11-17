@@ -1,0 +1,24 @@
+name: Williams AI v7 — source curriculum quality gate (no model training)
+on:
+  push:
+    branches: [research/williams-v6-post-hist100-evidence-20261115]
+    paths:
+      - knowledge/WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json
+      - williams_ai/v7_curriculum_contract.py
+      - tests/test_williams_ai_v7_curriculum_contract.py
+      - .github/workflows/ai-v7-source-curriculum-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-source-curriculum:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify source pinning, edition routing and no pseudo-gold
+        run: |
+          python -m unittest tests.test_williams_ai_v7_curriculum_contract -v
+          python -m williams_ai.v7_curriculum_contract --input knowledge/WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json
