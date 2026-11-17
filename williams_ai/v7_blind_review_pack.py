@@ -12,6 +12,12 @@ import os
 from pathlib import Path
 
 from .v7_reasoning_review_contract import validate as validate_probes
+from .independent_exam_v6 import PDF_SHA, PAGES
+
+# Verified against English 2nd-edition Library original PDF bytes, 257 pages.
+TC2_EN_SHA256 = "eb734089bb19e72a92e023602bf558e43b7cb20aecf77469fdfe28f8e6cd3523"
+ISSUE_SOURCE_SHA = {**PDF_SHA, "TC2_EN": TC2_EN_SHA256}
+ISSUE_SOURCE_PAGES = {**PAGES, "TC2_EN": 257}
 
 SCHEMA = "WILLIAMS_V7_SOURCE_ONLY_BLIND_REVIEW_PACKET_V1"
 ISSUE_SCHEMA = "WILLIAMS_V7_SOURCE_CONFLICTS_NOT_EXPERT_ADJUDICATED_V1"
@@ -98,13 +104,14 @@ def validate_issues(data,source):
                 "SEVERITY")
         require(issue["source_edition"] in ("TC1","NTD","TC2_EN","COURSE"),
                 "SOURCE_EDITION")
-        require(type(issue["source_pdf_sha256"]) is str and
-                len(issue["source_pdf_sha256"])==64 and
-                all(c in "0123456789abcdef" for c in issue["source_pdf_sha256"]),
-                "SOURCE_SHA")
+        ed=issue["source_edition"]
+        require(issue["source_pdf_sha256"]==ISSUE_SOURCE_SHA[ed],
+                "PINNED_SOURCE_SHA")
         require(type(issue["source_pages"]) is list and
                 bool(issue["source_pages"]) and
-                all(type(p) is int and p>0 for p in issue["source_pages"]),
+                len(issue["source_pages"])==len(set(issue["source_pages"])) and
+                all(type(p) is int and 1<=p<=ISSUE_SOURCE_PAGES[ed]
+                    for p in issue["source_pages"]),
                 "SOURCE_PAGES")
         require(type(issue["conflicting_source_evidence"]) is list and
                 len(issue["conflicting_source_evidence"])>=2 and

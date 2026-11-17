@@ -74,6 +74,7 @@ def alternating_impulse_skeleton(pivots: list[dict[str, Any]],
             diagnosis.append("W5 failed to exceed W3: possible truncation or incorrect labelling")
         bar_span=points[-1]["index"]-points[0]["index"]
         w4_ao_zero=None
+        w4_ao_cross=None
         if ao:
             peak_ao=[abs(x) for x in ao[points[2]["index"]:points[3]["index"]+1]
                      if x is not None]
@@ -81,6 +82,20 @@ def alternating_impulse_skeleton(pivots: list[dict[str, Any]],
                      if x is not None]
             if peak_ao and during4 and max(peak_ao)>0:
                 w4_ao_zero=min(during4) <= 0.15*max(peak_ao)
+            # TC1/Course: a touch or proximity to zero is NOT a crossing.
+            # Only CLOSED observations inside the candidate W4 interval count.
+            # Missing/invalid data means UNKNOWN, not false certainty.
+            import math
+            start,end=points[3]["index"],points[4]["index"]
+            if len(ao)>end and start>=0 and end>start:
+                segment=ao[start:end+1]
+                if all(type(x) in (int,float) and math.isfinite(x)
+                       for x in segment):
+                    w4_ao_cross=any(
+                        (segment[i-1]>0 and segment[i]<0) if sign==1
+                        else (segment[i-1]<0 and segment[i]>0)
+                        for i in range(1,len(segment))
+                    )
         results.append({
             "pattern":"IMPULSE_SKELETON_POSSIBLE" if w4_nonoverlap else "DIAGONAL_OR_ALTERNATE_POSSIBLE",
             "direction":direction,
@@ -94,6 +109,8 @@ def alternating_impulse_skeleton(pivots: list[dict[str, Any]],
             "w4_nonoverlap":w4_nonoverlap,
             "w5_extends_w3":new_high5,
             "w4_ao_near_zero_observed":w4_ao_zero,
+            "w4_ao_zero_line_cross_observed":w4_ao_cross,
+            "w4_completion_proven":False,
             "issues":diagnosis,
             "status":"HYPOTHESIS_NOT_BOOK_VERIFIED",
             "source":"TC1 PDF 53-54, Course PDF 42-43; still requires subdivisions and degree identification"

@@ -60,6 +60,36 @@ class WaveEvidenceTests(unittest.TestCase):
         self.assertTrue(hypothesis["w4_ao_near_zero_observed"])
         self.assertEqual(hypothesis["status"],"HYPOTHESIS_NOT_BOOK_VERIFIED")
 
+    def test_w4_near_zero_is_not_a_cross_or_completed_wave(self):
+        points=[pivot(k,v,i) for k,v,i in [
+            ("L",100,2),("H",120,22),("L",110,42),
+            ("H",145,62),("L",130,82),("H",160,122)]]
+        ao=[1.0]*140
+        ao[70]=0.0
+        h=alternating_impulse_skeleton(points,ao)[0]
+        self.assertTrue(h["w4_ao_near_zero_observed"])
+        self.assertFalse(h["w4_ao_zero_line_cross_observed"])
+        self.assertFalse(h["w4_completion_proven"])
+    def test_w4_strict_directional_cross_but_still_only_hypothesis(self):
+        points=[pivot(k,v,i) for k,v,i in [
+            ("L",100,2),("H",120,22),("L",110,42),
+            ("H",145,62),("L",130,82),("H",160,122)]]
+        ao=[1.0]*140
+        ao[69]=-0.4
+        h=alternating_impulse_skeleton(points,ao)[0]
+        self.assertTrue(h["w4_ao_zero_line_cross_observed"])
+        self.assertFalse(h["w4_completion_proven"])
+        self.assertEqual(h["status"],"HYPOTHESIS_NOT_BOOK_VERIFIED")
+    def test_w4_cross_cannot_be_claimed_with_missing_closed_bar(self):
+        points=[pivot(k,v,i) for k,v,i in [
+            ("L",100,2),("H",120,22),("L",110,42),
+            ("H",145,62),("L",130,82),("H",160,122)]]
+        ao=[1.0]*140
+        ao[70]=None
+        h=alternating_impulse_skeleton(points,ao)[0]
+        self.assertIsNone(h["w4_ao_zero_line_cross_observed"])
+        self.assertFalse(h["w4_completion_proven"])
+
     def test_reject_third_shortest_and_w2_origin(self):
         points=[pivot(k,v,i) for (k,v,i) in [
             ("L",100,2),("H",120,22),("L",98,42),

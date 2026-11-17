@@ -61,6 +61,16 @@ class BlindReviewPacketTests(unittest.TestCase):
         names={s["id"] for s in self.issues["issues"]}
         self.assertIn("SOURCE_CONFLICT_AO_MEDIAN_PRICE_ENGLISH_TC2",names)
         self.assertIn("SOURCE_CONFLICT_NTD_LIPS_SHIFT",names)
+    def test_false_but_well_formed_source_hash_is_rejected(self):
+        x=copy.deepcopy(self.issues)
+        x["issues"][0]["source_pdf_sha256"]="0"*64
+        with self.assertRaisesRegex(ValueError,"PINNED_SOURCE_SHA"):
+            validate_issues(x,self.source)
+        x=copy.deepcopy(self.issues)
+        x["issues"][1]["source_pdf_sha256"]=x["issues"][0]["source_pdf_sha256"]
+        with self.assertRaisesRegex(ValueError,"PINNED_SOURCE_SHA"):
+            validate_issues(x,self.source)
+
     def test_cannot_approve_conflict_by_editing_flag(self):
         x=copy.deepcopy(self.issues)
         x["issues"][0]["training_approved"]=True

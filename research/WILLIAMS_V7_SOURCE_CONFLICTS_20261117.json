@@ -23,7 +23,7 @@
         "W7R-007",
         "W7R-014"
       ],
-      "unresolved_question": "Verify which exact AO formula the implementation uses; mathematical midpoint is (H+L)/2, but an independent review must sign off the cross-page conflict before model training.",
+      "unresolved_question": "English printed AO figure uses (H-L)/2 but mathematical midpoint and the edition's EasyLanguage appendix use (H+L)/2. Research strategy.py currently implements (H+L)/2; keep source editorial conflict open for human adjudication, do not call this a model accuracy score.",
       "review_required": true,
       "suggested_resolution_status": "OPEN_NOT_GOLD",
       "training_approved": false
@@ -43,7 +43,7 @@
       "affected_probe_ids": [
         "W7R-012"
       ],
-      "unresolved_question": "Check English first-source formula and indicator code across editions before certifying one unambiguous Lips displacement.",
+      "unresolved_question": "NTD translated page 36 conflicts (+2 boxed label vs +3 text twice). Research strategy.py uses 5-SMMA shifted +3, consistent with repeated list; independent English-source adjudication is still outstanding.",
       "review_required": true,
       "suggested_resolution_status": "OPEN_NOT_GOLD",
       "training_approved": false
