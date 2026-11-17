@@ -30,7 +30,7 @@ jobs:
           name: Williams-v6-HIST100-REAL-GPU-100-BASE-100-V5-COMPLETE-NO-GOLD
           path: baseline_v6
       - name: Test sanitized diagnostic handling before reading private Kaggle logs
-        run: python -m unittest tests.test_williams_ai_v71_kaggle_log_safety -v
+        run: python -m unittest tests.test_williams_ai_v71_kaggle_log_safety tests.test_ai_v71_existing_kernel_status -v
       - name: Check existing private Kaggle kernel only; do not submit
         run: |
           python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2'

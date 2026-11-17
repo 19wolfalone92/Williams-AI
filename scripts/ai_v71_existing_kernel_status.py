@@ -131,17 +131,31 @@ def compare(v71,v6):
    "training_performed":False,"weights_changed":False,"trading_allowed":False,
    "format_reliability_comparison_not_book_correctness":summary}
 
+def _safe_output_failure(stdout:str, stderr:str, returncode:int, matches:int)->dict:
+ """No CLI output text escapes into public logs or artifacts."""
+ return {"cli_exit_success":returncode==0,"matching_output_files":matches,
+   "allowlisted_diagnostic":_safe_kernel_failure_diagnostic((stderr or stdout)[-100000:])}
+
 def main():
  from kaggle.api.kaggle_api_extended import KaggleApi
  from kagglehub.auth import get_username
  need(len(os.environ.get("KAGGLE_API_TOKEN",""))>=20,"KAGGLE_CREDENTIAL_MISSING")
  api=KaggleApi();api.authenticate()
  kernel=get_username()+"/"+SLUG
- status=str(api.kernels_status(kernel).status).upper()
+ try:
+  status=str(api.kernels_status(kernel).status).upper()
+ except Exception as exc:
+  status="STATUS_API_UNAVAILABLE"
+  # The CLI/SDK exception can carry private request details: never publish it.
+  status_error_type=type(exc).__name__
+ else:
+  status_error_type=None
  result={"schema":"WILLIAMS_V71_EXISTING_PRIVATE_T4_STATUS_V1",
   "kernel":kernel,"status":status,"new_kernel_submitted":False,
   "new_inference_started":False,"new_training_started":False,
   "book_accuracy":None,"trading_allowed":False}
+ if status_error_type:
+  result["status_error_type"]=status_error_type
  out=Path(os.environ["RUNNER_TEMP"])
  if "COMPLETE" not in status:
   if "ERROR" in status:
@@ -157,18 +171,29 @@ def main():
   files=list(Path(tmp).rglob("ACTUAL_V71_PATCHED_LMFE_8_PAIRED_DIAGNOSTICS_NO_GOLD.json"))
   if p.returncode!=0 or len(files)!=1:
    result["output_download_ok"]=False
-   result["output_error"]=(p.stderr or p.stdout)[-3000:]
+   result["output_safe_diagnostic"]=_safe_output_failure(
+       p.stdout,p.stderr,p.returncode,len(files))
   else:
-   v71=json.loads(files[0].read_bytes())
-   baseline=Path("baseline_v6/WILLIAMS_V6_HIST100_ALL_100_BASE_100_V5_REAL_GPU_NOT_GOLD.json")
-   v6=json.loads(baseline.read_bytes())
-   comparison=compare(v71,v6)
-   (out/"v71_patched_lmfe_8_actual_answers_NO_GOLD.json").write_text(
-       json.dumps(v71,ensure_ascii=False,indent=2))
-   (out/"v71_same_8_inputs_vs_v6_NO_GOLD.json").write_text(
-       json.dumps(comparison,ensure_ascii=False,indent=2))
-   result["output_download_ok"]=True
-   result["comparison"]=comparison
+   try:
+    v71=json.loads(files[0].read_bytes())
+    baseline=Path("baseline_v6/WILLIAMS_V6_HIST100_ALL_100_BASE_100_V5_REAL_GPU_NOT_GOLD.json")
+    v6=json.loads(baseline.read_bytes())
+    comparison=compare(v71,v6)
+   except (ValueError,KeyError,TypeError,OSError) as exc:
+    # A malformed result MUST NOT be presented as 8 verified answer pairs.
+    result["output_download_ok"]=True
+    result["comparison_verified"]=False
+    result["comparison_failure_code"]=(str(exc) if
+       re.fullmatch(r"V71_STATUS_[A-Z0-9_]+",str(exc))
+       else "UNEXPECTED_OR_INCOMPLETE_RESULT_CONTRACT")
+   else:
+    (out/"v71_patched_lmfe_8_actual_answers_NO_GOLD.json").write_text(
+        json.dumps(v71,ensure_ascii=False,indent=2))
+    (out/"v71_same_8_inputs_vs_v6_NO_GOLD.json").write_text(
+        json.dumps(comparison,ensure_ascii=False,indent=2))
+    result["output_download_ok"]=True
+    result["comparison_verified"]=True
+    result["comparison"]=comparison
  (out/"v71_existing_kernel_status.json").write_text(
    json.dumps(result,ensure_ascii=False,indent=2))
  print("V71_PRIVATE_T4_EXISTING_KERNEL_AUDIT",json.dumps(result,ensure_ascii=False),flush=True)
