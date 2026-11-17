@@ -131,7 +131,7 @@ def create_private(path,obj):
     try:
         with os.fdopen(fd,"wb") as f:
             f.write(json.dumps(obj,ensure_ascii=False,sort_keys=True,
-                     indent=2).encode("utf-8")+b"\\n")
+                     indent=2).encode("utf-8")+bytes([10]))
             f.flush();os.fsync(f.fileno())
     except BaseException:
         dest.unlink(missing_ok=True)
