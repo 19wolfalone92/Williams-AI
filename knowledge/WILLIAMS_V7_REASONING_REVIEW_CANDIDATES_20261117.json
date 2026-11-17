@@ -1,0 +1,507 @@
+{
+  "schema": "WILLIAMS_V7_REASONING_COUNTERFACTUAL_REVIEW_NO_GOLD_V1",
+  "review_gate": {
+    "training_approved": false,
+    "sft_ready": false,
+    "independent_expert_reviews": 0,
+    "chart_gold_labels": 0,
+    "model_predictions_used": false,
+    "real_market_chart_cases": 0,
+    "source_review_status": "SOURCE_SPOTCHECK_INDEPENDENT_ARBITRATION_REQUIRED",
+    "gpu_training_authorized": false,
+    "trading_authorized": false
+  },
+  "rubric_axes": [
+    "PRIMARY_BOOK_EDITION_AND_PAGE",
+    "OBSERVABLE_CLOSED_BAR_EVIDENCE",
+    "CAUSE_AND_EVENT_SEQUENCE",
+    "ALTERNATIVE_WAVE_OR_SIGNAL_INTERPRETATION",
+    "MISSING_DATA_AND_ABSTENTION",
+    "NO_BROKER_FILL_INFERENCE"
+  ],
+  "pairs": [
+    {
+      "pair_id": "W7R-001",
+      "focus": "ANGULATION",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pages": [
+        121,
+        122,
+        123,
+        124
+      ],
+      "rule_ids": [
+        "TC2.WM1.ANG"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_005_TC2_ANGULATION_PRIMARY_SOURCE_RECHECK_20261115_RU.md",
+      "comparison_axis": "Ширина расстояния против реального раскрытия угла",
+      "question": "Проверь допустимость WM1 ангуляции и укажи недостающие данные.",
+      "variant_a": {
+        "scenario": "Цена далеко от Jaw, но контуры цены и пасти почти параллельны; UOPX-подобная геометрия.",
+        "unavailable_facts": [
+          "момент барового WM1 сигнала",
+          "время подтверждения всех баров"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Точки перехода через пасть и последовательность нижних краёв цены известны; расстояние между контуром пасти и ценой последовательно увеличивается.",
+        "unavailable_facts": [
+          "момент барового WM1 сигнала",
+          "время подтверждения всех баров"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-002",
+      "focus": "ANGULATION",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pages": [
+        122,
+        123,
+        124
+      ],
+      "rule_ids": [
+        "TC2.WM1.ANG"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_005_TC2_ANGULATION_PRIMARY_SOURCE_RECHECK_20261115_RU.md",
+      "comparison_axis": "Исходная точка и траектория против одного снимка Jaw",
+      "question": "Можно ли доказать ангуляцию по имеющимся закрытым барам?",
+      "variant_a": {
+        "scenario": "Есть только текущая цена и Jaw, расстояние большое; момент пересечения пасти неизвестен.",
+        "unavailable_facts": [
+          "корректность самого разворотного бара",
+          "триггерный уровень"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Есть закрытая последовательность от последнего пересечения пасти, траектории Jaw/Teeth и экстремумов цен по направлению.",
+        "unavailable_facts": [
+          "корректность самого разворотного бара",
+          "триггерный уровень"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-003",
+      "focus": "WAVE_STRUCTURE",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pages": [
+        43,
+        44,
+        45
+      ],
+      "rule_ids": [
+        "COURSE.W4.ZERO"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_009_COURSE_W4_AO_ZERO_CROSS_NOT_TOUCH_SOURCE_RECHECK_20261115_RU.md",
+      "comparison_axis": "Касание нуля и пересечение нуля",
+      "question": "Оценить минимальные условия W4, но не объявлять завершение коррекции.",
+      "variant_a": {
+        "scenario": "Осциллятор дошёл до 0 и вернулся на прежнюю сторону; перехода через 0 не зафиксировано.",
+        "unavailable_facts": [
+          "завершённость W4",
+          "альтернативные волновые степени"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Осциллятор пересёк 0 на закрытом баре; структура A-B-C ещё не подтверждена.",
+        "unavailable_facts": [
+          "завершённость W4",
+          "альтернативные волновые степени"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-004",
+      "focus": "WAVE_STRUCTURE",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pages": [
+        43,
+        44,
+        45
+      ],
+      "rule_ids": [
+        "COURSE.RHYTHM",
+        "COURSE.W4.ZERO"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_010_COURSE_WAVE_DEGREE_W5_TARGET_DIVERGENCE_SOURCE_RECHECK_20261115_RU.md",
+      "comparison_axis": "100–140 баров выбранной волны и всего файла",
+      "question": "Какая степень волны подтверждается данным масштабом?",
+      "variant_a": {
+        "scenario": "В файле есть 120 H1 баров, но кандидатом размечена последовательность из 37 баров.",
+        "unavailable_facts": [
+          "альтернативная вложенная разметка",
+          "отметки времени опорных точек"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Доступно 260 H1 баров, а анализируемый законченный волновой кандидат занимает 118 баров.",
+        "unavailable_facts": [
+          "альтернативная вложенная разметка",
+          "отметки времени опорных точек"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-005",
+      "focus": "WAVE_STRUCTURE",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pages": [
+        53,
+        54,
+        60,
+        65
+      ],
+      "rule_ids": [
+        "TC1.W3",
+        "TC1.W4",
+        "TC1.MAGIC.DIVERGENCE"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_018_TC1_WAVE_DEGREE_MFI_MACD_W4_W5_20261115_RU.md",
+      "comparison_axis": "Дивергенция младшей волны и возвращение осциллятора к нулю",
+      "question": "Объясни альтернативы W3-of-W3 / W5 без подгонки степени задним числом.",
+      "variant_a": {
+        "scenario": "После дивергенции внутри тренда осциллятор не подошёл к нулю; степень исходной волны остаётся спорной.",
+        "unavailable_facts": [
+          "временная структура подволн",
+          "подтверждение разворотных pivot"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Зафиксирован переход через 0 после W3 на выбранной степени, но подтверждения коррекционной структуры нет.",
+        "unavailable_facts": [
+          "временная структура подволн",
+          "подтверждение разворотных pivot"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-006",
+      "focus": "WAVE_STRUCTURE",
+      "edition": "TC1",
+      "source_pdf_sha256": "36f6822811088a06254009181480aa1c27af705a76960ecf0342023df803331c",
+      "source_pages": [
+        43,
+        44,
+        45,
+        53
+      ],
+      "rule_ids": [
+        "TC1.MAGIC.SQUAT",
+        "TC1.W3"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_017_TC1_MFI_FOUR_PROFITUNITY_WINDOWS_AND_AIRBAG_20261115_RU.md",
+      "comparison_axis": "Squat как признак борьбы против обязательного конца W5",
+      "question": "Можно ли по Squat автоматически объявить завершение тренда?",
+      "variant_a": {
+        "scenario": "Высокий объём и падающий MFI появляются посреди кандидата W3.",
+        "unavailable_facts": [
+          "подтверждение wave degree",
+          "относительные MFI по выбранной волне"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Та же комбинация появляется около крайней цены после возможной W5.",
+        "unavailable_facts": [
+          "подтверждение wave degree",
+          "относительные MFI по выбранной волне"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-007",
+      "focus": "WISE_MEN",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pages": [
+        135,
+        137,
+        139
+      ],
+      "rule_ids": [
+        "TC2.WM2"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_006_TC2_WM2_THREE_AO_BARS_SOURCE_RECHECK_20261115_RU.md",
+      "comparison_axis": "Три растущих AO-бара против трёх AO выше нуля",
+      "question": "Проверить WM2 по закрытым AO и соответствующему price bar.",
+      "variant_a": {
+        "scenario": "Три последних AO положительны, но значения постепенно падают: 0.30, 0.22, 0.12.",
+        "unavailable_facts": [
+          "состояние кампании",
+          "high третьего ценового бара и price stop trigger"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Три последовательных AO возрастают: -0.20, -0.10, -0.01; каждый зелёный относительно предыдущего.",
+        "unavailable_facts": [
+          "состояние кампании",
+          "high третьего ценового бара и price stop trigger"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-008",
+      "focus": "WISE_MEN",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pages": [
+        147,
+        148,
+        149,
+        151
+      ],
+      "rule_ids": [
+        "TC2.WM3"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_007_TC2_WM3_TEETH_AT_ACTIVATION_SOURCE_RECHECK_20261115_RU.md",
+      "comparison_axis": "Фрактал при формировании и фильтр Teeth в момент срабатывания",
+      "question": "Проверь момент активации WM3, а не место пятибарного образования.",
+      "variant_a": {
+        "scenario": "Восходящий фрактал сформирован выше Teeth, но на момент пересечения стоп-уровня цена ниже Teeth.",
+        "unavailable_facts": [
+          "интрабарная последовательность при отсутствии тиков",
+          "действительность price stop"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Восходящий фрактал появился внутри пасти; в момент возможного прорыва цена находится выше Teeth.",
+        "unavailable_facts": [
+          "интрабарная последовательность при отсутствии тиков",
+          "действительность price stop"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-009",
+      "focus": "WISE_MEN",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pages": [
+        150,
+        151,
+        152,
+        153
+      ],
+      "rule_ids": [
+        "TC2.WM3",
+        "TC2.WM2"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_020_TC2_THREE_WISE_MEN_ORDER_AND_FIRST_SIGNAL_ALTERNATIVES_20261115_RU.md",
+      "comparison_axis": "Порядок WM1/WM2/WM3 против первого допустимого сигнала",
+      "question": "Нужен ли обязательный WM1 перед всеми остальными мудрецами?",
+      "variant_a": {
+        "scenario": "Нет WM1, но первым появился подтверждённый фрактальный setup; activation, Teeth filter и бар закрытия отдельно известны.",
+        "unavailable_facts": [
+          "точный price trigger",
+          "разрешённое состояние кампании"
+        ]
+      },
+      "variant_b": {
+        "scenario": "WM1 уже есть, но ожидаемый WM2 дал только два направленных AO-бара; WM3 ещё не подтверждён.",
+        "unavailable_facts": [
+          "точный price trigger",
+          "разрешённое состояние кампании"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-010",
+      "focus": "CAMPAIGN_CONTEXT",
+      "edition": "TC2",
+      "source_pdf_sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
+      "source_pages": [
+        131,
+        154,
+        156,
+        161,
+        162
+      ],
+      "rule_ids": [
+        "TC2.REVERSE",
+        "TC2.CAMPAIGN"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_022_TC2_TRAILING_EXIT_VS_OPPOSITE_SIGNAL_AND_PARTIAL_CLOSE_20261115_RU.md",
+      "comparison_axis": "Противоположный setup и фактический выход/реверс",
+      "question": "Объясни что известно о состоянии позиции и чего нельзя заключать по графику.",
+      "variant_a": {
+        "scenario": "Ведётся long; возник противоположный разворотный setup, но цена не дошла до встречного стоп-уровня.",
+        "unavailable_facts": [
+          "журнал реальных исполнений",
+          "текущее состояние STOP/позиции"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Ведётся long; уровень противоположного WM1 достигнут, но подтверждение брокерского fill недоступно.",
+        "unavailable_facts": [
+          "журнал реальных исполнений",
+          "текущее состояние STOP/позиции"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-011",
+      "focus": "CAMPAIGN_CONTEXT",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pages": [
+        115,
+        116,
+        118,
+        119,
+        120
+      ],
+      "rule_ids": [
+        "NTD.EXITS"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_016_NTD_FOUR_EXIT_HIERARCHY_AND_OPPOSITE_SIGNAL_20261115_RU.md",
+      "comparison_axis": "Закрытие за Teeth, Lips быстрого рынка и ошибочный немедленный выход",
+      "question": "Различи выходной критерий книги и подтверждённый биржевой выход.",
+      "variant_a": {
+        "scenario": "Долгий тренд; price закрылась около Lips, но нет подтверждённого стоп-критерия по выбранной линии.",
+        "unavailable_facts": [
+          "выбранный заранее exit mode",
+          "завершение нужного бара"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Быстрое движение; рассматривается отдельное close-only правило по Lips, но не представлен брокерский fill.",
+        "unavailable_facts": [
+          "выбранный заранее exit mode",
+          "завершение нужного бара"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-012",
+      "focus": "AMBIGUITY",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pages": [
+        34,
+        35,
+        36,
+        37
+      ],
+      "rule_ids": [
+        "NTD.ALLIGATOR"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_011_NTD_ALLIGATOR_BALANCE_TIMEFRAMES_AND_DIRECTION_FILTER_20261115_RU.md",
+      "comparison_axis": "Противоречивое смещение Lips +2/+3 в одном переводе",
+      "question": "Можно ли без независимой сверки объявить единый доказанный сдвиг?",
+      "variant_a": {
+        "scenario": "На странице 36 найден фрагмент перевода с обозначением Lips +2.",
+        "unavailable_facts": [
+          "независимая проверка английского оригинала",
+          "точная редакция/версия исходной формулы"
+        ]
+      },
+      "variant_b": {
+        "scenario": "На той же странице другая формула и подпись указывают Lips +3.",
+        "unavailable_facts": [
+          "независимая проверка английского оригинала",
+          "точная редакция/версия исходной формулы"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-013",
+      "focus": "AMBIGUITY",
+      "edition": "COURSE",
+      "source_pdf_sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca",
+      "source_pages": [
+        56
+      ],
+      "rule_ids": [
+        "COURSE.VISUAL.NESTED_ABC"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_029_COURSE_VISUAL_NESTED_WAVES_ABC_AND_DEGREE_20261115_RU.md",
+      "comparison_axis": "Вложенность A-B-C / 1–5 и подтверждение pivot",
+      "question": "Можно ли по внешнему силуэту доказать уникальный count выбранной степени?",
+      "variant_a": {
+        "scenario": "Последний экстремум предполагаемой пятой волны пока не подтверждён закрытыми барами справа.",
+        "unavailable_facts": [
+          "уровни инвалидации обоих count",
+          "старший масштаб"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Доступны подтверждённые pivot с временами подтверждения, но альтернативная вложенная степень также объясняет часть движения.",
+        "unavailable_facts": [
+          "уровни инвалидации обоих count",
+          "старший масштаб"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-014",
+      "focus": "AMBIGUITY",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pages": [
+        55,
+        56,
+        57,
+        59,
+        60,
+        61
+      ],
+      "rule_ids": [
+        "NTD.AO"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_012_NTD_AO_SAUCER_ZERO_CROSS_TWIN_PEAKS_20261115_RU.md",
+      "comparison_axis": "AO-сигнал NTD и несовместимый перенос TC2 Super AO",
+      "question": "Какая конкретная формация AO из данной редакции доказана?",
+      "variant_a": {
+        "scenario": "Есть три растущих AO, но данных о NTD Saucer/Zero Crossing/Twin Peaks и позиции к нулю недостаточно.",
+        "unavailable_facts": [
+          "доказательство конкретного NTD паттерна",
+          "нет ли смешения редакций TC2/NTD"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Известны положения AO к нулю, локальные пики и временная последовательность, однако момент проверки каждого сигнала требует уточнения.",
+        "unavailable_facts": [
+          "доказательство конкретного NTD паттерна",
+          "нет ли смешения редакций TC2/NTD"
+        ]
+      }
+    },
+    {
+      "pair_id": "W7R-015",
+      "focus": "CAMPAIGN_CONTEXT",
+      "edition": "NTD",
+      "source_pdf_sha256": "855eb052353c852f208436952b12e46d9a18badf7c1dac7ade7580d57b9f4bb4",
+      "source_pages": [
+        99,
+        103,
+        104,
+        106
+      ],
+      "rule_ids": [
+        "NTD.BALANCE"
+      ],
+      "source_review_ref": "research/WILLIAMS_V7_RULE_CHECK_015_NTD_BALANCE_LINE_ZONES_ALLIGATOR_FILTERS_20261115_RU.md",
+      "comparison_axis": "Balance Line 1/2 экстремума и контекст Alligator/Zone",
+      "question": "Объясни возможность входа по Balance Line с учётом контекста.",
+      "variant_a": {
+        "scenario": "Кандидат на покупку есть, но неизвестно положение цены относительно Alligator и текущая зона AO/AC.",
+        "unavailable_facts": [
+          "событие реального trigger",
+          "состояние ордера у брокера"
+        ]
+      },
+      "variant_b": {
+        "scenario": "Цена, база, направление и AO/AC зона известны на закрытых барах; остаётся проверить требуемое число экстремумов и price trigger.",
+        "unavailable_facts": [
+          "событие реального trigger",
+          "состояние ордера у брокера"
+        ]
+      }
+    }
+  ]
+}
