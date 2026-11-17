@@ -40,13 +40,14 @@ def _summary(rows):
     }
 
 def compare_v72(v72,v71,v6):
-    # Explicitly verify the ORIGINAL v7.1 against v6 before comparing v7.2.
-    old_summary=compare_v71(v71,v6)
+    # Reject incomplete NEW results before reading or grading older baselines.
     need(type(v72) is dict and v72.get("schema")==SCHEMA
          and v72.get("complete") is True
          and v72.get("paired_cases")==8
          and v72.get("eos_early_termination_guard") is True,
          "NOT_EXACT_8_COMPLETE_EOS_GUARDED_PAIRS")
+    # Only then verify ORIGINAL v7.1 against frozen v6 source identity.
+    old_summary=compare_v71(v71,v6)
     need(v72.get("base_revision")==MODEL_COMMIT
          and v72.get("v5_adapter_sha256")==RAW_ADAPTER_SHA
          and v72.get("enforcer_commit")==ENFORCER_COMMIT
@@ -140,7 +141,7 @@ def main():
         return
     with tempfile.TemporaryDirectory(prefix="v72-existing-status-") as tmp:
         p=subprocess.run(["kaggle","kernels","output",kernel,"-p",tmp,"-o",
-            "--file-pattern",r".*ACTUAL_V72_EOSGUARD_8_PAIRED_DIAGNOSTICS_NO_GOLD\\.json$",
+            "--file-pattern",r".*ACTUAL_V72_EOSGUARD_8_PAIRED_DIAGNOSTICS_NO_GOLD\.json$",
             "--page-size","200"],capture_output=True,text=True,timeout=480)
         # Some SDK versions implement --file-pattern differently; only
         # trust the EXACT output filename, never infer from a wildcard.
