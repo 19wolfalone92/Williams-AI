@@ -1,0 +1,30 @@
+{
+  "schema": "WILLIAMS_V6_PRIVATE_V5_ADAPTER_RETENTION_NOTE_V1",
+  "historical_run_id": 43229923254,
+  "source_commit_sha": "e3f1b4d34059f10adb1b2791267bb11b79ec67c1",
+  "artifact_id": 13962336774,
+  "artifact_name": "Williams-AI-v5-RECOVERED-trained-Qwen3-4B-Sealed-and-knowledge-exam",
+  "artifact_expiration_utc": "2026-12-03T16:22:18Z",
+  "public_run_page": "https://github.com/19wolfalone92/Williams-AI/actions/runs/43229923254",
+  "downloaded_outer_zip_sha256": "6ebaa38558fa4edc7423f398fc0574f807e3eb2ce74ae193ea076ae781fe9d7a",
+  "downloaded_outer_zip_bytes": 23647418,
+  "includes": {
+    "encrypted_private_lora": true,
+    "cleartext_adapter": false,
+    "v5_training_audit": true,
+    "curriculum_manifest": true,
+    "knowledge_exam": true
+  },
+  "verified": {
+    "outer_zip_members": 4,
+    "encrypted_lora_sha256_matches_audit": true,
+    "optimizer_steps": 80,
+    "selected_validation_checkpoint": 80,
+    "raw_adapter_sha256_claim": "8bd26590df627c7452d56e81df6a4572885bfc82515259a7c9de4a3970c850b8",
+    "trading_qualification": false
+  },
+  "warning": "Download is archived in the originating ChatGPT conversation, not persisted in GitHub after expiration. Keep encrypted ZIP and its private decryption secret separately; NEVER publish secret or decrypted weights.",
+  "independent_new_chart_exam_completed": false,
+  "gpu_enabled": false,
+  "trade_allowed": false
+}

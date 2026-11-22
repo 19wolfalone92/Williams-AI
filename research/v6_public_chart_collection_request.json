@@ -1,0 +1,9 @@
+{
+  "schema": "WILLIAMS_V6_PUBLIC_FORWARD_COLLECTION_REQUEST_V1",
+  "request": "COLLECT_NOW",
+  "cohort": "pilot",
+  "request_id": "pilot-20261122-021821Z-32h1-8b6e",
+  "comments": "Only explicitly change request to COLLECT_NOW in research branch after all 1024 H1 bars are closed. A push of THIS file triggers the CPU-only public source collector. Never include API keys, reviewer labels or model weights.",
+  "gpu_allowed": false,
+  "trade_execution_allowed": false
+}

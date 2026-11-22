@@ -1,0 +1,89 @@
+name: Williams v6 REAL public OHLCV smoke (no secrets, no exam)
+on:
+  push:
+    branches: [research/williams-ai-curriculum-v5-20261111]
+    paths:
+      - scripts/ai_v6_public_ohlcv_smoke.py
+      - tests/test_ai_v6_public_ohlcv_smoke.py
+      - scripts/ai_v6_real_market_4book_cpu_smoke.py
+      - tests/test_ai_v6_real_market_4book_cpu_smoke.py
+      - williams_ai/v6_official_archive_collector.py
+      - tests/test_williams_ai_v6_official_archive_collector.py
+      - .github/workflows/ai-v6-public-ohlcv-smoke.yml
+  pull_request:
+    paths:
+      - scripts/ai_v6_public_ohlcv_smoke.py
+      - tests/test_ai_v6_public_ohlcv_smoke.py
+      - scripts/ai_v6_real_market_4book_cpu_smoke.py
+      - tests/test_ai_v6_real_market_4book_cpu_smoke.py
+      - williams_ai/v6_official_archive_collector.py
+      - tests/test_williams_ai_v6_official_archive_collector.py
+      - .github/workflows/ai-v6-public-ohlcv-smoke.yml
+permissions:
+  contents: read
+concurrency:
+  group: williams-v6-real-ohlcv-smoke-dataonly-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-public-data-no-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and verify official-archive reader against offline adversarial fixtures
+        run: |
+          python -m py_compile scripts/ai_v6_public_ohlcv_smoke.py tests/test_ai_v6_public_ohlcv_smoke.py
+          python -m unittest tests.test_ai_v6_public_ohlcv_smoke tests.test_williams_ai_v6_official_archive_collector tests.test_williams_ai_v6_workflow_trigger_guard -v
+          python - <<'PY'
+          from datetime import date
+          from williams_ai.v6_official_archive_collector import verified_daily
+          rows, receipt = verified_daily("BTCUSDT", date(2026, 11, 11))
+          assert len(rows) == 24 and receipt["official_checksum_verified"] is True
+          print("REAL_OFFICIAL_BINANCE_DAILY_ARCHIVE_VERIFIED", receipt["utc_date"], receipt["sha256"])
+          PY
+      - name: Verify official Binance USD-M daily archive checksum and 1h CSV schema
+        run: |
+          python - <<'PY'
+          import csv,hashlib,io,re,zipfile
+          from urllib.request import Request,urlopen
+          base="https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip"
+          def fetch(url):
+              with urlopen(Request(url,headers={"User-Agent":"Williams-AI-v6-readonly"}),timeout=20) as r:
+                  assert r.status==200
+                  return r.read(2_000_000)
+          checksum=fetch(base+".CHECKSUM").decode("ascii").strip()
+          print("ARCHIVE_CHECKSUM_LINE",repr(checksum[:120]),flush=True)
+          expected=checksum.split()[0]
+          assert re.fullmatch(r"[0-9a-fA-F]{64}",expected)
+          raw=fetch(base)
+          assert hashlib.sha256(raw).hexdigest().lower()==expected.lower()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              names=z.namelist()
+              assert len(names)==1 and names[0].endswith(".csv")
+              records=list(csv.reader(io.StringIO(z.read(names[0]).decode("utf-8-sig"))))
+              assert len(records) in (24,25)
+              print("OFFICIAL_BINANCE_ARCHIVE_VERIFIED",
+                    "zip_bytes="+str(len(raw)),
+                    "csv_rows="+str(len(records)),
+                    "first_column="+str(records[0][0]),
+                    "last_column_count="+str(len(records[-1])),flush=True)
+          PY
+      - name: Fetch SHA-verified 1024 closed H1 candles from official monthly public archives
+        run: |
+          python -m scripts.ai_v6_public_ohlcv_smoke \
+            --out "$RUNNER_TEMP/WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json"
+      - name: Verify non-trading research receipt only
+        run: |
+          python -c 'import json,os,pathlib; j=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json").read_text()); assert j["model_inference_performed"] is False and j["expert_gold_present"] is False and j["execution_allowed"] is False and len(j["market_data_result"])==4 and all(x["bars"]==1024 and x["D1_AO_available"] and x["D1_AC_available"] for x in j["market_data_result"])'
+      - name: Upload read-only numeric market provenance (NO GOLD)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v6-REAL-H1-H4-D1-SMOKE-NOT-EXAM
+          path: ${{ runner.temp }}/WILLIAMS_V6_REAL_PUBLIC_SMOKE_4SYMBOLS.json
+          if-no-files-found: error
+          retention-days: 14

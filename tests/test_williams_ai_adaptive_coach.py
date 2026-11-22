@@ -100,11 +100,13 @@ class AdaptiveBookTutorTests(unittest.TestCase):
                 {"source":"TC1:RULE:TC1.W3","excerpt":"Example of prior correction"}
             ])
             sent=json.loads(m._model.calls[0]["messages"][1]["content"])
-            self.assertEqual(set(sent),{"case","prior_edition_scoped_lessons"})
-            self.assertNotIn("correct",sent["case"])
-            self.assertNotIn("feedback",sent["case"])
-            self.assertEqual(sent["prior_edition_scoped_lessons"][0]["source"],
+            self.assertEqual(set(sent),{"edition","question","choices","reviewed_source_context"})
+            self.assertNotIn("id",sent)
+            self.assertNotIn("correct",sent)
+            self.assertNotIn("feedback",sent)
+            self.assertEqual(sent["reviewed_source_context"]["source_cards"][0]["source"],
                              "TC1:RULE:TC1.W3")
+            self.assertTrue(sent["reviewed_source_context"]["source_is_untrusted_data"])
             self.assertNotIn("tools",m._model.calls[0])
 
     def test_input_rejection_no_written_case_rollback(self):

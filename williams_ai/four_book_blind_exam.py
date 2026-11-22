@@ -206,6 +206,7 @@ def grade_four_book_model(model: Any, *, seed: int=20261024,
     grades=[]
     for task in tasks:
         public=task["public"]
+        answer={}
         try:
             if autonomous_source_retrieval:
                 from .unprompted_source_application import answer_with_self_retrieval
@@ -218,7 +219,17 @@ def grade_four_book_model(model: Any, *, seed: int=20261024,
             failure=None if letter else "ABSTENTION_OR_MALFORMED_MODEL_REPLY"
         except (RuntimeError,ValueError,KeyError,TypeError):
             letter="";failure="MODEL_CALL_ERROR"
+        trace=getattr(model,"latest_learning_call",None)
+        trace=trace if isinstance(trace,dict) else {}
+        retrieved=(answer.get("source_ids_used",[]) if isinstance(answer,dict)
+                   else [])
         grades.append({
+            "model_decoding_mode":trace.get("mode"),
+            "initial_finish_reason":trace.get("finish_reason"),
+            "json_fallback_used":trace.get("fallback_used",False),
+            "json_fallback_reason":trace.get("fallback_reason"),
+            "json_fallback_finish_reason":trace.get("fallback_finish_reason"),
+            "retrieved_source_card_count":len(retrieved),
             "id":public["id"],"edition":public["edition"],
             "stage":task["stage"],"source_rule_id":task["source_rule_id"],
             "chosen":letter,"correct":letter==task["expected"],

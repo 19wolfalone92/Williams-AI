@@ -1,0 +1,64 @@
+{
+  "schema": "WILLIAMS_V6_PUBLIC_HISTORIC_API_SMOKE_RECEIPT_V1",
+  "date": "2026-11-13",
+  "source": "Binance connected public read-only USD-M futures klines",
+  "query": {
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ],
+    "interval": "1h",
+    "startTime": 1790755200000,
+    "endTime": 1794441599999,
+    "limit": 1024
+  },
+  "observed": [
+    {
+      "symbol": "BTCUSDT",
+      "records": 1024,
+      "first_open_ms": 1790755200000,
+      "last_close_ms": 1794441599999,
+      "discontinuities": 0,
+      "invalid_ohlcv": 0,
+      "future_candles": 0
+    },
+    {
+      "symbol": "ETHUSDT",
+      "records": 1024,
+      "first_open_ms": 1790755200000,
+      "last_close_ms": 1794441599999,
+      "discontinuities": 0,
+      "invalid_ohlcv": 0,
+      "future_candles": 0
+    },
+    {
+      "symbol": "SOLUSDT",
+      "records": 1024,
+      "first_open_ms": 1790755200000,
+      "last_close_ms": 1794441599999,
+      "discontinuities": 0,
+      "invalid_ohlcv": 0,
+      "future_candles": 0
+    },
+    {
+      "symbol": "XRPUSDT",
+      "records": 1024,
+      "first_open_ms": 1790755200000,
+      "last_close_ms": 1794441599999,
+      "discontinuities": 0,
+      "invalid_ohlcv": 0,
+      "future_candles": 0
+    }
+  ],
+  "interpretation": "Live connected public market API returned 4 complete H1 series for basic continuity/OHLCV checks. No full source fingerprint archived. Does not prove future collector GitHub runner networking or SFT model quality.",
+  "actual_expert_cases": 0,
+  "expert_labels": 0,
+  "independent_untouched_holdout": false,
+  "training_authorized": false,
+  "model_inference_executed": false,
+  "trade_executed": false,
+  "gpu_executed": false,
+  "main_merge": false
+}

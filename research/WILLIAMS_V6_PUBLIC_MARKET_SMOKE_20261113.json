@@ -1,0 +1,66 @@
+{
+  "schema": "WILLIAMS_V6_PUBLIC_MARKET_REAL_OHLCV_CONNECTIVITY_SMOKE_V1",
+  "observed_on_utc_date": "2026-11-13",
+  "market_provider": "Binance USD-M public market-data connector (read-only)",
+  "request": {
+    "interval": "1h",
+    "startTime": 1790841600000,
+    "endTime": 1794527999999,
+    "limit": 1024
+  },
+  "samples": [
+    {
+      "symbol": "BTCUSDT",
+      "rows_received": 1024,
+      "expected_rows": 1024,
+      "first_open_ms": 1790841600000,
+      "last_close_ms": 1794527999999,
+      "hourly_continuity": true,
+      "close_timestamps_consistent": true,
+      "ohlc_high_low_consistent": true,
+      "source_public_no_credentials": true
+    },
+    {
+      "symbol": "ETHUSDT",
+      "rows_received": 1024,
+      "expected_rows": 1024,
+      "first_open_ms": 1790841600000,
+      "last_close_ms": 1794527999999,
+      "hourly_continuity": true,
+      "close_timestamps_consistent": true,
+      "ohlc_high_low_consistent": true,
+      "source_public_no_credentials": true
+    },
+    {
+      "symbol": "SOLUSDT",
+      "rows_received": 1024,
+      "expected_rows": 1024,
+      "first_open_ms": 1790841600000,
+      "last_close_ms": 1794527999999,
+      "hourly_continuity": true,
+      "close_timestamps_consistent": true,
+      "ohlc_high_low_consistent": true,
+      "source_public_no_credentials": true
+    },
+    {
+      "symbol": "XRPUSDT",
+      "rows_received": 1024,
+      "expected_rows": 1024,
+      "first_open_ms": 1790841600000,
+      "last_close_ms": 1794527999999,
+      "hourly_continuity": true,
+      "close_timestamps_consistent": true,
+      "ohlc_high_low_consistent": true,
+      "source_public_no_credentials": true
+    }
+  ],
+  "goal": "Real read-only feed connectivity and shape smoke only",
+  "expert_reviewed": false,
+  "model_inference_run": false,
+  "novel_holdout": false,
+  "v5_training_intersection_unchecked": true,
+  "allowed_for_training": false,
+  "trade_execution": false,
+  "book_mastery_proved": false,
+  "warning": "Actual candles were inspected through the connected public Binance endpoint; no real chart prediction, label or trading order was generated. This past data IS NOT the precommitted future exam."
+}

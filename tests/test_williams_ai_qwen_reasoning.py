@@ -44,7 +44,9 @@ class QwenLearningReasoningTests(unittest.TestCase):
         self.assertEqual(call["temperature"],0.6)
         self.assertEqual(call["seed"],1942)
         self.assertEqual(call["max_tokens"],2048)
-        self.assertEqual(json.loads(call["messages"][1]["content"]),CASE)
+        self.assertEqual(json.loads(call["messages"][1]["content"]),{
+            "edition":CASE["edition"],"question":CASE["question"],
+            "choices":CASE["choices"]})
 
     def test_incomplete_thinking_cannot_be_mistaken_for_a_final_answer(self):
         for raw in ('<think>{"choice":"C","reason":"draft"}',
