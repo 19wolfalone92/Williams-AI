@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 from williams_ai.v6_official_archive_collector import (
-    ROOT, HOUR_MS, verified_daily, read_only_public_archives_klines,
+    ROOT, HOUR_MS, _cached_daily, read_only_public_archives_klines,
 )
 
 PINNED_PILOT_PLAN_BLOB = "b5ca8bb4168ff192e510bb2d1df640921f933ef7"
@@ -64,7 +64,11 @@ def required_sources(plan: dict) -> list[dict]:
             for sym, day in sorted(required)]
 
 
-def probe_one(row: dict, *, fetch=verified_daily) -> dict:
+def _cached_fetch(symbol: str, day: date):
+    return _cached_daily(symbol, day.isoformat())
+
+
+def probe_one(row: dict, *, fetch=_cached_fetch) -> dict:
     """Real SHA/24h verification; HTTP status and resource retained on failure."""
     try:
         _, receipt = fetch(row["symbol"], date.fromisoformat(row["utc_date"]))
@@ -74,12 +78,12 @@ def probe_one(row: dict, *, fetch=verified_daily) -> dict:
             raise ValueError("V6_PREFLIGHT_RECEIPT_MISMATCH")
         return {**row, "status": "VERIFIED_24_H1_SHA256",
                 "zip_sha256": receipt["sha256"]}
-    except (ValueError, OSError, UnicodeError, KeyError, OverflowError) as exc:
+    except Exception as exc:  # Any unexpected archive failure remains BLOCKED.
         return {**row, "status": "BLOCKED", "error_type": type(exc).__name__,
                 "reason": str(exc)[:600]}
 
 
-def evaluate(plan: dict, rows: list[dict], *, fetch=verified_daily,
+def evaluate(plan: dict, rows: list[dict], *, fetch=_cached_fetch,
              verify_windows=read_only_public_archives_klines) -> dict:
     """Bounded concurrent source audit; only verify windows if all days pass."""
     from functools import partial
@@ -100,7 +104,7 @@ def evaluate(plan: dict, rows: list[dict], *, fetch=verified_daily,
                 verified_windows.append({"case_id": case["id"], "symbol": case["symbol"],
                                          "cutoff_utc": case["cutoff_utc"],
                                          "closed_h1_bars": 1024, "status": "VERIFIED"})
-            except (ValueError, OSError, OverflowError) as exc:
+            except Exception as exc:  # No unchecked archive/window can pass.
                 failures.append({"case_id": case["id"], "status": "BLOCKED",
                                  "reason": str(exc)[:600]})
     return {"schema": SCHEMA, "plan_git_blob": PINNED_PILOT_PLAN_BLOB,
