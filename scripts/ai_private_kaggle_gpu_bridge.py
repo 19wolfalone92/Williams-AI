@@ -24,6 +24,19 @@ def kaggle_input_path(value:str)->str:
     return value
 
 
+def _verified_input_mount(path:str, resource:str, code:str)->str:
+    """A declared Kaggle dataset/model must own the exact worker input path.
+
+    Mere membership of /kaggle/input/ is insufficient: another attached
+    private dataset or model can silently change the trained data provenance.
+    """
+    slug=resource.split("/")[1]
+    mount="/kaggle/input/"+slug
+    if not path.startswith(mount+"/"):
+        raise ValueError(code)
+    return mount
+
+
 def generate(*,kernel_id:str,dataset_source:str,model_source:str,
              dataset_file:str,model_directory:str,revision:str,
              resume_config:dict|None=None)->tuple[dict,str]:
@@ -37,6 +50,10 @@ def generate(*,kernel_id:str,dataset_source:str,model_source:str,
         raise ValueError("EXACT_GITHUB_COMMIT_SHA_REQUIRED")
     dataset_file=kaggle_input_path(dataset_file)
     model_directory=kaggle_input_path(model_directory)
+    dataset_mount=_verified_input_mount(dataset_file,dataset_source,
+                                       "DATASET_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE")
+    model_mount=_verified_input_mount(model_directory,model_source,
+                                     "MODEL_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE")
     if not dataset_file.endswith(".jsonl") or dataset_file==model_directory:
         raise ValueError("REVIEWED_JSONL_AND_HF_MODEL_MUST_BE_DISTINCT")
     resume={} if resume_config is None else resume_config
@@ -48,7 +65,11 @@ def generate(*,kernel_id:str,dataset_source:str,model_source:str,
             or not isinstance(resume["dataset_source"],str)
             or not _RESOURCE.fullmatch(resume["dataset_source"])):
             raise ValueError("EXPLICIT_OWN_RESUME_CONFIG_REQUIRED")
-        kaggle_input_path(resume["directory"])
+        resume_directory=kaggle_input_path(resume["directory"])
+        resume_mount=_verified_input_mount(resume_directory,resume["dataset_source"],
+                                           "RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE")
+    else:
+        resume_mount=None
     sources=list(dict.fromkeys([dataset_source]+([resume["dataset_source"]] if resume else [])))
     metadata={
         # Kaggle derives the slug from title; preserve the requested identity.
@@ -60,7 +81,8 @@ def generate(*,kernel_id:str,dataset_source:str,model_source:str,
         "competition_sources":[],"kernel_sources":[],
     }
     settings={"dataset":dataset_file,"hf_base":model_directory,"revision":revision,
-              "resume":resume}
+              "dataset_mount":dataset_mount,"model_mount":model_mount,
+              "resume":resume,"resume_mount":resume_mount}
     # Embedding JSON as a Python string literal prevents arbitrary input from
     # becoming code or shell arguments. No API token or book text is embedded.
     literal=repr(json.dumps(settings,sort_keys=True))
@@ -77,8 +99,16 @@ CONFIG=json.loads(CONFIG_PLACEHOLDER)
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 data=Path(CONFIG["dataset"])
 base=Path(CONFIG["hf_base"])
-if not data.is_file() or not base.is_dir():
+if (not data.is_file() or not base.is_dir() or
+    data.is_symlink() or base.is_symlink() or
+    not data.resolve().is_relative_to(Path(CONFIG["dataset_mount"]).resolve()) or
+    not base.resolve().is_relative_to(Path(CONFIG["model_mount"]).resolve())):
     raise RuntimeError("APPROVED_KAGGLE_INPUTS_NOT_ATTACHED")
+if CONFIG["resume"]:
+    old=Path(CONFIG["resume"]["directory"])
+    if (old.is_symlink() or
+        not old.resolve().is_relative_to(Path(CONFIG["resume_mount"]).resolve())):
+        raise RuntimeError("RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE")
 checkout=Path("/kaggle/working/williams_source")
 if checkout.exists():
     raise RuntimeError("ISOLATED_SOURCE_DIR_MUST_BE_NEW")
