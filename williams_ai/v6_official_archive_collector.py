@@ -106,12 +106,12 @@ def verified_daily(symbol: str, day: date, *,
     url = ROOT + f"{symbol}/1h/{filename}"
     text = fetch(url + ".CHECKSUM", 512).decode("ascii").strip()
     fields = text.split()
-    _need(len(fields) in (1, 2), "INVALID_CHECKSUM_RECORD")
+    _need(len(fields) == 2, "INVALID_CHECKSUM_RECORD")
     expected = fields[0]
     _need(re.fullmatch(r"[0-9a-fA-F]{64}", expected) is not None,
           "NO_PUBLISHED_SIGNED_CHECKSUM")
-    if len(fields) == 2:
-        _need(fields[1].lstrip("*") == filename, "CHECKSUM_FILENAME_MISMATCH")
+    _need(fields[1] in (filename, "*" + filename),
+          "CHECKSUM_FILENAME_MISMATCH")
     packed = fetch(url, MAX_ZIP_BYTES)
     digest = sha256(packed).hexdigest()
     _need(digest.lower() == expected.lower(), "OFFICIAL_CHECKSUM_MISMATCH")
@@ -132,7 +132,7 @@ def verified_daily(symbol: str, day: date, *,
                          tzinfo=timezone.utc).timestamp() * 1000)
     series = []
     for i, row in enumerate(records):
-        _need(type(row) is list and len(row) >= 7, "MALFORMED_KLINE_CSV")
+        _need(type(row) is list and len(row) == 12, "MALFORMED_KLINE_CSV")
         try:
             start, close = int(row[0]), int(row[6])
         except (ValueError, TypeError) as exc:
