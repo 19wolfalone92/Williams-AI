@@ -109,5 +109,112 @@ class OfficialDailyArchiveTests(unittest.TestCase):
                 read_only_public_archives_klines("BTCUSDT",start,finish-1)
 
 
+class P0ArchiveTransportAndIntegrityTests(unittest.TestCase):
+    """Negative tests must not access the network or use real order credentials."""
+
+    def setUp(self):
+        from williams_ai import v6_official_archive_collector as module
+        self.m = module
+        self.day = date(2026, 11, 11)
+        self.zipbytes = fixture_zip("BTCUSDT", self.day)
+        self.url = ROOT + "BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip.CHECKSUM"
+
+    def test_missing_checksum_404_reports_exact_symbol_day_url(self):
+        from urllib.error import HTTPError
+        with patch.object(self.m, "_open_official",
+                          side_effect=HTTPError(self.url, 404, "Not Found", {}, None)):
+            with self.assertRaisesRegex(
+                    ValueError, "status=404.*BTCUSDT-1h-2026-11-11.zip.CHECKSUM"):
+                self.m._download(self.url, 512)
+
+    def test_451_and_transport_fail_closed(self):
+        from urllib.error import HTTPError, URLError
+        for failure, expected in ((HTTPError(self.url, 451, "Unavailable", {}, None),
+                                   "status=451"), (URLError("dns"), "NETWORK_FAILURE")):
+            with self.subTest(failure=type(failure).__name__):
+                with patch.object(self.m, "_open_official", side_effect=failure):
+                    with self.assertRaisesRegex(ValueError, expected):
+                        self.m._download(self.url, 512)
+
+    def test_url_allowlist_rejects_date_symbol_host_port_and_encoding(self):
+        urls = (self.url+"?a=1", self.url+"#fragment",
+                self.url.replace("BTCUSDT-1h", "ETHUSDT-1h"),
+                self.url.replace("2026-11-11", "2026-02-30"),
+                self.url.replace("data.binance.vision", "data.binance.vision.evil.tld"),
+                self.url.replace("https:", "http:"),
+                self.url.replace("data.binance.vision", "data.binance.vision:443"),
+                self.url+"%2f", self.url.replace("BTCUSDT", "DOGEUSDT"))
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertFalse(self.m._valid_official_url(url))
+        self.assertTrue(self.m._valid_official_url(self.url))
+
+    def test_limit_must_match_resource_type(self):
+        for url, limit in ((self.url, MAX_ZIP_BYTES),
+                           (self.url.removesuffix(".CHECKSUM"), 512)):
+            with self.assertRaisesRegex(ValueError, "INVALID_OFFICIAL_URL"):
+                self.m._download(url, limit)
+
+    def test_cross_host_and_cross_day_redirect_blocked_before_following(self):
+        from urllib.request import Request
+        handler = self.m._OfficialOnlyRedirect()
+        for target in ("https://evil.example/target",
+                       self.url.replace("2026-11-11", "2026-11-10"),
+                       self.url.replace("BTCUSDT", "ETHUSDT")):
+            with self.subTest(target=target):
+                with self.assertRaisesRegex(ValueError, "UNTRUSTED_ARCHIVE_REDIRECT"):
+                    handler.redirect_request(Request(self.url), None, 302, "Moved",
+                                             {}, target)
+
+    def test_completed_response_must_match_exact_requested_url(self):
+        class Response(io.BytesIO):
+            status = 200
+            def geturl(self):
+                return self_url.replace("BTCUSDT", "ETHUSDT")
+        self_url = self.url
+        with patch.object(self.m, "_open_official", return_value=Response(b"a"*64)):
+            with self.assertRaisesRegex(ValueError, "UNTRUSTED_ARCHIVE_REDIRECT"):
+                self.m._download(self.url, 512)
+
+    def test_checksum_filename_is_bound_to_zip_not_only_digest(self):
+        wrong = (sha256(self.zipbytes).hexdigest() +
+                 "  ETHUSDT-1h-2026-11-11.zip\n").encode()
+        def fetch(url, limit):
+            return wrong if url.endswith(".CHECKSUM") else self.zipbytes
+        with self.assertRaisesRegex(ValueError, "CHECKSUM_FILENAME_MISMATCH"):
+            verified_daily("BTCUSDT", self.day, fetch=fetch)
+
+    def test_corrupted_ohlcv_nan_and_negative_volume_rejected(self):
+        with ZipFile(io.BytesIO(self.zipbytes)) as source:
+            name = source.namelist()[0]
+            original = source.read(name).decode()
+        for replacement in ("100,102,99,nan,20", "100,102,99,104,20",
+                            "100,102,99,101,-1", "100,102,99,101,inf"):
+            with self.subTest(replacement=replacement):
+                changed = original.replace("100,102,99,101,20", replacement, 1)
+                stream = io.BytesIO()
+                with ZipFile(stream, "w", ZIP_DEFLATED) as output:
+                    output.writestr(name, changed)
+                raw = stream.getvalue()
+                def fetch(url, limit):
+                    return (sha256(raw).hexdigest().encode()
+                            if url.endswith(".CHECKSUM") else raw)
+                with self.assertRaisesRegex(ValueError, "INVALID_OHLCV_RANGE"):
+                    verified_daily("BTCUSDT", self.day, fetch=fetch)
+
+    def test_missing_daily_archive_never_becomes_1024_fake_bars(self):
+        cutoff = datetime(2026, 11, 15, tzinfo=timezone.utc)
+        finish = int(cutoff.timestamp()*1000)
+        start = finish-1024*HOUR_MS
+        def fake(symbol, day_iso):
+            if day_iso == "2026-10-28":
+                raise ValueError("OFFICIAL_BINANCE_H1_ARCHIVE_HTTP_FAILURE status=404")
+            return day_bars(date.fromisoformat(day_iso)), {
+                "utc_date": day_iso, "official_checksum_verified": True}
+        with patch.object(self.m, "_cached_daily", side_effect=fake):
+            with self.assertRaisesRegex(ValueError, "status=404"):
+                read_only_public_archives_klines("BTCUSDT", start, finish-1)
+
+
 if __name__=="__main__":
     unittest.main()
