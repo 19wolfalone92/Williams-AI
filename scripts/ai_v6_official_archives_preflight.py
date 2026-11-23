@@ -82,8 +82,8 @@ def probe_one(row: dict, *, fetch=_cached_fetch) -> dict:
                 "http_status": 200, "checksum_result": "MATCH"}
     except Exception as exc:  # Any unexpected archive failure remains BLOCKED.
         reason = str(exc)
-        http = re.search(r"\\bstatus=(\\d{3})\\b", reason)
-        url = re.search(r"\\burl=(https://\\S+)", reason)
+        http = re.search(r"\bstatus=(\d{3})\b", reason)
+        url = re.search(r"\burl=(https://\S+)", reason)
         checksum_result = ("MISMATCH" if "CHECKSUM_MISMATCH" in reason
                            else "INVALID" if "CHECKSUM" in reason
                            else "NOT_VERIFIED")
