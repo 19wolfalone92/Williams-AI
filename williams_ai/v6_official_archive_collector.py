@@ -180,7 +180,7 @@ def read_only_public_archives_klines(
     d = begin
     while d <= last:
         rows, receipt = _cached_daily(symbol, d.isoformat())
-        data.extend(r for r in rows if start_ms <= r[0] <= end_ms)
+        data.extend(r.copy() for r in rows if start_ms <= r[0] <= end_ms)
         receipts.append(receipt)
         d += timedelta(days=1)
     _need(len(data) == 1024, "MISSING_CLOSED_H1_BARS")
