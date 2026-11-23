@@ -23,9 +23,9 @@ def day_bars(day: date):
 
 def fixture_zip(symbol: str, day: date):
     filename=f"{symbol}-1h-{day.isoformat()}"
-    csv = ["open_time,open,high,low,close,volume,close_time"]
+    csv = ["open_time,open,high,low,close,volume,close_time,quote_asset_volume,number_of_trades,taker_buy_base_asset_volume,taker_buy_quote_asset_volume,ignore"]
     for row in day_bars(day):
-        csv.append(",".join(map(str,row)))
+        csv.append(",".join(map(str,row+["100","7","2","5","0"])))
     data=io.BytesIO()
     with ZipFile(data,"w",ZIP_DEFLATED) as z:
         z.writestr(filename+".csv","\n".join(csv)+"\n")
@@ -197,7 +197,8 @@ class P0ArchiveTransportAndIntegrityTests(unittest.TestCase):
                     output.writestr(name, changed)
                 raw = stream.getvalue()
                 def fetch(url, limit):
-                    return (sha256(raw).hexdigest().encode()
+                    return ((sha256(raw).hexdigest()+
+                             "  BTCUSDT-1h-2026-11-11.zip\n").encode()
                             if url.endswith(".CHECKSUM") else raw)
                 with self.assertRaisesRegex(ValueError, "INVALID_OHLCV_RANGE"):
                     verified_daily("BTCUSDT", self.day, fetch=fetch)
