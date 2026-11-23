@@ -77,5 +77,51 @@ class KaggleBridge(unittest.TestCase):
         self.assertEqual(calls[1][0],["git","checkout",self.data()["revision"]])
         self.assertFalse(any(kwargs.get("shell") for _,kwargs in calls))
 
+    def test_dataset_and_model_inputs_must_match_declared_private_mounts(self):
+        for edit in (
+            {"dataset_file":"/kaggle/input/other-data/reviewed.jsonl"},
+            {"dataset_file":"/kaggle/input/approved-data-copy/reviewed.jsonl"},
+            {"dataset_file":"/kaggle/input/approved-data"},
+            {"model_directory":"/kaggle/input/other-model/weights"},
+            {"model_directory":"/kaggle/input/qwen-model-copy/weights"},
+            {"model_directory":"/kaggle/input/qwen-model"},
+        ):
+            with self.subTest(edit=edit),self.assertRaisesRegex(ValueError,"INPUT_DOES_NOT_MATCH_DECLARED_SOURCE"):
+                generate(**{**self.data(),**edit})
+
+    def test_resume_input_must_match_declared_checkpoint_dataset(self):
+        bad={"dataset_source":"user-1/checkpoints",
+             "directory":"/kaggle/input/approved-data/session-001",
+             "trusted_own":True}
+        with self.assertRaisesRegex(ValueError,"RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE"):
+            generate(**self.data(),resume_config=bad)
+
+    def test_worker_cannot_follow_cross_dataset_symlink_even_if_path_was_valid(self):
+        from pathlib import Path
+        original=Path.resolve
+        _,worker=generate(**self.data())
+        def escaped(p,*args,**kwargs):
+            if str(p)==self.data()["dataset_file"]:
+                return Path("/kaggle/input/unauthorized/secret.jsonl")
+            return original(p,*args,**kwargs)
+        with patch("pathlib.Path.is_file",return_value=True), \
+             patch("pathlib.Path.is_dir",return_value=True), \
+             patch("pathlib.Path.resolve",autospec=True,side_effect=escaped), \
+             patch("subprocess.run") as submit:
+            with self.assertRaisesRegex(RuntimeError,"APPROVED_KAGGLE_INPUTS_NOT_ATTACHED"):
+                exec(compile(worker,"private_kaggle_worker.py","exec"),
+                     {"__name__":"__generated_worker__"})
+            submit.assert_not_called()
+
+    def test_worker_private_source_mounts_are_pinned_in_generated_config(self):
+        import ast
+        _,worker=generate(**self.data())
+        ast.parse(worker)
+        self.assertIn("dataset_mount",worker)
+        self.assertIn("model_mount",worker)
+        self.assertIn("APPROVED_KAGGLE_INPUTS_NOT_ATTACHED",worker)
+        self.assertIn("RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE",worker)
+
+
 
 if __name__=="__main__":unittest.main()
