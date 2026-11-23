@@ -123,5 +123,37 @@ class KaggleBridge(unittest.TestCase):
         self.assertIn("RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE",worker)
 
 
+    def test_worker_rejects_symlinked_declared_dataset_mount_before_clone(self):
+        """Resolving both sides used to silently accept a mount alias."""
+        _,worker=generate(**self.data())
+        dataset_mount="/kaggle/input/approved-data"
+        with patch("pathlib.Path.is_file",return_value=True), \
+             patch("pathlib.Path.is_dir",return_value=True), \
+             patch("pathlib.Path.exists",return_value=False), \
+             patch("pathlib.Path.is_symlink",autospec=True,
+                   side_effect=lambda p: str(p)==dataset_mount), \
+             patch("subprocess.run") as run:
+            with self.assertRaisesRegex(RuntimeError,"APPROVED_KAGGLE_INPUTS_NOT_ATTACHED"):
+                exec(compile(worker,"private_kaggle_worker.py","exec"),
+                     {"__name__":"__generated_worker__"})
+            run.assert_not_called()
+
+    def test_worker_rejects_symlinked_resume_mount_before_clone(self):
+        resume={"dataset_source":"user-1/checkpoints",
+                "directory":"/kaggle/input/checkpoints/session-001","trusted_own":True}
+        _,worker=generate(**self.data(),resume_config=resume)
+        with patch("pathlib.Path.is_file",return_value=True), \
+             patch("pathlib.Path.is_dir",return_value=True), \
+             patch("pathlib.Path.exists",return_value=False), \
+             patch("pathlib.Path.is_symlink",autospec=True,
+                   side_effect=lambda p: str(p)=="/kaggle/input/checkpoints"), \
+             patch("subprocess.run") as run:
+            with self.assertRaisesRegex(RuntimeError,"RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE"):
+                exec(compile(worker,"private_kaggle_worker.py","exec"),
+                     {"__name__":"__generated_worker__"})
+            run.assert_not_called()
+
+
+
 
 if __name__=="__main__":unittest.main()

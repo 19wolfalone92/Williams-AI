@@ -99,15 +99,28 @@ CONFIG=json.loads(CONFIG_PLACEHOLDER)
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 data=Path(CONFIG["dataset"])
 base=Path(CONFIG["hf_base"])
+def source_mount(raw, code):
+    """Reject symbolic aliases of other attached Kaggle sources."""
+    mount=Path(raw)
+    if (not mount.is_dir() or mount.is_symlink() or
+        mount.resolve()!=mount.absolute()):
+        raise RuntimeError(code)
+    return mount
+dataset_mount=source_mount(CONFIG["dataset_mount"],
+                           "APPROVED_KAGGLE_INPUTS_NOT_ATTACHED")
+model_mount=source_mount(CONFIG["model_mount"],
+                         "APPROVED_KAGGLE_INPUTS_NOT_ATTACHED")
 if (not data.is_file() or not base.is_dir() or
     data.is_symlink() or base.is_symlink() or
-    not data.resolve().is_relative_to(Path(CONFIG["dataset_mount"]).resolve()) or
-    not base.resolve().is_relative_to(Path(CONFIG["model_mount"]).resolve())):
+    not data.resolve().is_relative_to(dataset_mount) or
+    not base.resolve().is_relative_to(model_mount)):
     raise RuntimeError("APPROVED_KAGGLE_INPUTS_NOT_ATTACHED")
 if CONFIG["resume"]:
     old=Path(CONFIG["resume"]["directory"])
-    if (old.is_symlink() or
-        not old.resolve().is_relative_to(Path(CONFIG["resume_mount"]).resolve())):
+    resume_mount=source_mount(CONFIG["resume_mount"],
+                              "RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE")
+    if (not old.is_dir() or old.is_symlink() or
+        not old.resolve().is_relative_to(resume_mount)):
         raise RuntimeError("RESUME_INPUT_DOES_NOT_MATCH_DECLARED_SOURCE")
 checkout=Path("/kaggle/working/williams_source")
 if checkout.exists():
