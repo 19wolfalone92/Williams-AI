@@ -108,5 +108,21 @@ class HistoricKaggleV5Binding(unittest.TestCase):
                 verify_binding(base=base, lora_gguf=lora, binding_file=manifest)
 
 
+class SymlinkBindingGuard(unittest.TestCase):
+    def test_hash_file_rejects_original_symlink_and_accepts_regular_file(self):
+        from williams_ai.v6_v5_lora_binding import hash_file
+        from hashlib import sha256
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            original = root / "base.gguf"
+            original.write_bytes(b"GGUF" + b"legitimate")
+            alias = root / "linked.gguf"
+            alias.symlink_to(original)
+            self.assertEqual(hash_file(original),
+                             sha256(original.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, "REGULAR_FILE_REQUIRED"):
+                hash_file(alias)
+
+
 if __name__ == "__main__":
     unittest.main()
