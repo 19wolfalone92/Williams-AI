@@ -139,7 +139,7 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
             good.replace("/1h/","/1h/%2e%2e/"),
             good.replace("https://","https://user:pass@"),
         ]
-        with patch.object(arc,"urlopen") as network:
+        with patch.object(arc,"_safe_open") as network:
             for bad in invalid:
                 with self.subTest(url=bad):
                     with self.assertRaisesRegex(ValueError,"BINANCE_ARCHIVE_"):
@@ -156,7 +156,7 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
             def __exit__(self,*a): return False
             def geturl(self): return address
             def read(self,n): return b"abc"
-        with patch.object(arc,"urlopen",return_value=Response()) as network:
+        with patch.object(arc,"_safe_open",return_value=Response()) as network:
             self.assertEqual(arc._request(address,max_bytes=1024),b"abc")
             network.assert_called_once()
 
@@ -173,13 +173,27 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
                 def __exit__(self,*a): return False
                 def geturl(self): return final
                 def read(self,n): return b"zip"
-            with self.subTest(final=final),patch.object(arc,"urlopen",return_value=Response()):
+            with self.subTest(final=final),patch.object(arc,"_safe_open",return_value=Response()):
                 with self.assertRaisesRegex(ValueError,"REDIRECT_RESOURCE_CHANGED"):
                     arc._request(address,max_bytes=6_000_000)
 
+    def test_redirect_is_blocked_before_the_follow_up_request(self):
+        """The urllib redirect handler itself rejects a cross-host hop."""
+        from urllib.request import Request
+        address=arc.BASE+"daily/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip"
+        redirect=arc._RejectArchiveRedirect()
+        for target in (
+            "https://evil.invalid/harvest",
+            address.replace("2026-11-11","2026-11-10"),
+        ):
+            with self.subTest(target=target),self.assertRaisesRegex(
+                    ValueError,"BINANCE_ARCHIVE_REDIRECT_BLOCKED"):
+                redirect.redirect_request(
+                    Request(address),None,302,"Found",{"Location":target},target)
+
     def test_archive_http_error_reports_exact_source_and_status(self):
         address=arc.BASE+"daily/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11-11.zip.CHECKSUM"
-        with patch.object(arc,"urlopen",side_effect=HTTPError(address,404,"missing",{},None)):
+        with patch.object(arc,"_safe_open",side_effect=HTTPError(address,404,"missing",{},None)):
             with self.assertRaisesRegex(ValueError,"HTTP_404.*BTCUSDT-1h-2026-11-11.zip.CHECKSUM"):
                 arc._request(address,max_bytes=1024)
 

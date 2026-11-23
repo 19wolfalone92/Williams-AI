@@ -14,7 +14,7 @@ import math
 import re
 from urllib.parse import urlsplit
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request, HTTPRedirectHandler, build_opener
 from zipfile import ZipFile, BadZipFile
 
 BASE="https://data.binance.vision/data/futures/um/"
@@ -23,6 +23,20 @@ ALLOWED=("BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT")
 _HEX=re.compile(r"[A-Fa-f0-9]{64}$")
 _RESOURCE=re.compile(r"^/data/futures/um/(daily|monthly)/klines/([A-Z0-9]+)/1h/([A-Z0-9]+)-1h-([0-9]{4}-[0-9]{2}(?:-[0-9]{2})?)[.]zip([.]CHECKSUM)?$")
 _CACHE={}  # Never persisted; bounded to one ephemeral 4-symbol workflow run.
+
+
+class _RejectArchiveRedirect(HTTPRedirectHandler):
+    """Never issue an HTTP request to a redirected archive URL."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError(
+            "BINANCE_ARCHIVE_REDIRECT_BLOCKED status="
+            + str(code) + " resource=" + req.full_url
+        )
+
+
+def _safe_open(request, *, timeout):
+    """Build a dedicated opener: the redirect must be rejected pre-follow."""
+    return build_opener(_RejectArchiveRedirect()).open(request, timeout=timeout)
 
 
 def _request(url, *, max_bytes):
@@ -56,7 +70,7 @@ def _request(url, *, max_bytes):
     except ValueError as exc:
         raise ValueError("BINANCE_ARCHIVE_INVALID_CALENDAR_DATE") from exc
     try:
-        with urlopen(Request(url,headers={"User-Agent":"Williams-AI-v6-public-readonly"}),timeout=18) as r:
+        with _safe_open(Request(url,headers={"User-Agent":"Williams-AI-v6-public-readonly"}),timeout=18) as r:
             if r.geturl()!=url:
                 raise ValueError("BINANCE_ARCHIVE_REDIRECT_RESOURCE_CHANGED resource="+url)
             if r.status!=200:
