@@ -190,4 +190,4 @@ def official_archive_klines(symbol:str,start_ms:int,end_ms:int)->list:
     expected=[start_ms+i*HOUR_MS for i in range(1024)]
     if sorted(requested)!=expected:
         raise ValueError("BINANCE_ARCHIVE_INCOMPLETE_CONTIGUOUS_HISTORY")
-    return [requested[t] for t in expected]
+    return [requested[t].copy() for t in expected]

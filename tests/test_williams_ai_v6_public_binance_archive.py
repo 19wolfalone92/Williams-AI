@@ -258,5 +258,17 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
 
 
 
+
+    def test_caller_mutation_cannot_poison_signed_monthly_or_daily_cache(self):
+        """A checksum on the source ZIP must remain true after callers edit output."""
+        with patch.object(arc, "_request", side_effect=self.fake_request):
+            first = arc.official_archive_klines("BTCUSDT", START, END-1)
+            self.assertEqual(first[0][1], "100")
+            first[0][1] = "999999"
+            again = arc.official_archive_klines("BTCUSDT", START, END-1)
+        self.assertEqual(again[0][1], "100")
+        self.assertEqual(len(again), 1024)
+        self.assertTrue(arc._CACHE)
+
 if __name__=="__main__":
     unittest.main()

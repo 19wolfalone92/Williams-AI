@@ -217,5 +217,36 @@ class P0ArchiveTransportAndIntegrityTests(unittest.TestCase):
                 read_only_public_archives_klines("BTCUSDT", start, finish-1)
 
 
+
+class ArchiveReceiptCacheIsolation(unittest.TestCase):
+    """A consumer must not mutate the checksum-verified cached source bars."""
+
+    def test_caller_mutation_cannot_poison_next_verified_window(self):
+        cutoff = datetime(2026, 11, 22, tzinfo=timezone.utc)
+        finish = int(cutoff.timestamp() * 1000)
+        start = finish - 1024 * HOUR_MS
+        verified_days = {}
+        def same_cached_day(symbol, date_iso):
+            if date_iso not in verified_days:
+                verified_days[date_iso] = (
+                    day_bars(date.fromisoformat(date_iso)),
+                    {"official_checksum_verified": True, "H1_count": 24,
+                     "source": ROOT + symbol + "/1h/" + date_iso,
+                     "sha256": "a" * 64})
+            return verified_days[date_iso]
+        with patch("williams_ai.v6_official_archive_collector._cached_daily",
+                   side_effect=same_cached_day):
+            earlier, _ = read_only_public_archives_klines(
+                "BTCUSDT", start, finish - 1)
+            self.assertEqual(earlier[0][1], "100")
+            earlier[0][1] = "999999"  # attacker / later consumer edit
+            again, receipt = read_only_public_archives_klines(
+                "BTCUSDT", start, finish - 1)
+        self.assertEqual(again[0][1], "100")
+        self.assertTrue(receipt["official_checksum_verified_all"])
+        self.assertEqual(verified_days[
+            datetime.fromtimestamp(start/1000, tz=timezone.utc).date().isoformat()
+        ][0][start // HOUR_MS % 24][1], "100")
+
 if __name__=="__main__":
     unittest.main()
