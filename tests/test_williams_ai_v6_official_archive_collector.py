@@ -58,7 +58,7 @@ class OfficialDailyArchiveTests(unittest.TestCase):
     def test_checksum_wrong_must_abort_without_fake_data(self):
         def wrong(url,limit):
             if url.endswith(".CHECKSUM"):
-                return ("0"*64+"  btc.zip\n").encode("ascii")
+                return ("0"*64+f"  {self.symbol}-1h-{self.day.isoformat()}.zip\n").encode("ascii")
             return self.fetch(url,limit)
         with self.assertRaisesRegex(ValueError,"OFFICIAL_CHECKSUM_MISMATCH"):
             verified_daily(self.symbol,self.day,fetch=wrong)
