@@ -155,5 +155,20 @@ class KaggleBridge(unittest.TestCase):
 
 
 
+    def test_worker_rejects_symlinked_declared_model_mount_before_clone(self):
+        _,worker=generate(**self.data())
+        with patch("pathlib.Path.is_file",return_value=True), \
+             patch("pathlib.Path.is_dir",return_value=True), \
+             patch("pathlib.Path.exists",return_value=False), \
+             patch("pathlib.Path.is_symlink",autospec=True,
+                   side_effect=lambda p: str(p)=="/kaggle/input/qwen-model"), \
+             patch("subprocess.run") as run:
+            with self.assertRaisesRegex(RuntimeError,"APPROVED_KAGGLE_INPUTS_NOT_ATTACHED"):
+                exec(compile(worker,"private_kaggle_worker.py","exec"),
+                     {"__name__":"__generated_worker__"})
+            run.assert_not_called()
+
+
+
 
 if __name__=="__main__":unittest.main()
