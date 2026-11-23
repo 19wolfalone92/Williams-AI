@@ -85,7 +85,9 @@ def probe_one(row: dict, *, fetch=_cached_fetch) -> dict:
         http = re.search(r"\bstatus=(\d{3})\b", reason)
         url = re.search(r"\burl=(https://\S+)", reason)
         checksum_result = ("MISMATCH" if "CHECKSUM_MISMATCH" in reason
-                           else "INVALID" if "CHECKSUM" in reason
+                           else "INVALID" if any(marker in reason for marker in (
+                               "INVALID_CHECKSUM_RECORD", "CHECKSUM_FILENAME_MISMATCH",
+                               "NO_PUBLISHED_SIGNED_CHECKSUM"))
                            else "NOT_VERIFIED")
         return {**row, "status": "BLOCKED", "attempt": 1,
                 "http_status": int(http.group(1)) if http else None,
