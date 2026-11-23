@@ -30,7 +30,10 @@ def need(ok: bool, code: str):
 
 
 def hash_file(path: str | Path) -> str:
-    p = Path(path).resolve(strict=True)
+    # resolve() erases the supplied path's symlink identity; reject first.
+    candidate = Path(path).expanduser()
+    need(not candidate.is_symlink(), "REGULAR_FILE_REQUIRED")
+    p = candidate.resolve(strict=True)
     need(p.is_file() and not p.is_symlink(), "REGULAR_FILE_REQUIRED")
     sha = sha256()
     with p.open("rb") as fp:

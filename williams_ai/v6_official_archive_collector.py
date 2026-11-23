@@ -16,8 +16,11 @@ from functools import lru_cache
 from hashlib import sha256
 import io
 import json
+import math
 import re
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 from zipfile import ZipFile
 
 ROOT = "https://data.binance.vision/data/futures/um/daily/klines/"
@@ -32,17 +35,69 @@ def _need(condition: bool, code: str):
         raise ValueError("OFFICIAL_BINANCE_H1_" + code)
 
 
-def _download(url: str, limit: int) -> bytes:
-    _need(url.startswith(ROOT) and
-          limit in (512, MAX_ZIP_BYTES), "INVALID_OFFICIAL_URL")
-    req = Request(url, method="GET", headers={
-        "User-Agent": "Williams-AI-v6-official-public-historic-H1"})
-    with urlopen(req, timeout=20) as response:
-        _need(response.status == 200, "OFFICIAL_ARCHIVE_HTTP_FAILURE")
-        data = response.read(limit + 1)
-    _need(0 < len(data) <= limit, "INVALID_ARCHIVE_SIZE")
-    return data
+_URL_PATH = re.compile(
+    r"/data/futures/um/daily/klines/([A-Z0-9]+)/1h/"
+    r"([A-Z0-9]+)-1h-(\d{4}-\d{2}-\d{2})\.zip(\.CHECKSUM)?\Z"
+)
 
+
+def _valid_official_url(url: str) -> bool:
+    """Allow exactly one public Binance USD-M daily H1 resource."""
+    if not isinstance(url, str):
+        return False
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    if (parts.scheme != "https" or parts.netloc != "data.binance.vision"
+            or parts.query or parts.fragment or parts.username or parts.password):
+        return False
+    match = _URL_PATH.fullmatch(parts.path)
+    if not match or match[1] != match[2] or match[1] not in _SUPPORTED:
+        return False
+    try:
+        date.fromisoformat(match[3])
+    except ValueError:
+        return False
+    return True
+
+
+class _OfficialOnlyRedirect(HTTPRedirectHandler):
+    """Prevent redirecting an approved request to a different archive."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _need(newurl == req.full_url and _valid_official_url(newurl),
+              f"UNTRUSTED_ARCHIVE_REDIRECT url={req.full_url} actual={newurl}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _open_official(request: Request, timeout: int):
+    return build_opener(_OfficialOnlyRedirect()).open(request, timeout=timeout)
+
+
+def _download(url: str, limit: int) -> bytes:
+    _need(_valid_official_url(url) and
+          ((url.endswith(".CHECKSUM") and limit == 512) or
+           (url.endswith(".zip") and limit == MAX_ZIP_BYTES)),
+          "INVALID_OFFICIAL_URL")
+    request = Request(url, method="GET", headers={
+        "User-Agent": "Williams-AI-v6-official-public-historic-H1"})
+    try:
+        with _open_official(request, timeout=20) as response:
+            _need(response.status == 200,
+                  f"ARCHIVE_HTTP_FAILURE status={response.status} url={url}")
+            _need(response.geturl() == url,
+                  f"UNTRUSTED_ARCHIVE_REDIRECT url={url} actual={response.geturl()}")
+            data = response.read(limit + 1)
+    except HTTPError as exc:
+        raise ValueError(
+            f"OFFICIAL_BINANCE_H1_ARCHIVE_HTTP_FAILURE status={exc.code} url={url}"
+        ) from exc
+    except (URLError, TimeoutError) as exc:
+        raise ValueError(
+            f"OFFICIAL_BINANCE_H1_ARCHIVE_NETWORK_FAILURE url={url} reason={type(exc).__name__}"
+        ) from exc
+    _need(0 < len(data) <= limit, f"INVALID_ARCHIVE_SIZE url={url}")
+    return data
 
 def verified_daily(symbol: str, day: date, *,
                    fetch=_download) -> tuple[list, dict]:
@@ -50,9 +105,13 @@ def verified_daily(symbol: str, day: date, *,
     filename = f"{symbol}-1h-{day.isoformat()}.zip"
     url = ROOT + f"{symbol}/1h/{filename}"
     text = fetch(url + ".CHECKSUM", 512).decode("ascii").strip()
-    expected = text.split()[0] if text else ""
+    fields = text.split()
+    _need(len(fields) == 2, "INVALID_CHECKSUM_RECORD")
+    expected = fields[0]
     _need(re.fullmatch(r"[0-9a-fA-F]{64}", expected) is not None,
           "NO_PUBLISHED_SIGNED_CHECKSUM")
+    _need(fields[1] in (filename, "*" + filename),
+          "CHECKSUM_FILENAME_MISMATCH")
     packed = fetch(url, MAX_ZIP_BYTES)
     digest = sha256(packed).hexdigest()
     _need(digest.lower() == expected.lower(), "OFFICIAL_CHECKSUM_MISMATCH")
@@ -73,13 +132,21 @@ def verified_daily(symbol: str, day: date, *,
                          tzinfo=timezone.utc).timestamp() * 1000)
     series = []
     for i, row in enumerate(records):
-        _need(type(row) is list and len(row) >= 7, "MALFORMED_KLINE_CSV")
+        _need(type(row) is list and len(row) == 12, "MALFORMED_KLINE_CSV")
         try:
             start, close = int(row[0]), int(row[6])
         except (ValueError, TypeError) as exc:
             raise ValueError("OFFICIAL_BINANCE_H1_INVALID_TIME_FIELD") from exc
         _need(start == first + HOUR_MS * i and
               close == start + HOUR_MS - 1, "DISCONTINUOUS_OFFICIAL_H1")
+        try:
+            opening, high, low, closing, volume = map(float, row[1:6])
+        except (ValueError, TypeError, OverflowError) as exc:
+            raise ValueError("OFFICIAL_BINANCE_H1_INVALID_OHLCV") from exc
+        _need(all(math.isfinite(v) for v in (opening, high, low, closing, volume))
+              and low > 0 and volume >= 0 and low <= opening <= high
+              and low <= closing <= high,
+              "INVALID_OHLCV_RANGE")
         series.append([start, *row[1:6], close])
     return series, {
         "utc_date": day.isoformat(), "sha256": digest,
@@ -113,8 +180,8 @@ def read_only_public_archives_klines(
     d = begin
     while d <= last:
         rows, receipt = _cached_daily(symbol, d.isoformat())
-        data.extend(r for r in rows if start_ms <= r[0] <= end_ms)
-        receipts.append(receipt)
+        data.extend(r.copy() for r in rows if start_ms <= r[0] <= end_ms)
+        receipts.append(dict(receipt))
         d += timedelta(days=1)
     _need(len(data) == 1024, "MISSING_CLOSED_H1_BARS")
     _need(all(data[i][0] == start_ms + i*HOUR_MS
