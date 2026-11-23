@@ -188,7 +188,7 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
             if url.endswith(".CHECKSUM"):
                 target=url[:-9]
                 return (sha256(self._zip(target)).hexdigest()+
-                        " *ETHUSDT-1h-2026-11-11.zip\\n").encode()
+                        " *ETHUSDT-1h-2026-11-11.zip\n").encode()
             self.fail("ZIP SHOULD NOT BE FETCHED AFTER BAD CHECKSUM NAME")
         with patch.object(arc,"_request",side_effect=wrong):
             with self.assertRaisesRegex(ValueError,"CHECKSUM_FILENAME_OR_FORMAT_INVALID"):
@@ -212,11 +212,11 @@ class BinanceOfficialArchiveContracts(unittest.TestCase):
         transform(lines)
         buf=BytesIO()
         with zipfile.ZipFile(buf,"w",zipfile.ZIP_DEFLATED) as z:
-            z.writestr(name,("\\n".join(lines)+"\\n").encode())
+            z.writestr(name,("\n".join(lines)+"\n").encode())
         raw=buf.getvalue()
         def fetch(url, *, max_bytes):
             if url.endswith(".CHECKSUM"):
-                return (sha256(raw).hexdigest()+" *"+target.rsplit("/",1)[-1]+"\\n").encode()
+                return (sha256(raw).hexdigest()+" *"+target.rsplit("/",1)[-1]+"\n").encode()
             self.assertEqual(url,target)
             return raw
         with patch.object(arc,"_request",side_effect=fetch):
