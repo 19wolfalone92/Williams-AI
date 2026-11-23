@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from hashlib import sha1
 import json
+import re
 from pathlib import Path
 
 from williams_ai.v6_official_archive_collector import (
@@ -69,7 +70,7 @@ def _cached_fetch(symbol: str, day: date):
 
 
 def probe_one(row: dict, *, fetch=_cached_fetch) -> dict:
-    """Real SHA/24h verification; HTTP status and resource retained on failure."""
+    """One bounded source attempt, with explicit transport and checksum evidence."""
     try:
         _, receipt = fetch(row["symbol"], date.fromisoformat(row["utc_date"]))
         if (receipt.get("source") != row["zip_url"] or
@@ -77,16 +78,28 @@ def probe_one(row: dict, *, fetch=_cached_fetch) -> dict:
                 receipt.get("H1_count") != 24):
             raise ValueError("V6_PREFLIGHT_RECEIPT_MISMATCH")
         return {**row, "status": "VERIFIED_24_H1_SHA256",
-                "zip_sha256": receipt["sha256"]}
+                "zip_sha256": receipt["sha256"], "attempt": 1,
+                "http_status": 200, "checksum_result": "MATCH"}
     except Exception as exc:  # Any unexpected archive failure remains BLOCKED.
-        return {**row, "status": "BLOCKED", "error_type": type(exc).__name__,
-                "reason": str(exc)[:600]}
+        reason = str(exc)
+        http = re.search(r"\\bstatus=(\\d{3})\\b", reason)
+        url = re.search(r"\\burl=(https://\\S+)", reason)
+        checksum_result = ("MISMATCH" if "CHECKSUM_MISMATCH" in reason
+                           else "INVALID" if "CHECKSUM" in reason
+                           else "NOT_VERIFIED")
+        return {**row, "status": "BLOCKED", "attempt": 1,
+                "http_status": int(http.group(1)) if http else None,
+                "failure_url": url.group(1) if url else None,
+                "checksum_result": checksum_result,
+                "error_type": type(exc).__name__, "reason": reason[:600]}
 
 
 def evaluate(plan: dict, rows: list[dict], *, fetch=_cached_fetch,
              verify_windows=read_only_public_archives_klines) -> dict:
     """Bounded concurrent source audit; only verify windows if all days pass."""
     from functools import partial
+    if rows != required_sources(plan):
+        raise ValueError("V6_PREFLIGHT_SOURCE_INVENTORY_MISMATCH")
     with ThreadPoolExecutor(max_workers=8) as pool:
         outcomes = list(pool.map(partial(probe_one, fetch=fetch), rows))
     failures = [r for r in outcomes if r["status"] != "VERIFIED_24_H1_SHA256"]

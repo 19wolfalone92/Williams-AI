@@ -236,14 +236,16 @@ class ArchiveReceiptCacheIsolation(unittest.TestCase):
             return verified_days[date_iso]
         with patch("williams_ai.v6_official_archive_collector._cached_daily",
                    side_effect=same_cached_day):
-            earlier, _ = read_only_public_archives_klines(
+            earlier, first_receipt = read_only_public_archives_klines(
                 "BTCUSDT", start, finish - 1)
             self.assertEqual(earlier[0][1], "100")
             earlier[0][1] = "999999"  # attacker / later consumer edit
+            first_receipt["daily_sources"][0]["official_checksum_verified"] = False
             again, receipt = read_only_public_archives_klines(
                 "BTCUSDT", start, finish - 1)
         self.assertEqual(again[0][1], "100")
         self.assertTrue(receipt["official_checksum_verified_all"])
+        self.assertTrue(receipt["daily_sources"][0]["official_checksum_verified"])
         self.assertEqual(verified_days[
             datetime.fromtimestamp(start/1000, tz=timezone.utc).date().isoformat()
         ][0][start // HOUR_MS % 24][1], "100")
