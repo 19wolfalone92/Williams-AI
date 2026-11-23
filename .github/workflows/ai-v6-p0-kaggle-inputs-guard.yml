@@ -1,0 +1,33 @@
+name: Williams AI v6 P0 Kaggle mount provenance and CPU regression (NO GPU)
+on:
+  push:
+    branches: [research/williams-ai-kaggle-input-provenance-20261123]
+    paths:
+      - 'scripts/ai_private_kaggle_gpu_bridge.py'
+      - 'tests/test_williams_ai_private_kaggle_bridge.py'
+      - '.github/workflows/ai-v6-p0-kaggle-inputs-guard.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: williams-ai-v6-kaggle-source-p0-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  private-input-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and verify private Kaggle dataset/model/resume mount guards
+        run: |
+          python -m py_compile scripts/ai_private_kaggle_gpu_bridge.py tests/test_williams_ai_private_kaggle_bridge.py
+          python -m unittest tests.test_williams_ai_private_kaggle_bridge -v
+      - name: Broader research regression, offline and no GPU
+        run: |
+          python -m pip install --disable-pip-version-check 'cryptography>=44,<48'
+          python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
