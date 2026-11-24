@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install pinned Kaggle API and encryption dependency
-        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'cryptography>=44,<48'
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'cryptography>=44,<48' 'six>=1.16'
       - name: Collect private failed-run logs and seal any partial outputs
         run: |
           python - <<'PY'
