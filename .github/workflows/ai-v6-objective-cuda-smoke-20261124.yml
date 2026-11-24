@@ -1,4 +1,4 @@
-name: Williams AI V6 Kaggle identity and inventory diagnostic (read only)
+name: Williams AI V6 objective Qwen3-4B CUDA smoke (owner-scoped metadata, private)
 on:
   push:
     branches: [research/williams-ai-source-sft-v6-20261124]
@@ -27,49 +27,16 @@ jobs:
           python -m williams_ai.v6_objective_practice
       - name: Install official Kaggle API and encryption dependency
         run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
-      - name: Read-only inventory shape and visibility diagnosis (no submission)
+      - name: Submit exactly one private run with confirmed free GPU quota and bounded timeout
         env:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-        run: |
-          python - <<'PY'
-          import json
-          from kaggle.api.kaggle_api_extended import KaggleApi
-          from kagglehub.auth import get_username
-          from scripts.ai_submit_v6_objective_smoke import SLUG
-          api=KaggleApi();api.authenticate()
-          owner=get_username()
-          witness=owner+"/williams-ai-v5-book-sft-20261111"
-          target=owner+"/"+SLUG
-          def err(e):
-              response=getattr(e,"response",None)
-              return {"exception":type(e).__name__,"http_code":getattr(response,"status_code",None),
-                      "denied":"Permission 'kernels.get' was denied" in str(e)}
-          for name,kernel in (("known_v5",witness),("new_v6",target)):
-              try:
-                  result=api.kernels_status(kernel)
-                  print("V6_READONLY_STATUS",name,json.dumps({"success":True,"state":str(result.status)}))
-              except Exception as e:
-                  print("V6_READONLY_STATUS",name,json.dumps(err(e)))
-          for name,params in (("mine",{"mine":True}),("mine_owner",{"mine":True,"user":owner})):
-              token=None;seen=set();count=0;own=0;empty_ref=0;other=0;witness_found=False;target_found=False
-              try:
-                  for _ in range(100):
-                      page=api.kernels_list_with_response(page_size=100,page_token=token,**params)
-                      for item in page.kernels:
-                          count+=1
-                          ref=getattr(item,"ref",None)
-                          if not ref:empty_ref+=1
-                          elif ref.casefold().startswith(owner.casefold()+"/"):own+=1
-                          else:other+=1
-                          witness_found |= isinstance(ref,str) and ref.casefold()==witness.casefold()
-                          target_found |= isinstance(ref,str) and ref.casefold()==target.casefold()
-                      token=page.next_page_token
-                      if not token:
-                          print("V6_READONLY_INVENTORY",name,json.dumps({"complete":True,"count":count,"own":own,"empty_ref":empty_ref,"other":other,"known_v5":witness_found,"target_v6":target_found}))
-                          break
-                      if token in seen:raise RuntimeError("REPEATED_PAGE")
-                      seen.add(token)
-                  else: print("V6_READONLY_INVENTORY",name,"PAGINATION_LIMIT")
-              except Exception as e: print("V6_READONLY_INVENTORY",name,json.dumps(err(e)))
-          print("V6_READONLY_DIAGNOSTIC_COMPLETE_NO_GPU_SUBMISSION")
-          PY
+        run: python -m scripts.ai_submit_v6_objective_smoke
+      - name: Publish aggregate and authenticated encrypted checkpoints ONLY
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-v6-objective-cuda-smoke-sealed-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/williams-v6-objective-sealed/aggregate.json
+            ${{ runner.temp }}/williams-v6-objective-sealed/v6-objective-checkpoints.zip.sealed
+          if-no-files-found: error
+          retention-days: 21

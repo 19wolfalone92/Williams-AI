@@ -94,21 +94,30 @@ def own_inventory_absent(api,kernel):
     """Use complete authenticated personal inventory, never a public search.
     Require the known V5 notebook as an identity/visibility witness.
     """
-    owner,slug=kernel.split("/")
+    owner,slug=kernel.casefold().split("/")
+    kernel=kernel.casefold()
     witness=owner+"/williams-ai-v5-book-sft-20261111"
     seen=set()
     token=None
     refs=set()
     try:
         for _ in range(100):
-            page=api.kernels_list_with_response(mine=True,page_size=100,page_token=token)
+            page=api.kernels_list_with_response(mine=True,user=owner,page_size=100,page_token=token)
             if page is None or not isinstance(page.kernels,list):
                 raise ValueError("INVALID_PRIVATE_INVENTORY")
             for item in page.kernels:
                 ref=getattr(item,"ref",None)
-                if not isinstance(ref,str) or not ref.startswith(owner+"/"):
+                if not ref:
+                    # SDK metadata may omit ref; only accept a concrete slug
+                    # from this explicitly owner-scoped personal inventory.
+                    bare=getattr(item,"slug",None)
+                    if not isinstance(bare,str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9-]*",bare) or not isinstance(getattr(item,"id",None),int) or item.id<=0:
+                        print("V6_INVENTORY_UNRESOLVED_METADATA",flush=True)
+                        raise ValueError("INVENTORY_REF_AND_SLUG_MISSING")
+                    ref=owner+"/"+bare
+                if not isinstance(ref,str) or not ref.casefold().startswith(owner+"/"):
                     raise ValueError("INVENTORY_OWNER_OR_REF_MISMATCH")
-                refs.add(ref)
+                refs.add(ref.casefold())
             token=page.next_page_token
             if not token:
                 if witness not in refs:
@@ -118,7 +127,8 @@ def own_inventory_absent(api,kernel):
             if not isinstance(token,str) or token in seen:
                 raise ValueError("INVALID_INVENTORY_PAGINATION")
             seen.add(token)
-    except Exception:
+    except Exception as exc:
+        print("V6_INVENTORY_REJECTED",type(exc).__name__,flush=True)
         raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED") from None
     raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED")
 

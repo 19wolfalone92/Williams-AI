@@ -42,3 +42,17 @@ class SubmitContracts(unittest.TestCase):
                       [inventory([witness],"next")],[inventory([SimpleNamespace(ref="other/slug")])]):
             with self.assertRaisesRegex(RuntimeError,"ABSENCE_NOT_VERIFIED"):
                 status_absent(api(pages),"owner/slug")
+
+    def test_owner_scoped_metadata_slug_resolves_missing_ref(self):
+        def denied(kernel):
+            raise ValueError(f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied).")
+        witness=SimpleNamespace(ref="OWNER/williams-ai-v5-book-sft-20261111")
+        def api(item):
+            def inventory(**kw):
+                self.assertEqual(kw["user"],"owner")
+                return SimpleNamespace(kernels=[witness,item],next_page_token=None)
+            return SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
+        self.assertTrue(status_absent(api(SimpleNamespace(ref="",slug="other-notebook",id=123)),"owner/slug"))
+        self.assertFalse(status_absent(api(SimpleNamespace(ref="",slug="slug",id=123)),"owner/slug"))
+        with self.assertRaisesRegex(RuntimeError,"ABSENCE_NOT_VERIFIED"):
+            status_absent(api(SimpleNamespace(ref="",slug="",id=123)),"owner/slug")
