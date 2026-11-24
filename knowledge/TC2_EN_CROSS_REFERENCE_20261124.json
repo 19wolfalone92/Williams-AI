@@ -4,13 +4,13 @@
     "id": "TC2",
     "language": "ru",
     "pages": 224,
-    "sha256": "055b5d57346b0c42c5d395be1ccdaecb734c2c8bc02f1eb94b5dc8f3560c35ab"
+    "sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f"
   },
   "cross_reference_edition": {
     "id": "TC2_EN",
     "language": "en",
     "pages": 257,
-    "sha256": "eb734089a8b71f45abfcafc98cb573287c3b8515ed89f222b0a8a5c8ef343f6c",
+    "sha256": "eb734089bb19e72a92e023602bf558e43b7cb20aecf77469fdfe28f8e6cd3523",
     "canonical_training_source": false
   },
   "verified_correspondences": [
