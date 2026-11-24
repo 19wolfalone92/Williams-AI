@@ -152,12 +152,13 @@ def own_inventory_absent(api,kernel):
     witness=owner+"/williams-ai-v5-book-sft-20261111"
     seen=set()
     token=None
-    refs=set()
+    refs={}
     ids={}
     inferred_count=0
     missing_id_count=0
+    duplicate_rows=0
     try:
-        for _ in range(100):
+        for page_index in range(100):
             page=api.kernels_list_with_response(mine=True,user=owner,page_size=100,page_token=token)
             if page is None or not isinstance(page.kernels,list):
                 raise ValueError("INVALID_PRIVATE_INVENTORY")
@@ -189,8 +190,18 @@ def own_inventory_absent(api,kernel):
                     }),flush=True)
                     raise
                 if ref in refs:
-                    raise ValueError("INVENTORY_DUPLICATE_SLUG")
-                refs.add(ref)
+                    previous_id=refs[ref]
+                    if previous_id is not None and item_id is not None and previous_id==item_id:
+                        duplicate_rows+=1
+                        continue
+                    print("V6_INVENTORY_DUPLICATE_SLUG_CONFLICT",json.dumps({
+                        "page_index":page_index,"row_index":row_index,
+                        "previous_id_present":previous_id is not None,
+                        "current_id_present":item_id is not None,
+                        "same_positive_id":previous_id is not None and previous_id==item_id
+                    }),flush=True)
+                    raise ValueError("INVENTORY_DUPLICATE_SLUG_AMBIGUOUS")
+                refs[ref]=item_id
                 if item_id is None:
                     missing_id_count+=1
                 else:
@@ -204,7 +215,7 @@ def own_inventory_absent(api,kernel):
                     raise ValueError("PRIVATE_V5_VISIBILITY_WITNESS_MISSING")
                 print("V6_PRIVATE_INVENTORY_VERIFIED",
                       json.dumps({"kernels":len(refs),"title_slug_inferred":inferred_count,
-                                  "numeric_id_missing":missing_id_count}),
+                                  "numeric_id_missing":missing_id_count,"identical_duplicate_rows":duplicate_rows}),
                       flush=True)
                 return kernel not in refs
             if not isinstance(token,str) or token in seen:

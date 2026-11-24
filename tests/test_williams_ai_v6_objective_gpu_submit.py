@@ -94,3 +94,14 @@ class SubmitContracts(unittest.TestCase):
         api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
         with self.assertRaisesRegex(RuntimeError,"ABSENCE_NOT_VERIFIED"):
             status_absent(api,"owner/new-kernel-target")
+
+
+    def test_duplicate_same_positive_id_is_deduplicated_as_one_kernel(self):
+        def denied(kernel):
+            raise ValueError(f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied).")
+        witness=SimpleNamespace(ref="owner/williams-ai-v5-book-sft-20261111",id=1)
+        duplicate=SimpleNamespace(ref="OWNER/williams-ai-v5-book-sft-20261111",id=1)
+        def inventory(**kw):
+            return SimpleNamespace(kernels=[witness,duplicate],next_page_token=None)
+        api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
+        self.assertTrue(status_absent(api,"owner/new-kernel-target"))
