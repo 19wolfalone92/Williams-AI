@@ -21,17 +21,7 @@
       "title": "Trading Chaos — 2-е издание",
       "filename": "Торговый Хаос 2 (3книга).pdf",
       "sha256": "055b7924f9a4d165294bf3e12069e74b121f6ca510f25ad310a07c94f0a6107f",
-      "pages": 224,
-      "cross_reference_editions": [
-        {
-          "id": "TC2_EN",
-          "language": "en",
-          "pages": 257,
-          "sha256": "eb734089bb19e72a92e023602bf558e43b7cb20aecf77469fdfe28f8e6cd3523",
-          "role": "CROSS_REFERENCE_ONLY_NOT_CANONICAL_TRAINING_SOURCE",
-          "page_numbers_are_not_interchangeable": true
-        }
-      ]
+      "pages": 224
     },
     {
       "id": "COURSE",
