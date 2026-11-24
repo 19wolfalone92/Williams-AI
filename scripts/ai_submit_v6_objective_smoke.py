@@ -16,6 +16,8 @@ import sys
 import tempfile
 import time
 from urllib.request import urlopen
+
+from slugify import slugify
 from zipfile import ZipFile,ZIP_DEFLATED
 
 from scripts.ai_submit_v5_qlora_kaggle import _seal_data
@@ -90,39 +92,97 @@ print("ACTUAL_V6_OBJECTIVE_CUDA_SMOKE_COMPLETED",flush=True)
     return script.replace("SOURCE_PLACEHOLDER",sha).replace("CONTROL_PLACEHOLDER",CONTROL).replace("SLUG_PLACEHOLDER",SLUG)
 
 
+def _inventory_identity(owner,item):
+    """Resolve listed personal kernel identity using Kaggle's canonical slug rule."""
+    raw_id=getattr(item,"id",None)
+    item_id=raw_id if type(raw_id) is int and raw_id>0 else None
+    ref=getattr(item,"ref",None)
+    bare=getattr(item,"slug",None)
+    inferred=False
+
+    def normalize_slug(value):
+        if not isinstance(value,str) or not value:
+            raise ValueError("INVENTORY_KERNEL_SLUG_INVALID")
+        parts=value.split("/")
+        if len(parts)==2:
+            if parts[0].casefold()!=owner:
+                raise ValueError("INVENTORY_OWNER_OR_SLUG_MISMATCH")
+            value=parts[1]
+        elif len(parts)!=1:
+            raise ValueError("INVENTORY_KERNEL_SLUG_INVALID")
+        if len(value)<5 or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9-]*",value):
+            raise ValueError("INVENTORY_KERNEL_SLUG_INVALID")
+        return value.casefold()
+
+    if isinstance(ref,str) and ref:
+        parts=ref.split("/")
+        if len(parts)!=2 or parts[0].casefold()!=owner:
+            raise ValueError("INVENTORY_OWNER_OR_REF_MISMATCH")
+        slug=normalize_slug(parts[1])
+        if bare and normalize_slug(bare)!=slug:
+            raise ValueError("INVENTORY_REF_SLUG_CONFLICT")
+    elif ref not in (None,""):
+        raise ValueError("INVENTORY_REF_INVALID")
+    elif isinstance(bare,str) and bare:
+        slug=normalize_slug(bare)
+    elif bare not in (None,""):
+        raise ValueError("INVENTORY_SLUG_INVALID")
+    else:
+        title=getattr(item,"title",None)
+        if not isinstance(title,str) or not title.strip():
+            raise ValueError("INVENTORY_REF_SLUG_AND_TITLE_MISSING")
+        slug=normalize_slug(slugify(title))
+        inferred=True
+    return owner+"/"+slug,item_id,inferred
+
+
 def own_inventory_absent(api,kernel):
     """Use complete authenticated personal inventory, never a public search.
-    Require the known V5 notebook as an identity/visibility witness.
+
+    Kaggle CLI's documented title-to-slug normalization resolves metadata rows
+    that omit both ref and slug. A positive numeric id is checked when present;
+    a unique owner-scoped canonical slug remains the resource identifier when
+    the SDK omits that optional metadata field. Ambiguity remains fail-closed.
     """
-    owner,slug=kernel.casefold().split("/")
-    kernel=kernel.casefold()
+    parts=kernel.casefold().split("/")
+    if len(parts)!=2 or not all(parts):
+        raise ValueError("KAGGLE_KERNEL_REFERENCE_INVALID")
+    owner,slug=parts
+    kernel=owner+"/"+slug
     witness=owner+"/williams-ai-v5-book-sft-20261111"
     seen=set()
     token=None
     refs=set()
+    ids={}
+    inferred_count=0
+    missing_id_count=0
     try:
         for _ in range(100):
             page=api.kernels_list_with_response(mine=True,user=owner,page_size=100,page_token=token)
             if page is None or not isinstance(page.kernels,list):
                 raise ValueError("INVALID_PRIVATE_INVENTORY")
             for item in page.kernels:
-                ref=getattr(item,"ref",None)
-                if not ref:
-                    # SDK metadata may omit ref; only accept a concrete slug
-                    # from this explicitly owner-scoped personal inventory.
-                    bare=getattr(item,"slug",None)
-                    if not isinstance(bare,str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9-]*",bare) or not isinstance(getattr(item,"id",None),int) or item.id<=0:
-                        print("V6_INVENTORY_UNRESOLVED_METADATA",flush=True)
-                        raise ValueError("INVENTORY_REF_AND_SLUG_MISSING")
-                    ref=owner+"/"+bare
-                if not isinstance(ref,str) or not ref.casefold().startswith(owner+"/"):
-                    raise ValueError("INVENTORY_OWNER_OR_REF_MISMATCH")
-                refs.add(ref.casefold())
+                if item is None:
+                    raise ValueError("NULL_PRIVATE_INVENTORY_ENTRY")
+                ref,item_id,inferred=_inventory_identity(owner,item)
+                if ref in refs:
+                    raise ValueError("INVENTORY_DUPLICATE_SLUG")
+                refs.add(ref)
+                if item_id is None:
+                    missing_id_count+=1
+                else:
+                    if item_id in ids and ids[item_id]!=ref:
+                        raise ValueError("INVENTORY_DUPLICATE_ID_DIFFERENT_SLUGS")
+                    ids[item_id]=ref
+                inferred_count+=int(inferred)
             token=page.next_page_token
             if not token:
                 if witness not in refs:
                     raise ValueError("PRIVATE_V5_VISIBILITY_WITNESS_MISSING")
-                print("V6_PRIVATE_INVENTORY_VERIFIED",len(refs),flush=True)
+                print("V6_PRIVATE_INVENTORY_VERIFIED",
+                      json.dumps({"kernels":len(refs),"title_slug_inferred":inferred_count,
+                                  "numeric_id_missing":missing_id_count}),
+                      flush=True)
                 return kernel not in refs
             if not isinstance(token,str) or token in seen:
                 raise ValueError("INVALID_INVENTORY_PAGINATION")
