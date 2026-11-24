@@ -378,6 +378,8 @@ def build_v6_source():
             ("BOUNDARY",f"Какие ограничения и неразрешённые вопросы остаются у концепции «{card['concept']}» ({ed})?",
              {"status":"SOURCE_BOUNDARY","edition":ed,"pages":pages,"unresolved":card["unresolved"],"do_not_force_conclusion":True}),
         ]
+        if not card["unresolved"]:
+            tasks=tasks[:3]
         for task_type,question,answer in tasks:
             cid="V6-"+digest({"lesson":card["id"],"task":task_type})[:18]
             rows.append(_v6_row(cid,modules,task_type,question,answer,
@@ -401,6 +403,16 @@ def build_v6_source():
                 {"edition":ed,"pages":pages,"sha256":source_sha}]))
     for item in V6_PRACTICAL_TASKS:
         refs=item.get("source_refs",[])
+        for ref in refs:
+            if isinstance(ref,dict):
+                ed=ref.get("edition")
+                if ed not in books or ref.get("sha256",books[ed]["sha256"])!=books[ed]["sha256"]:
+                    raise ValueError("V6_PRACTICAL_SOURCE_HASH_MISMATCH")
+                pages=ref.get("pages",[])
+                if not pages or any(type(p) is not int or not 1<=p<=books[ed]["pages"] for p in pages):
+                    raise ValueError("V6_PRACTICAL_SOURCE_PAGE_OUT_OF_RANGE")
+            elif ref not in {"USER_POLICY","SOURCE_CONFLICT_REGISTER"}:
+                raise ValueError("V6_UNKNOWN_NON_BOOK_PROVENANCE")
         source_ed=refs[0]["edition"] if refs and isinstance(refs[0],dict) else "USER_POLICY"
         pages=refs[0]["pages"] if refs and isinstance(refs[0],dict) else []
         source_sha=books[source_ed]["sha256"] if source_ed in books else "USER_POLICY"
