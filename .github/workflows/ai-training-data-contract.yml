@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install authenticated artifact and reviewer signature test dependency
-        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'python-slugify>=8,<9'
       - name: Supervision leakage and approval contracts
         run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
       - name: Tokenizer runtime only, NO torch or weights or GPU
