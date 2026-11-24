@@ -1,11 +1,17 @@
 import json
 import unittest
+import sqlite3
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from williams_ai.knowledge_curriculum_v5 import (
     V6_MODULES,
     build,
     build_v6_source,
     registry,
+    digest,
+    export_v6_source_database,
     source_only_admission,
 )
 
@@ -13,7 +19,8 @@ from williams_ai.knowledge_curriculum_v5 import (
 class WilliamsAISourceOnlyV6Tests(unittest.TestCase):
     def test_source_only_admission_does_not_claim_expert_market_gold(self):
         gate = source_only_admission()
-        self.assertTrue(gate["source_only_sft_permitted"])
+        self.assertFalse(gate["source_only_sft_permitted"])
+        self.assertTrue(gate["candidate_export_permitted"])
         self.assertFalse(gate["expert_market_gold_training_permitted"])
         self.assertEqual(gate["independent_expert_reviews"], 0)
         self.assertEqual(gate["chart_market_gold_rows"], 0)
@@ -21,7 +28,8 @@ class WilliamsAISourceOnlyV6Tests(unittest.TestCase):
         self.assertFalse(gate["trading_qualification"])
         self.assertFalse(gate["execution_allowed"])
         self.assertEqual(gate["source_lessons_total"], 29)
-        self.assertEqual(gate["source_lessons_eligible"], 28)
+        self.assertEqual(gate["source_lessons_eligible"], 0)
+        self.assertEqual(gate["source_lessons_candidate"], 28)
 
     def test_source_curriculum_covers_all_fifteen_competencies(self):
         rows, manifest = build_v6_source()
@@ -29,11 +37,13 @@ class WilliamsAISourceOnlyV6Tests(unittest.TestCase):
         self.assertTrue(all(manifest["module_coverage"][m] > 0 for m in V6_MODULES))
         self.assertEqual(manifest["row_count"], len(rows))
         self.assertGreaterEqual(len(rows), 100)
-        self.assertEqual(manifest["split_rows"]["train"], len(rows))
+        self.assertEqual(manifest["split_rows"]["train"], 0)
+        self.assertEqual(manifest["split_rows"]["candidate"], len(rows))
+        self.assertTrue(all(r["split"]=="candidate" and r["eligible_for_sft"] is False for r in rows))
         self.assertEqual(manifest["split_rows"]["validation"], 0)
         self.assertEqual(manifest["split_rows"]["test"], 0)
-        self.assertTrue(manifest["all_rows_train"])
-        self.assertTrue(manifest["old_v5_432_case_database_preserved"])
+        self.assertFalse(manifest["all_rows_train"])
+        self.assertFalse(manifest["old_v5_database_modified"])
         self.assertTrue(manifest["old_revealed_exams_for_regression_only"])
 
     def test_source_conflicts_are_uncertainty_examples_not_gold(self):
@@ -52,11 +62,12 @@ class WilliamsAISourceOnlyV6Tests(unittest.TestCase):
         pack = registry()
         self.assertEqual(len(pack["books"]), 4)
         tc2 = next(x for x in pack["books"] if x["id"] == "TC2")
-        variants = tc2["cross_reference_editions"]
-        self.assertEqual(len(variants), 1)
-        self.assertEqual(variants[0]["id"], "TC2_EN")
-        self.assertTrue(variants[0]["page_numbers_are_not_interchangeable"])
-        self.assertEqual(variants[0]["pages"], 257)
+        self.assertNotIn("cross_reference_editions", tc2)
+        crosswalk=json.loads((Path(__file__).resolve().parents[1]/"knowledge"/"TC2_EN_CROSS_REFERENCE_20261124.json").read_text())
+        self.assertEqual(crosswalk["canonical_edition"]["sha256"], tc2["sha256"])
+        self.assertEqual(crosswalk["cross_reference_edition"]["pages"], 257)
+        self.assertFalse(crosswalk["cross_reference_edition"]["canonical_training_source"])
+        self.assertTrue(crosswalk["constraints"]["do_not_merge_page_numbers"])
 
     def test_no_duplicate_case_ids_or_prompt_families(self):
         rows, _ = build_v6_source()
@@ -75,6 +86,30 @@ class WilliamsAISourceOnlyV6Tests(unittest.TestCase):
         self.assertEqual(manifest["split_rows"]["validation"], 48)
         self.assertEqual(manifest["split_rows"]["test"], 84)
 
+    def test_export_cannot_mark_candidates_as_sft_or_overwrite_existing_db(self):
+        with TemporaryDirectory() as tmp:
+            p=Path(tmp)/"candidate.sqlite3"
+            manifest=export_v6_source_database(p)
+            with sqlite3.connect(p) as db:
+                self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0],"ok")
+                self.assertEqual(db.execute("SELECT count(*) FROM curriculum").fetchone()[0],manifest["row_count"])
+                self.assertEqual(db.execute("SELECT count(*) FROM curriculum WHERE eligible_for_sft != 0 OR expert_market_gold != 0 OR execution_allowed != 0").fetchone()[0],0)
+            before=p.read_bytes()
+            with self.assertRaises(FileExistsError):
+                export_v6_source_database(p)
+            self.assertEqual(before,p.read_bytes())
+
+    def test_cross_edition_signals_are_not_tc2_mudrec_examples(self):
+        rows,_=build_v6_source()
+        for row in rows:
+            if row["edition"] in {"TC1","NTD","COURSE"} and row["task_type"]!="PRACTICAL":
+                self.assertFalse(set(row["module_ids"]) & {"wm1","wm2","wm3","wise_men_interaction"})
+
+    def test_candidate_rows_are_rejected_by_existing_trainer(self):
+        from williams_ai.knowledge_training_v5 import tokenize
+        rows,_=build_v6_source()
+        with self.assertRaisesRegex(ValueError,"NEVER_PASS_TEST_OR_UNVERIFIED_CASE_TO_GPU"):
+            tokenize(rows[:1],None)
 
 if __name__ == "__main__":
     unittest.main()
