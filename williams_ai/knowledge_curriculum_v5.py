@@ -386,9 +386,9 @@ def build_v6_source():
             ("COUNTEREXAMPLE",f"Назови недопустимые выводы при применении «{card['concept']}» ({ed}) и объясни, почему они не следуют из источника.",
              {"status":"BOOK_SOURCE_INVALID_INFERENCES","edition":ed,"pages":pages,"invalid_inferences":card["invalid_inferences"]}),
             ("BOUNDARY",f"Какие ограничения и неразрешённые вопросы остаются у концепции «{card['concept']}» ({ed})?",
-             {"status":"SOURCE_BOUNDARY","edition":ed,"pages":pages,"unresolved":card["unresolved"],"do_not_force_conclusion":True}),
+             {"status":"SOURCE_BOUNDARY","edition":ed,"pages":pages,"unresolved":card.get("unresolved",[]),"do_not_force_conclusion":True}),
         ]
-        if not card["unresolved"]:
+        if not card.get("unresolved",[]):
             tasks=tasks[:3]
         for task_type,question,answer in tasks:
             cid="V6-"+digest({"lesson":card["id"],"task":task_type})[:18]
