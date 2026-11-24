@@ -16,8 +16,10 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from scripts.ai_submit_v5_qlora_kaggle import (
-    KERNEL_SLUG, _verify_and_archive,
+    KERNEL_SLUG, _verify_and_archive, _select_final_adapter,
 )
+
+from scripts.v5_recovery_integrity import verify_recovered_identity
 
 TRAINED_SOURCE_COMMIT="0914a2cd5a5b5e15dca481029371f055704abd86"
 
@@ -53,6 +55,8 @@ def run() -> None:
               json.dumps({"receipt":receipt.is_file(),"weights":weight.is_file(),
                           "config":config.is_file(),"other_output_files_ignored":True}),
               flush=True)
+        identity=verify_recovered_identity(*_select_final_adapter(root))
+        print("V5_FROZEN_ADAPTER_INTEGRITY",json.dumps(identity,sort_keys=True),flush=True)
         destination=Path(os.environ["RUNNER_TEMP"])/"williams_v5_encrypted"
         audit=_verify_and_archive(root,token,destination,TRAINED_SOURCE_COMMIT)
     print("ACTUAL_WILLIAMS_V5_TRAINING_COMPLETED_AND_SEALED",
