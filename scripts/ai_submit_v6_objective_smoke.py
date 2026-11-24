@@ -161,10 +161,33 @@ def own_inventory_absent(api,kernel):
             page=api.kernels_list_with_response(mine=True,user=owner,page_size=100,page_token=token)
             if page is None or not isinstance(page.kernels,list):
                 raise ValueError("INVALID_PRIVATE_INVENTORY")
-            for item in page.kernels:
+            for row_index,item in enumerate(page.kernels):
                 if item is None:
                     raise ValueError("NULL_PRIVATE_INVENTORY_ENTRY")
-                ref,item_id,inferred=_inventory_identity(owner,item)
+                try:
+                    ref,item_id,inferred=_inventory_identity(owner,item)
+                except Exception as exc:
+                    title=getattr(item,"title",None)
+                    raw_id=getattr(item,"id",None)
+                    raw_ref=getattr(item,"ref",None)
+                    raw_slug=getattr(item,"slug",None)
+                    try:
+                        keys=sorted(vars(item).keys())
+                    except Exception:
+                        keys=[]
+                    print("V6_INVENTORY_UNRESOLVED_ROW",json.dumps({
+                        "row_index":row_index,"item_type":type(item).__name__,
+                        "field_keys":keys,"id_type":type(raw_id).__name__,
+                        "id_positive":type(raw_id) is int and raw_id>0,
+                        "ref_type":type(raw_ref).__name__,"ref_present":bool(raw_ref),
+                        "slug_type":type(raw_slug).__name__,"slug_present":bool(raw_slug),
+                        "title_type":type(title).__name__,
+                        "title_present":isinstance(title,str) and bool(title.strip()),
+                        "title_length":len(title) if isinstance(title,str) else None,
+                        "author_present":bool(getattr(item,"author",None)),
+                        "reason":str(exc) if str(exc).startswith("INVENTORY_") else "METADATA_PARSE_ERROR"
+                    }),flush=True)
+                    raise
                 if ref in refs:
                     raise ValueError("INVENTORY_DUPLICATE_SLUG")
                 refs.add(ref)
@@ -188,7 +211,8 @@ def own_inventory_absent(api,kernel):
                 raise ValueError("INVALID_INVENTORY_PAGINATION")
             seen.add(token)
     except Exception as exc:
-        print("V6_INVENTORY_REJECTED",type(exc).__name__,flush=True)
+        reason=str(exc)
+        print("V6_INVENTORY_REJECTED",type(exc).__name__,reason if reason.startswith(("INVENTORY_","PRIVATE_","INVALID_")) else "NONCANONICAL_ERROR",flush=True)
         raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED") from None
     raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED")
 
