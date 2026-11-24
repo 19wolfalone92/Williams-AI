@@ -3,12 +3,12 @@
   "original": {
     "file": "Bill Williams - Trading Chaos Course(1).pdf",
     "pages": 122,
-    "sha256": "fc57d03e93b730dc6d87928e1f7d8425a7d30496f603246bf51e53a07c37c0a0"
+    "sha256": "fc57f707378087bfc5143f604f042c51ce8135e0b359f0c607305b364e0decfca"
   },
   "searchable_copy": {
     "file": "Course_122_SEARCHABLE_PRIVATE_OCR_UNVERIFIED.pdf",
     "pages": 122,
-    "sha256": "d50b23ac3184c54ed28d0e5e4b1b8ed3a1d66cc59d52d8160d4f8c0b6f1d70b6"
+    "sha256": "bad46c5470ed4bc0b8943f604f04294dc7efdfd256e97644ffa2a9f688474671"
   },
   "comparison": {
     "method": "PyMuPDF render each original and OCR page at identical 72-DPI RGB settings and compare dimensions and rendered pixel bytes",
