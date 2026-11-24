@@ -162,6 +162,73 @@ def validate_cases(data, chart_root, *, current_time=None):
             "execution_allowed": False, "training_allowed": False}
 
 
+
+def audit_episode_windows(windows, prior_windows=(), *, embargo_hours=168):
+    """Reject repeated/nearby same-symbol episodes in a final holdout.
+
+    Half-open time intervals include all model-visible history, not only
+    the decision candle. Prior windows are known exposures, not proof of
+    completeness. Cross-instrument correlation still needs external review.
+    """
+    need(type(embargo_hours) is int and embargo_hours >= 0, "BAD_EMBARGO")
+    embargo = timedelta(hours=embargo_hours)
+
+    def normalize(row):
+        need(type(row) is dict and set(row) == {
+            "id", "symbol", "start_utc", "end_utc"}, "BAD_EPISODE_WINDOW")
+        need(isinstance(row["id"], str) and isinstance(row["symbol"], str)
+             and bool(row["id"]) and bool(row["symbol"]), "BAD_EPISODE_ID")
+        start, end = _utc(row["start_utc"]), _utc(row["end_utc"])
+        need(start < end, "BAD_EPISODE_INTERVAL")
+        return row["id"], row["symbol"], start, end
+
+    current = [normalize(row) for row in windows]
+    old = [normalize(row) for row in prior_windows]
+    need(len({r[0] for r in current}) == len(current), "DUPLICATE_EPISODE_ID")
+    def conflicts(a, b):
+        return (a[1] == b[1] and a[2] < b[3] + embargo
+                and b[2] < a[3] + embargo)
+    same = [(a[0], b[0]) for i, a in enumerate(current)
+            for b in current[i+1:] if conflicts(a, b)]
+    exposed = [(a[0], b[0]) for a in current for b in old if conflicts(a, b)]
+    return {"case_count": len(current), "known_prior_window_count": len(old),
+            "same_symbol_conflicts": same, "known_exposure_conflicts": exposed,
+            "embargo_hours": embargo_hours,
+            "distinct_cutoff_dates": len({r[3].date() for r in current}),
+            "same_symbol_independence_gate": not same and not exposed,
+            "cross_symbol_statistical_independence_verified": False,
+            "complete_training_history_verified": False}
+
+
+def validate_final_cases(data, chart_root, *, prior_exposure, exposure_sha256):
+    """Final 100-chart eligibility only; not model scoring or training approval.
+
+    This stricter entrypoint preserves the historical 32-case pilot protocol.
+    The known-exposure inventory must be supplied and pinned outside this
+    validator. An empty or invented inventory cannot establish novelty.
+    """
+    need(isinstance(exposure_sha256, str) and _HEX64.fullmatch(exposure_sha256),
+         "UNPINNED_EXPOSURE_INVENTORY")
+    need(type(prior_exposure) is list and bool(prior_exposure) and
+         digest(prior_exposure) == exposure_sha256, "EXPOSURE_INVENTORY_MISMATCH")
+    frozen = validate_cases(data, chart_root)
+    need(frozen["case_count"] >= 100, "FINAL_MIN_100_CHARTS")
+    root = Path(chart_root).resolve(strict=True)
+    windows = []
+    for case in data["cases"]:
+        chart = _load(root / case["chart_file"])
+        windows.append({"id": case["id"], "symbol": chart["symbol"],
+                        "start_utc": chart["bars"][0]["open_utc"],
+                        "end_utc": chart["bars"][-1]["close_utc"]})
+    audit = audit_episode_windows(windows, prior_exposure)
+    need(not audit["same_symbol_conflicts"], "FINAL_OVERLAPPING_OR_ADJACENT_EPISODES")
+    need(not audit["known_exposure_conflicts"], "FINAL_PRIOR_EXPOSURE_OVERLAP")
+    return {"schema": "WILLIAMS_V6_FINAL_COHORT_PREFLIGHT_V1",
+            "frozen_manifest": frozen, "exposure_inventory_sha256": exposure_sha256,
+            "episode_audit": audit, "external_independence_review_required": True,
+            "qualified": False, "training_allowed": False, "execution_allowed": False}
+
+
 def _verify_review(bundle, case_ids, manifest, trust, book_of):
     need(type(bundle) is dict and set(bundle) == {"payload", "signature_hex"}, "BAD_REVIEW_ENVELOPE")
     payload = bundle["payload"]
@@ -322,12 +389,18 @@ def main():
     freeze.add_argument("--cases", required=True)
     freeze.add_argument("--chart-root", required=True)
     freeze.add_argument("--out", required=True)
+    final = s.add_parser("freeze-final", help="Check final cohort size and known episode exposure")
+    for flag in ("cases", "chart-root", "prior-exposure", "exposure-sha256", "out"):
+        final.add_argument("--" + flag, required=True)
     grade = s.add_parser("grade", help="Verify two Ed25519 expert reviewers and matched model scores")
     for flag in ("cases", "chart-root", "manifest", "review-a", "review-b", "trust", "predictions", "out"):
         grade.add_argument("--" + flag, required=True)
     a = p.parse_args()
     if a.cmd == "freeze":
         save_exclusive(a.out, validate_cases(_load(a.cases), a.chart_root))
+    elif a.cmd == "freeze-final":
+        save_exclusive(a.out, validate_final_cases(_load(a.cases), a.chart_root,
+            prior_exposure=_load(a.prior_exposure), exposure_sha256=a.exposure_sha256))
     else:
         save_exclusive(a.out, evaluate(_load(a.cases), _load(a.manifest), _load(a.review_a),
                                        _load(a.review_b), _load(a.trust), _load(a.predictions),
