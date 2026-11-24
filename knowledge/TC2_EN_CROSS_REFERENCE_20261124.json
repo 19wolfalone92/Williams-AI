@@ -1,0 +1,55 @@
+{
+  "schema": "WILLIAMS_AI_TC2_BILINGUAL_CROSSWALK_V1",
+  "canonical_edition": {
+    "id": "TC2",
+    "language": "ru",
+    "pages": 224,
+    "sha256": "055b5d57346b0c42c5d395be1ccdaecb734c2c8bc02f1eb94b5dc8f3560c35ab"
+  },
+  "cross_reference_edition": {
+    "id": "TC2_EN",
+    "language": "en",
+    "pages": 257,
+    "sha256": "eb734089a8b71f45abfcafc98cb573287c3b8515ed89f222b0a8a5c8ef343f6c",
+    "canonical_training_source": false
+  },
+  "verified_correspondences": [
+    {
+      "topic": "WM3 Teeth condition at activation",
+      "ru_pdf_pages": [
+        147,
+        148,
+        149
+      ],
+      "en_pdf_pages": [
+        168,
+        169
+      ],
+      "result": "RULE_MEANING_MATCH",
+      "notes": "Both editions describe the Teeth condition at the moment the pending fractal stop is activated. Page numbering remains edition-specific."
+    },
+    {
+      "topic": "AO median-price formula",
+      "ru_pdf_pages": [
+        136
+      ],
+      "en_pdf_pages": [
+        155,
+        247
+      ],
+      "result": "UNRESOLVED_SOURCE_CONFLICT",
+      "evidence": [
+        "RU p.136 figure prints (H-L)/2.",
+        "EN p.155 figure prints (H-L)/2.",
+        "EN p.247 EasyLanguage code uses (H+L)/2."
+      ],
+      "notes": "Do not silently normalize the discrepancy or present one formula as unambiguously printed throughout TC2. Current project implementation uses (H+L)/2; that is an implementation fact, not proof that the figure is correct."
+    }
+  ],
+  "constraints": {
+    "do_not_merge_page_numbers": true,
+    "do_not_train_tc2_en_as_a_fifth_book": true,
+    "use_tc2_en_only_for_cross_checking_ambiguous_tc2_ru_passages": true,
+    "unresolved_conflicts_must_be_taught_as_uncertainty_not_as_deterministic_gold": true
+  }
+}
