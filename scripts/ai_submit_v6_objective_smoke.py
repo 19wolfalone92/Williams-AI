@@ -90,9 +90,40 @@ print("ACTUAL_V6_OBJECTIVE_CUDA_SMOKE_COMPLETED",flush=True)
     return script.replace("SOURCE_PLACEHOLDER",sha).replace("CONTROL_PLACEHOLDER",CONTROL).replace("SLUG_PLACEHOLDER",SLUG)
 
 
+def own_inventory_absent(api,kernel):
+    """Use complete authenticated personal inventory, never a public search.
+    Require the known V5 notebook as an identity/visibility witness.
+    """
+    owner,slug=kernel.split("/")
+    witness=owner+"/williams-ai-v5-book-sft-20261111"
+    seen=set()
+    token=None
+    refs=set()
+    try:
+        for _ in range(100):
+            page=api.kernels_list_with_response(mine=True,page_size=100,page_token=token)
+            if page is None or not isinstance(page.kernels,list):
+                raise ValueError("INVALID_PRIVATE_INVENTORY")
+            for item in page.kernels:
+                ref=getattr(item,"ref",None)
+                if not isinstance(ref,str) or not ref.startswith(owner+"/"):
+                    raise ValueError("INVENTORY_OWNER_OR_REF_MISMATCH")
+                refs.add(ref)
+            token=page.next_page_token
+            if not token:
+                if witness not in refs:
+                    raise ValueError("PRIVATE_V5_VISIBILITY_WITNESS_MISSING")
+                print("V6_PRIVATE_INVENTORY_VERIFIED",len(refs),flush=True)
+                return kernel not in refs
+            if not isinstance(token,str) or token in seen:
+                raise ValueError("INVALID_INVENTORY_PAGINATION")
+            seen.add(token)
+    except Exception:
+        raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED") from None
+    raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED")
+
+
 def status_absent(api,kernel):
-    # Only an explicit not-found permits creation. Authentication, timeout,
-    # permission and unknown status errors must never allow an overwrite.
     try:
         api.kernels_status(kernel)
     except Exception as exc:
@@ -100,6 +131,15 @@ def status_absent(api,kernel):
         response=getattr(exc,"response",None)
         if code is None and response is not None:code=getattr(response,"status_code",None)
         if str(code)=="404":return True
+        # Official Kaggle CLI v2.2.5 wraps 401/403 into ValueError for a
+        # missing/inaccessible slug. A denied lookup alone is not absence.
+        # Only an independently authenticated, complete own inventory
+        # with a known private notebook witness may establish absence.
+        if (isinstance(exc,ValueError) and
+            "Permission 'kernels.get' was denied" in str(exc) and
+            kernel in str(exc)):
+            return own_inventory_absent(api,kernel)
+        print("V6_KAGGLE_STATUS_LOOKUP_UNVERIFIED",type(exc).__name__,flush=True)
         raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED") from None
     return False
 

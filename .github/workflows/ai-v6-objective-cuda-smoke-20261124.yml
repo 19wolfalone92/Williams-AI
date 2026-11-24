@@ -1,4 +1,4 @@
-name: Williams AI V6 objective Qwen3-4B CUDA smoke (one shot, private)
+name: Williams AI V6 objective Qwen3-4B CUDA smoke (verified inventory retry, private)
 on:
   push:
     branches: [research/williams-ai-source-sft-v6-20261124]
