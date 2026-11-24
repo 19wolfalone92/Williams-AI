@@ -50,13 +50,17 @@ jobs:
           magic = b"WILLIAMSV5A1"
           if not raw.startswith(magic) or len(raw) < 39:
               raise SystemExit("SEALED_ARTIFACT_HEADER_INVALID")
-          domain = b"williams-ai-v5-artifact-seal-v1"
+          from scripts.ai_submit_v5_qlora_kaggle import DOMAIN as domain, _seal_data
+          from scripts.v5_recovery_integrity import validate_tensor_bytes
+          if hashlib.sha256(raw).hexdigest() != "fa026c401c8ea89bcea119fac153d30bf1004874fe16c81cb8de761a852f03e2":
+              raise SystemExit("RECOVERY_CIPHERTEXT_HASH_MISMATCH")
           offset = len(magic)
           salt = raw[offset:offset + 16]
           nonce = raw[offset + 16:offset + 28]
           ciphertext = raw[offset + 28:]
           key = HKDF(algorithm=hashes.SHA256(), length=32, salt=salt, info=domain).derive(token.encode())
           plaintext = AESGCM(key).decrypt(nonce, ciphertext, domain)
+          assert len(plaintext) > 0
 
           work = Path(tempfile.mkdtemp(prefix="williams-v6-recovery-verify-"))
           with ZipFile(io.BytesIO(plaintext)) as z:
@@ -143,7 +147,12 @@ jobs:
                   p = latest_adapter_dir / filename
                   if not p.is_file() or p.is_symlink() or digest(p) != expected_sha:
                       latest_adapter_verified = False
+              weight = latest_adapter_dir / "adapter_model.safetensors"
+              tensor_count = validate_tensor_bytes(weight.read_bytes())
+              if len(checkpoints) != 1 or digest(weight) != next(iter(checkpoints.values()))["adapter_file_sha256"]:
+                  raise SystemExit("LATEST_ADAPTER_CHECKPOINT_MISMATCH")
               sessions[phase] = {
+                  "tensor_count": tensor_count,
                   "new_optimizer_steps": result.get("new_optimizer_steps"),
                   "total_optimizer_steps": result.get("total_optimizer_steps"),
                   "optimizer_skips_in_this_session": result.get("optimizer_skips_in_this_session"),
@@ -174,10 +183,26 @@ jobs:
                   except Exception:
                       chunks.append(line)
               log_text = "".join(chunks)
-          error_lines = [
-              line.strip() for line in log_text.splitlines()
-              if re.search(r"(?i)(Traceback|[A-Za-z_][A-Za-z0-9_.]*(Error|Exception):|out of memory|CUDA error|WORKER_COMMAND_FAILED|killed)", line)
-          ]
+          # Public receipt contains only allowlisted error codes and exception classes.
+          try:
+              events = json.loads(log_text)
+              if isinstance(events, list):
+                  log_text = "".join(str(x.get("data", "")) for x in events if isinstance(x, dict))
+          except json.JSONDecodeError:
+              pass
+          codes = re.findall(r"\b(?:[A-Z][A-Z0-9]+_){2,}[A-Z0-9]+\b", log_text)
+          allowed = {"RELOADED_ADAPTER_LOGITS_MISMATCH", "PINNED_BASE_BYTES_CHANGED", "NONFINITE_OR_MISSING_SAVED_LORA", "WORKER_COMMAND_FAILED_1", "EXACT_RESUMED_TEN_STEPS_REQUIRED", "BASELINE_CHANGED_ON_RESUME"}
+          error_lines = sorted(set(codes) & allowed)
+          error_classes = sorted(set(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception)):", log_text)))
+          for phase, total in (("first", 10), ("second", 20)):
+              v = sessions[phase]
+              if not (v["new_optimizer_steps"] == 10 and v["total_optimizer_steps"] == total
+                  and v["optimizer_skips_in_this_session"] == 0 and v["adapter_weights_changed_in_this_session"] is True
+                  and v["full_optimizer_checkpoint_saved"] is True and v["latest_adapter_verified"] is True
+                  and v["latest_sealed_checkpoint"] == "checkpoint-" + str(total)):
+                  raise SystemExit("RECOVERED_TRAINING_CONTRACT_FAILED")
+          if not (all_checkpoint_hashes_valid and all_required_states_present and first_digest and second_digest and first_digest != second_digest):
+              raise SystemExit("RECOVERED_TRAINING_INTEGRITY_FAILED")
           summary = {
               "schema": "WILLIAMS_V6_TRAINING_RECOVERY_VERIFICATION_V1",
               "source_run_id": 45477754289,
@@ -190,7 +215,8 @@ jobs:
               "aggregate_report_present": (root / "aggregate.json").is_file(),
               "private_predictions_present": (root / "private_predictions.json").is_file(),
               "kernel_log_bytes": len(log_text.encode("utf-8")),
-              "kernel_error_lines": error_lines[-30:],
+              "kernel_error_codes": error_lines,
+              "kernel_error_classes": error_classes,
               "recovery_artifact_sha256": hashlib.sha256(raw).hexdigest(),
               "recovery_artifact_bytes": len(raw)
           }
