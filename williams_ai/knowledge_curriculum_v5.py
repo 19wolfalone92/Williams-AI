@@ -15,6 +15,7 @@ from collections import Counter
 from hashlib import sha256
 import argparse
 import json
+import os
 from pathlib import Path
 import random
 import sqlite3
@@ -215,7 +216,7 @@ V6_MODULES=(
 )
 V6_EXCLUDED_VISUAL={"V7.COURSE.WAVE_VISUAL.NESTED_ABC_DEGREES"}
 V6_LESSON_MODULES={
- "V7.TC1.FRACTAL.START_SIGNAL_CANCEL":["fractals","wm3","position_management"],
+ "V7.TC1.FRACTAL.START_SIGNAL_CANCEL":["fractals","position_management"],
  "V7.TC1.WAVE.CAMPAIGN":["market_structure","waves","position_management"],
  "V7.NTD.BALANCE.BASE.COUNT":["market_structure","position_management"],
  "V7.NTD.BALANCE.PENDING_STOP":["market_structure","position_management"],
@@ -233,13 +234,13 @@ V6_LESSON_MODULES={
  "V7.NTD.EXITS.FOUR_MARKET_DECISIONS":["position_management","alligator","ao","ac"],
  "V7.TC1.MFI.PROFITUNITY_WINDOWS.AIRBAG":["market_structure","risk_management"],
  "V7.TC1.WAVE.MFI.MACD.W4.W5":["waves","uncertainty","ao"],
- "V7.TC1.FIVE_MAGIC_BULLETS.ZERO_POINT":["wise_men_interaction","waves","uncertainty"],
+ "V7.TC1.FIVE_MAGIC_BULLETS.ZERO_POINT":["waves","uncertainty"],
  "V7.TC2.WISE_MEN.FIRST_SIGNAL_ALTERNATIVES":["wise_men_interaction","wm1","wm2","wm3"],
  "V7.TC2.CAMPAIGN.REVERSE_PYRAMID_AND_TRAILING":["position_management"],
  "V7.TC2.EXITS.TRAILING_VS_REVERSE_AND_PARTIAL_CLOSE":["position_management","wise_men_interaction"],
  "V7.COURSE.MFI.PROFITUNITY_WINDOWS":["market_structure","risk_management"],
- "V7.COURSE.THUMB.EARLY_FRACTAL_ENTRY":["fractals","wm1","wm3"],
- "V7.COURSE.HUMP.OPPOSITE_NONOVERLAPPING_FRACTALS":["fractals","wm3"],
+ "V7.COURSE.THUMB.EARLY_FRACTAL_ENTRY":["fractals","market_structure"],
+ "V7.COURSE.HUMP.OPPOSITE_NONOVERLAPPING_FRACTALS":["fractals","market_structure"],
  "V7.COURSE.TRADING_PARTNER.MULTITIMEFRAME_TABLE":["multitimeframe"],
  "V7.TC1.PSYCHOLOGY.FOUR_TRADING_PROGRAMS":["risk_management","uncertainty"],
  "V7.TC1.PSYCHOLOGY.INSIDE_RISK_STRUCTURE_I_CAN":["risk_management","uncertainty"],
@@ -273,13 +274,13 @@ def _v6_row(case_id, modules, task_type, question, answer, *, edition,
     return {
         "schema":V6_SCHEMA,"case_id":case_id,"module_ids":list(modules),
         "edition":edition,"pdf_pages":list(pages),"source_sha256":source_sha256,
-        "split":"train","task_type":task_type,"prompt":prompt,
+        "split":"candidate","task_type":task_type,"prompt":prompt,
         "answer":json.dumps(answer,ensure_ascii=False,sort_keys=True,separators=(",",":")),
         "evidence_class":evidence_class,
-        "review_status":"SOURCE_SPOTCHECKED_PARAPHRASE_NOT_EXPERT_MARKET_GOLD",
+        "review_status":"PENDING_INDEPENDENT_REVIEW_NOT_ADMITTED",
         "source_excerpt_in_training":False,"chart_expert_gold":False,
         "expert_market_gold":False,"visual_semantics_independently_verified":False,
-        "eligible_for_sft":True,"execution_allowed":False,
+        "eligible_for_sft":False,"execution_allowed":False,
     }
 
 
@@ -297,7 +298,7 @@ def source_only_admission():
         raise ValueError("EXPECTED_29_SOURCE_CANDIDATES_WITH_EXPERT_GATE_STILL_CLOSED")
     if conflicts.get("expert_approved") is not False or conflicts.get("sft_ready") is not False:
         raise ValueError("SOURCE_CONFLICTS_MUST_REMAIN_UNRESOLVED")
-    if len(conflicts.get("issues",[]))!=4 or conflicts.get("labels_generated")!=0:
+    if len(conflicts.get("issues",[]))!=4 or conflicts.get("labels_generated") is not False:
         raise ValueError("EXPECTED_FOUR_EXPLICIT_SOURCE_CONFLICTS_WITHOUT_LABELS")
     tc2_ru=crosswalk.get("canonical_edition",{})
     tc2_en=crosswalk.get("cross_reference_edition",{})
@@ -342,15 +343,18 @@ def source_only_admission():
     return {
         "schema":"WILLIAMS_V6_SOURCE_ONLY_ADMISSION_V1",
         "source_lessons_total":len(lessons),
-        "source_lessons_eligible":len(lessons)-len(V6_EXCLUDED_VISUAL),
+        "source_lessons_eligible":0,
+        "source_lessons_candidate":len(lessons)-len(V6_EXCLUDED_VISUAL),
         "excluded_visual_lessons":sorted(V6_EXCLUDED_VISUAL),
         "canonical_books":sorted(books),
         "tc2_english_cross_reference_only":True,
-        "tc2_source_conflicts_unresolved":len(conflicts["issues"]),
+        "source_conflicts_unresolved":len(conflicts["issues"]),
         "course_ocr_images_identical":True,
         "source_pages_spotchecked":True,
         "full_899_page_semantic_review_complete":False,
-        "source_only_sft_permitted":True,
+        "source_only_sft_permitted":False,
+        "candidate_export_permitted":True,
+        "admission_blockers":["INDEPENDENT_SOURCE_REVIEW_REQUIRED", "SEMANTIC_HOLDOUT_DISJOINTNESS_UNVERIFIED", "FULL_SOURCE_REVIEW_INCOMPLETE"],
         "expert_market_gold_training_permitted":False,
         "independent_expert_reviews":0,
         "chart_market_gold_rows":0,
@@ -360,7 +364,7 @@ def source_only_admission():
 
 
 def build_v6_source():
-    """Build a non-duplicated source-only curriculum; no chart gold or exposed exam data."""
+    """Export review candidates only; exact deduplication is not semantic holdout isolation."""
     admission=source_only_admission()
     root=Path(__file__).resolve().parent.parent
     candidate=json.loads((root/"knowledge"/"WILLIAMS_V7_SOURCE_CURRICULUM_CANDIDATES_20261115.json").read_text(encoding="utf-8"))
@@ -408,7 +412,7 @@ def build_v6_source():
             evidence_class="SOURCE_CONFLICT",source_refs=[
                 {"edition":ed,"pages":pages,"sha256":source_sha}]))
     for item in V6_PRACTICAL_TASKS:
-        refs=item.get("source_refs",[])
+        refs=[dict(ref,sha256=books[ref["edition"]]["sha256"]) if isinstance(ref,dict) and ref.get("edition") in books and "sha256" not in ref else ref for ref in item.get("source_refs",[])]
         for ref in refs:
             if isinstance(ref,dict):
                 ed=ref.get("edition")
@@ -433,7 +437,7 @@ def build_v6_source():
     coverage={module:sum(module in x["module_ids"] for x in rows) for module in V6_MODULES}
     if any(coverage[m]<=0 for m in V6_MODULES):
         raise ValueError("V6_ALL_FIFTEEN_COMPETENCIES_REQUIRED")
-    if any(x["split"]!="train" or not x["eligible_for_sft"] or
+    if any(x["split"]!="candidate" or x["eligible_for_sft"] or
            x["expert_market_gold"] or x["chart_expert_gold"] or x["execution_allowed"]
            for x in rows):
         raise ValueError("V6_SOURCE_ONLY_TRAINING_SCOPE_VIOLATION")
@@ -444,13 +448,13 @@ def build_v6_source():
         "source_candidate_sha256":digest(candidate),
         "source_conflicts_sha256":digest(conflicts),
         "row_count":len(rows),
-        "split_rows":{"train":len(rows),"validation":0,"test":0},
+        "split_rows":{"candidate":len(rows),"train":0,"validation":0,"test":0},
         "module_coverage":coverage,
         "task_type_counts":dict(Counter(x["task_type"] for x in rows)),
         "prompt_sha256":digest([x["prompt"] for x in rows]),
         "gold_sha256":digest([x["answer"] for x in rows]),
-        "all_rows_train":True,
-        "old_v5_432_case_database_preserved":True,
+        "all_rows_train":False,
+        "old_v5_database_modified":False,
         "old_revealed_exams_for_regression_only":True,
         "future_data_used":False,
         "source_pdf_text_or_images_in_dataset":False,
