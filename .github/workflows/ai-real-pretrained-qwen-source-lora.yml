@@ -1,13 +1,6 @@
 name: Williams AI real pretrained Qwen public-source LoRA first training
 
 on:
-  pull_request:
-    paths:
-      - 'scripts/ai_real_qwen_source_lora_start.py'
-      - '.github/workflows/ai-real-pretrained-qwen-source-lora.yml'
-      - 'williams_ai/lora_training.py'
-      - 'williams_ai/private_lora.py'
-      - 'knowledge/ADAPTIVE_TUTOR_PRACTICE_RU.json'
   workflow_dispatch:
 
 permissions:
@@ -41,14 +34,12 @@ jobs:
         run: |
           python scripts/ai_real_qwen_source_lora_start.py \
             --new-output "$RUNNER_TEMP/williams-source-adapter" --steps 6
-      - name: Publish research adapter and provenance, never original PDFs or private notes
+      - name: Publish only numerical research provenance, never adapter weights
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: qwen3-06b-real-pretrained-lora-public-source-research-not-trading-ready
           path: |
-            ${{ runner.temp }}/williams-source-adapter/adapter/adapter_model.safetensors
-            ${{ runner.temp }}/williams-source-adapter/adapter/adapter_config.json
             ${{ runner.temp }}/williams-source-adapter/research_receipt.json
           if-no-files-found: warn
           retention-days: 7
