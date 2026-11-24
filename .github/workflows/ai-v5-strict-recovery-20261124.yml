@@ -1,0 +1,83 @@
+name: Williams AI v5 strict recovery and free quota verification (one shot)
+on:
+  push:
+    branches: [research/v5-recovery-integrity-20261124]
+    paths: ['.github/workflows/ai-v5-strict-recovery-20261124.yml']
+permissions:
+  contents: read
+concurrency:
+  group: williams-v5-strict-recovery-20261124
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Offline guard tests
+        run: python -m unittest discover -s tests -p test_williams_ai_v5_recovery_integrity.py -v
+      - name: Install existing Kaggle recovery dependencies
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Read free quota for configured accounts without GPU submissions
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          KAGGLE_SECONDARY_TOKEN: ${{ secrets.KAGGLE_API_TOKEN_2 }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          primary=os.environ.get("KAGGLE_API_TOKEN","")
+          secondary=os.environ.get("KAGGLE_SECONDARY_TOKEN","")
+          code = """
+          import json
+          from kaggle.api.kaggle_api_extended import KaggleApi
+          from kagglesdk.kernels.types.kernels_api_service import ApiGetAcceleratorQuotaStatisticsRequest
+          api=KaggleApi()
+          api.authenticate()
+          with api.build_kaggle_client() as client:
+              q=client.kernels.kernels_api_client.get_accelerator_quota_statistics(ApiGetAcceleratorQuotaStatisticsRequest()).gpu_quota
+          print(json.dumps({"remaining_gpu_seconds":max(0,(q.total_time_allowed-q.time_used).total_seconds()) if q else None}))
+          """
+          reports=[]
+          for slot,token in (("primary",primary),("secondary",secondary)):
+              result={"account_slot":slot,"status":"CREDENTIAL_UNAVAILABLE"}
+              if slot=="secondary" and token and token==primary:
+                  result["status"]="DUPLICATE_CREDENTIAL_NOT_SECOND_ACCOUNT"
+              elif len(token)>=20:
+                  env={**os.environ,"KAGGLE_API_TOKEN":token}
+                  env.pop("KAGGLE_SECONDARY_TOKEN",None)
+                  try:
+                      p=subprocess.run([sys.executable,"-c",code],env=env,capture_output=True,text=True,timeout=90)
+                      if p.returncode==0:
+                          result.update(json.loads(p.stdout.splitlines()[-1]))
+                          result["status"]="QUOTA_READ"
+                      else:
+                          result["status"]="AUTH_OR_QUOTA_UNVERIFIED"
+                  except (ValueError,subprocess.TimeoutExpired,IndexError):
+                      result["status"]="AUTH_OR_QUOTA_UNVERIFIED"
+              reports.append(result)
+          receipt={"gpu_submissions":0,"reports":reports,"distinct_account_identity_verified":False}
+          print("KAGGLE_QUOTA_RECEIPT",json.dumps(receipt),flush=True)
+          (Path(os.environ["RUNNER_TEMP"])/"v5-quota-receipt.json").write_text(json.dumps(receipt))
+          PY
+      - name: Recover exact frozen v5 and verify finite tensors before sealing
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: python -m scripts.ai_recover_v5_qlora_kaggle
+      - name: Upload numerical receipts and encrypted adapter only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Williams-v5-strict-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/v5-quota-receipt.json
+            ${{ runner.temp }}/williams_v5_encrypted/v5_training_audit.json
+            ${{ runner.temp }}/williams_v5_encrypted/williams-v5-trained-qwen3-4b-lora.zip.sealed
+          if-no-files-found: warn
+          retention-days: 21
