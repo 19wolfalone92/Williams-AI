@@ -105,3 +105,15 @@ class SubmitContracts(unittest.TestCase):
             return SimpleNamespace(kernels=[witness,duplicate],next_page_token=None)
         api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
         self.assertTrue(status_absent(api,"owner/new-kernel-target"))
+
+
+    def test_duplicate_same_slug_without_numeric_ids_is_one_owner_kernel(self):
+        def denied(kernel):
+            raise ValueError(f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied).")
+        witness=SimpleNamespace(ref="owner/williams-ai-v5-book-sft-20261111",id=1)
+        first=SimpleNamespace(ref="",slug="",title="Legacy Notebook Title",id=0)
+        second=SimpleNamespace(ref="",slug="",title="Legacy Notebook Title",id=0)
+        def inventory(**kw):
+            return SimpleNamespace(kernels=[witness,first,second],next_page_token=None)
+        api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
+        self.assertTrue(status_absent(api,"owner/new-kernel-target"))

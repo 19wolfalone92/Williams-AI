@@ -191,16 +191,25 @@ def own_inventory_absent(api,kernel):
                     raise
                 if ref in refs:
                     previous_id=refs[ref]
-                    if previous_id is not None and item_id is not None and previous_id==item_id:
-                        duplicate_rows+=1
-                        continue
-                    print("V6_INVENTORY_DUPLICATE_SLUG_CONFLICT",json.dumps({
-                        "page_index":page_index,"row_index":row_index,
-                        "previous_id_present":previous_id is not None,
-                        "current_id_present":item_id is not None,
-                        "same_positive_id":previous_id is not None and previous_id==item_id
-                    }),flush=True)
-                    raise ValueError("INVENTORY_DUPLICATE_SLUG_AMBIGUOUS")
+                    if previous_id is not None and item_id is not None and previous_id!=item_id:
+                        print("V6_INVENTORY_DUPLICATE_SLUG_CONFLICT",json.dumps({
+                            "page_index":page_index,"row_index":row_index,
+                            "previous_id_present":True,"current_id_present":True,
+                            "same_positive_id":False
+                        }),flush=True)
+                        raise ValueError("INVENTORY_DUPLICATE_SLUG_AMBIGUOUS")
+                    # owner/slug is Kaggle's unique kernel key. Duplicate list
+                    # rows are safe to collapse unless two positive ids conflict.
+                    if previous_id is None and item_id is not None:
+                        refs[ref]=item_id
+                    duplicate_rows+=1
+                    if item_id is None:
+                        missing_id_count+=1
+                    elif item_id in ids and ids[item_id]!=ref:
+                        raise ValueError("INVENTORY_DUPLICATE_ID_DIFFERENT_SLUGS")
+                    else:
+                        ids[item_id]=ref
+                    continue
                 refs[ref]=item_id
                 if item_id is None:
                     missing_id_count+=1
