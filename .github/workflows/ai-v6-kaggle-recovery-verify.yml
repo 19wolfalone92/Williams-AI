@@ -1,0 +1,205 @@
+name: Williams AI V6 encrypted checkpoint recovery verification
+
+on:
+  push:
+    branches:
+      - research/williams-ai-source-sft-v6-20261124
+    paths:
+      - .github/workflows/ai-v6-kaggle-recovery-verify.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-recovered-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install authenticated artifact decryption dependency
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+      - name: Download previously sealed failed-run recovery artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: williams-v6-failed-run-recovery-encrypted
+          run-id: 45480042116
+          github-token: ${{ github.token }}
+          repository: 19wolfalone92/Williams-AI
+          path: ${{ runner.temp }}/v6-recovery
+      - name: Decrypt privately and verify actual optimizer checkpoints
+        run: |
+          python - <<'PY'
+          import hashlib, io, json, os, re, shutil, tempfile
+          from pathlib import Path
+          from zipfile import ZipFile
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+          token = os.environ["KAGGLE_API_TOKEN"]
+          sealed_path = Path(os.environ["RUNNER_TEMP"]) / "v6-recovery" / "williams-v6-failed-run-recovery.zip.sealed"
+          raw = sealed_path.read_bytes()
+          magic = b"WILLIAMSV5A1"
+          if not raw.startswith(magic) or len(raw) < 39:
+              raise SystemExit("SEALED_ARTIFACT_HEADER_INVALID")
+          domain = b"williams-ai-v5-artifact-seal-v1"
+          salt, nonce, ciphertext = raw[11:27], raw[27:39], raw[39:]
+          key = HKDF(algorithm=hashes.SHA256(), length=32, salt=salt, info=domain).derive(token.encode())
+          plaintext = AESGCM(key).decrypt(nonce, ciphertext, domain)
+
+          work = Path(tempfile.mkdtemp(prefix="williams-v6-recovery-verify-"))
+          with ZipFile(io.BytesIO(plaintext)) as z:
+              for name in z.namelist():
+                  p = Path(name)
+                  if p.is_absolute() or ".." in p.parts:
+                      raise SystemExit("UNSAFE_RECOVERY_ARCHIVE_PATH")
+                  target = work / p
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  if not name.endswith("/"):
+                      target.write_bytes(z.read(name))
+
+          def read_json(path):
+              if not path.is_file() or path.is_symlink():
+                  return None
+              return json.loads(path.read_text(encoding="utf-8"))
+
+          def digest(path):
+              h = hashlib.sha256()
+              with path.open("rb") as f:
+                  for block in iter(lambda: f.read(1024 * 1024), b""):
+                      h.update(block)
+              return h.hexdigest()
+
+          output = work / "output"
+          root = output / "williams_v6_objective_smoke"
+          sessions = {}
+          all_checkpoint_hashes_valid = True
+          all_required_states_present = True
+          for phase in ("first", "second"):
+              phase_dir = root / phase
+              result = read_json(phase_dir / "research_result.json")
+              contract_file = phase_dir / "contract.json"
+              contract_wrapper = read_json(contract_file)
+              seal = read_json(phase_dir / "checkpoint_sha256.json")
+              if not result or not contract_wrapper or not seal:
+                  raise SystemExit("TRAINING_SESSION_RECEIPT_MISSING_" + phase)
+              spec = contract_wrapper["contract"]
+              if hashlib.sha256(contract_file.read_bytes()).hexdigest() != seal.get("receipt_sha256"):
+                  all_checkpoint_hashes_valid = False
+              required = {
+                  "adapter_model.safetensors", "adapter_config.json", "training_args.bin",
+                  "optimizer.pt", "scheduler.pt", "rng_state.pth", "trainer_state.json"
+              }
+              if spec.get("quantization") == "NF4_DOUBLE_FLOAT16":
+                  required.add("scaler.pt")
+              checkpoints = {}
+              for cp_name, expected_files in seal.get("checkpoints", {}).items():
+                  cp_dir = phase_dir / "checkpoints" / cp_name
+                  actual_files = {}
+                  for filename, expected_sha in expected_files.items():
+                      file_path = cp_dir / filename
+                      if not file_path.is_file() or file_path.is_symlink() or file_path.stat().st_size == 0:
+                          all_checkpoint_hashes_valid = False
+                          continue
+                      actual_sha = digest(file_path)
+                      actual_files[filename] = actual_sha
+                      if actual_sha != expected_sha:
+                          all_checkpoint_hashes_valid = False
+                  missing = sorted(name for name in required if name not in actual_files)
+                  if missing:
+                      all_required_states_present = False
+                  state = read_json(cp_dir / "trainer_state.json") or {}
+                  adapter_config = read_json(cp_dir / "adapter_config.json") or {}
+                  step = int(cp_name.removeprefix("checkpoint-")) if cp_name.startswith("checkpoint-") else None
+                  if state.get("global_step") != step or state.get("max_steps") != spec.get("max_steps"):
+                      all_checkpoint_hashes_valid = False
+                  if adapter_config.get("r") != spec.get("lora_rank"):
+                      all_checkpoint_hashes_valid = False
+                  checkpoints[cp_name] = {
+                      "global_step": state.get("global_step"),
+                      "max_steps": state.get("max_steps"),
+                      "required_files_missing": missing,
+                      "file_count": len(actual_files),
+                      "optimizer_bytes": (cp_dir / "optimizer.pt").stat().st_size if (cp_dir / "optimizer.pt").is_file() else 0,
+                      "scheduler_bytes": (cp_dir / "scheduler.pt").stat().st_size if (cp_dir / "scheduler.pt").is_file() else 0,
+                      "rng_bytes": (cp_dir / "rng_state.pth").stat().st_size if (cp_dir / "rng_state.pth").is_file() else 0,
+                      "adapter_file_sha256": actual_files.get("adapter_model.safetensors")
+                  }
+              latest_adapter_dir = phase_dir / "latest_adapter"
+              latest_adapter_files = result.get("latest_adapter_files", {})
+              latest_adapter_verified = bool(latest_adapter_files)
+              for filename, expected_sha in latest_adapter_files.items():
+                  p = latest_adapter_dir / filename
+                  if not p.is_file() or p.is_symlink() or digest(p) != expected_sha:
+                      latest_adapter_verified = False
+              sessions[phase] = {
+                  "new_optimizer_steps": result.get("new_optimizer_steps"),
+                  "total_optimizer_steps": result.get("total_optimizer_steps"),
+                  "optimizer_skips_in_this_session": result.get("optimizer_skips_in_this_session"),
+                  "adapter_weights_changed_in_this_session": result.get("adapter_weights_changed_in_this_session"),
+                  "adapter_parameter_digest": result.get("adapter_sha256"),
+                  "full_optimizer_checkpoint_saved": result.get("full_optimizer_checkpoint_saved"),
+                  "latest_sealed_checkpoint": result.get("latest_sealed_checkpoint"),
+                  "original_baseline_preserved_across_sessions": result.get("original_baseline_preserved_across_sessions"),
+                  "baseline_comparison": result.get("baseline_comparison"),
+                  "final_validation": result.get("final_validation"),
+                  "source_contract": spec,
+                  "checkpoints": checkpoints,
+                  "latest_adapter_verified": latest_adapter_verified
+              }
+
+          first_digest = sessions["first"].get("adapter_parameter_digest")
+          second_digest = sessions["second"].get("adapter_parameter_digest")
+          model_log = output / "williams-ai-v6-objective-smoke-20261124.log"
+          log_text = model_log.read_text(encoding="utf-8", errors="replace") if model_log.is_file() else ""
+          if not log_text:
+              event_log = (work / "kernel.log").read_text(encoding="utf-8", errors="replace")
+              chunks = []
+              for line in event_log.splitlines():
+                  try:
+                      obj = json.loads(line)
+                      if isinstance(obj, dict) and "data" in obj:
+                          chunks.append(str(obj["data"]))
+                  except Exception:
+                      chunks.append(line)
+              log_text = "".join(chunks)
+          error_lines = [
+              line.strip() for line in log_text.splitlines()
+              if re.search(r"(?i)(Traceback|[A-Za-z_][A-Za-z0-9_.]*(Error|Exception):|out of memory|CUDA error|WORKER_COMMAND_FAILED|killed)", line)
+          ]
+          summary = {
+              "schema": "WILLIAMS_V6_TRAINING_RECOVERY_VERIFICATION_V1",
+              "source_run_id": 45477754289,
+              "kernel_status": "ERROR_AFTER_EXECUTION",
+              "sessions": sessions,
+              "total_optimizer_steps_verified": sessions["second"].get("total_optimizer_steps"),
+              "first_to_second_adapter_digest_changed": bool(first_digest and second_digest and first_digest != second_digest),
+              "checkpoint_hashes_verified": all_checkpoint_hashes_valid,
+              "full_optimizer_scheduler_rng_states_present": all_required_states_present,
+              "aggregate_report_present": (root / "aggregate.json").is_file(),
+              "private_predictions_present": (root / "private_predictions.json").is_file(),
+              "kernel_log_bytes": len(log_text.encode("utf-8")),
+              "kernel_error_lines": error_lines[-30:],
+              "recovery_artifact_sha256": hashlib.sha256(raw).hexdigest(),
+              "recovery_artifact_bytes": len(raw)
+          }
+          report_path = Path(os.environ["RUNNER_TEMP"]) / "williams-v6-training-recovery-verification.json"
+          report_path.write_text(json.dumps(summary, sort_keys=True, indent=2), encoding="utf-8")
+          print("V6_TRAINING_RECOVERY_VERIFICATION", json.dumps(summary, sort_keys=True), flush=True)
+          shutil.rmtree(work, ignore_errors=True)
+          PY
+      - name: Upload non-weight verification summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-v6-training-recovery-verification
+          path: ${{ runner.temp }}/williams-v6-training-recovery-verification.json
+          if-no-files-found: error
+          retention-days: 30
