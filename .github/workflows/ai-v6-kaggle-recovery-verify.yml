@@ -51,7 +51,10 @@ jobs:
           if not raw.startswith(magic) or len(raw) < 39:
               raise SystemExit("SEALED_ARTIFACT_HEADER_INVALID")
           domain = b"williams-ai-v5-artifact-seal-v1"
-          salt, nonce, ciphertext = raw[11:27], raw[27:39], raw[39:]
+          offset = len(magic)
+          salt = raw[offset:offset + 16]
+          nonce = raw[offset + 16:offset + 28]
+          ciphertext = raw[offset + 28:]
           key = HKDF(algorithm=hashes.SHA256(), length=32, salt=salt, info=domain).derive(token.encode())
           plaintext = AESGCM(key).decrypt(nonce, ciphertext, domain)
 
