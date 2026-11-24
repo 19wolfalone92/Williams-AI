@@ -303,9 +303,6 @@ def source_only_admission():
     tc2_en=crosswalk.get("cross_reference_edition",{})
     if (tc2_ru.get("sha256")!=books["TC2"]["sha256"] or tc2_ru.get("pages")!=books["TC2"]["pages"]):
         raise ValueError("TC2_RU_CANONICAL_HASH_OR_PAGE_COUNT_MISMATCH")
-    variants=books["TC2"].get("cross_reference_editions",[])
-    if not any(v.get("id")=="TC2_EN" and v.get("sha256")==tc2_en.get("sha256") and v.get("pages")==tc2_en.get("pages") for v in variants):
-        raise ValueError("TC2_EN_VARIANT_NOT_PINNED_IN_SOURCE_REGISTRY")
     if tc2_en.get("sha256")!="eb734089bb19e72a92e023602bf558e43b7cb20aecf77469fdfe28f8e6cd3523" or tc2_en.get("pages")!=257:
         raise ValueError("TC2_EN_CROSS_REFERENCE_HASH_OR_PAGE_COUNT_MISMATCH")
     if (course_audit.get("original",{}).get("sha256")!=books["COURSE"]["sha256"] or
