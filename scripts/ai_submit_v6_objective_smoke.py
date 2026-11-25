@@ -26,8 +26,8 @@ from williams_ai.qlora_gpu_research import seal_checkpoints,latest_checkpoint,di
 from williams_ai.v6_objective_practice import curriculum
 from williams_ai.knowledge_training_v5 import BASE,REV
 
-SLUG="williams-ai-v6-objective-smoke-20261124"
-CONTROL="https://raw.githubusercontent.com/19wolfalone92/Williams-AI/research/williams-ai-source-sft-v6-20261124/experiments/v6-objective-smoke-control.json"
+SLUG="williams-ai-v6-objective-smoke-20261125-a1"
+CONTROL="https://raw.githubusercontent.com/19wolfalone92/Williams-AI/research/williams-ai-source-sft-v6-20261124/experiments/v6-objective-smoke-control-20261125-a1.json"
 GPU_TIMEOUT=2700
 MIN_QUOTA=3600
 MAX_PRIVATE_INVENTORY_PAGES=1000
