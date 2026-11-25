@@ -84,7 +84,7 @@ def run(args):
   sealed=_seal_data(json.dumps(records,ensure_ascii=False,separators=(",",":")).encode(),secret)
   (root/(name.lower()+"-responses.json.sealed")).write_bytes(sealed)
   print("WILLIAMS_AI_CORRECTIVE_CPU_PROBE",name,json.dumps(summaries[name],sort_keys=True),flush=True)
-  model.close();del model;gc.collect()
+  del model;gc.collect()
  report={"schema":"WILLIAMS_AI_CORRECTIVE_CPU_PROBE_V1","dataset_manifest":manifest,"models":summaries,
   "base_gguf_sha256":args.base_sha256,"development_cases":len(dev),"decoder":"greedy_llama_cpp_equal_conditions",
   "max_new_tokens":256,"n_ctx":2048,"closed_book":True,"independent_final_exam":False,

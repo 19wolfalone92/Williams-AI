@@ -4,7 +4,7 @@ from collections import Counter
 from decimal import Decimal
 import hashlib,json,random
 from typing import Any
-from williams_ai.book_rules import load_rule_cards
+from williams_ai.book_rules import registry
 
 SEED=20261125
 GENERATOR_VERSION="v6-corrective-1.0"
@@ -250,7 +250,7 @@ def _balanced_template_plan(labels,seed,require_low_baseline):
  raise ValueError("PROMPT_TEMPLATE_SHORTCUT_ASSIGNMENT_FAILED")
 
 def corrective_curriculum():
- loaded=load_rule_cards();ids=set(loaded.keys()) if isinstance(loaded,dict) else {x["id"] for x in loaded}
+ loaded=registry();ids={x["id"] for x in loaded["rule_cards"]}
  missing=sorted({x["rule_id"] for x in RULES.values()}-ids)
  if missing:raise ValueError("CORRECTIVE_RULE_CARD_MISSING:"+",".join(missing))
  rows=[];template_audit={}
