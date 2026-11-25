@@ -257,7 +257,8 @@ def corrective_curriculum():
  for si,split in enumerate(SPLIT_ORDER):
   for fi,(family,gen) in enumerate(GENERATORS.items()):
    seed=SEED+si*100003+fi*1009;count=SPLIT_COUNTS[split]
-   preview=[gen(random.Random(seed),split,i,0) for i in range(count)]
+   preview_rng=random.Random(seed)
+   preview=[gen(preview_rng,split,i,0) for i in range(count)]
    labels=[_template_label(x) for x in preview]
    tids=_balanced_template_plan(labels,seed+7919,split=="train")
    rng=random.Random(seed);family_rows=[gen(rng,split,i,tids[i]) for i in range(count)]
