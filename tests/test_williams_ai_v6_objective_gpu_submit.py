@@ -117,3 +117,36 @@ class SubmitContracts(unittest.TestCase):
             return SimpleNamespace(kernels=[witness,first,second],next_page_token=None)
         api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
         self.assertTrue(status_absent(api,"owner/new-kernel-target"))
+
+
+    def test_inventory_completes_after_legacy_100_page_cap(self):
+        def denied(kernel):
+            raise ValueError(f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied).")
+        witness=SimpleNamespace(ref="owner/williams-ai-v5-book-sft-20261111",id=1)
+        calls=0
+        def inventory(**kw):
+            nonlocal calls
+            calls+=1
+            if calls==1:
+                return SimpleNamespace(kernels=[witness],next_page_token="page-1")
+            if calls<=101:
+                return SimpleNamespace(kernels=[],next_page_token=f"page-{calls}")
+            return SimpleNamespace(kernels=[],next_page_token=None)
+        api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
+        self.assertTrue(status_absent(api,"owner/new-kernel-target"))
+        self.assertEqual(calls,102)
+
+    def test_inventory_page_cap_fails_closed(self):
+        def denied(kernel):
+            raise ValueError(f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied).")
+        witness=SimpleNamespace(ref="owner/williams-ai-v5-book-sft-20261111",id=1)
+        calls=0
+        def inventory(**kw):
+            nonlocal calls
+            calls+=1
+            return SimpleNamespace(kernels=[witness] if calls==1 else [],
+                                   next_page_token=f"page-{calls}")
+        api=SimpleNamespace(kernels_status=denied,kernels_list_with_response=inventory)
+        with self.assertRaisesRegex(RuntimeError,"ABSENCE_NOT_VERIFIED"):
+            status_absent(api,"owner/new-kernel-target")
+        self.assertEqual(calls,1000)

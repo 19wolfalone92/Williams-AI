@@ -30,6 +30,8 @@ SLUG="williams-ai-v6-objective-smoke-20261124"
 CONTROL="https://raw.githubusercontent.com/19wolfalone92/Williams-AI/research/williams-ai-source-sft-v6-20261124/experiments/v6-objective-smoke-control.json"
 GPU_TIMEOUT=2700
 MIN_QUOTA=3600
+MAX_PRIVATE_INVENTORY_PAGES=1000
+MAX_PRIVATE_INVENTORY_SECONDS=300
 
 
 def check_control():
@@ -137,12 +139,10 @@ def _inventory_identity(owner,item):
 
 
 def own_inventory_absent(api,kernel):
-    """Use complete authenticated personal inventory, never a public search.
+    """Prove absence from a complete authenticated personal inventory.
 
-    Kaggle CLI's documented title-to-slug normalization resolves metadata rows
-    that omit both ref and slug. A positive numeric id is checked when present;
-    a unique owner-scoped canonical slug remains the resource identifier when
-    the SDK omits that optional metadata field. Ambiguity remains fail-closed.
+    The old 100-page ceiling silently exhausted an arbitrary cap. Keep the
+    check fail-closed, but allow 1000 pages / 5 minutes with bounded progress.
     """
     parts=kernel.casefold().split("/")
     if len(parts)!=2 or not all(parts):
@@ -154,14 +154,17 @@ def own_inventory_absent(api,kernel):
     token=None
     refs={}
     ids={}
-    inferred_count=0
-    missing_id_count=0
-    duplicate_rows=0
+    inferred_count=missing_id_count=duplicate_rows=rows_seen=pages_read=0
+    started=time.monotonic()
     try:
-        for page_index in range(100):
+        for page_index in range(MAX_PRIVATE_INVENTORY_PAGES):
+            if time.monotonic()-started>MAX_PRIVATE_INVENTORY_SECONDS:
+                raise ValueError("INVENTORY_TIME_BUDGET_EXCEEDED")
             page=api.kernels_list_with_response(mine=True,user=owner,page_size=100,page_token=token)
             if page is None or not isinstance(page.kernels,list):
                 raise ValueError("INVALID_PRIVATE_INVENTORY")
+            rows_seen+=len(page.kernels)
+            pages_read=page_index+1
             for row_index,item in enumerate(page.kernels):
                 if item is None:
                     raise ValueError("NULL_PRIVATE_INVENTORY_ENTRY")
@@ -172,10 +175,8 @@ def own_inventory_absent(api,kernel):
                     raw_id=getattr(item,"id",None)
                     raw_ref=getattr(item,"ref",None)
                     raw_slug=getattr(item,"slug",None)
-                    try:
-                        keys=sorted(vars(item).keys())
-                    except Exception:
-                        keys=[]
+                    try: keys=sorted(vars(item).keys())
+                    except Exception: keys=[]
                     print("V6_INVENTORY_UNRESOLVED_ROW",json.dumps({
                         "row_index":row_index,"item_type":type(item).__name__,
                         "field_keys":keys,"id_type":type(raw_id).__name__,
@@ -198,8 +199,6 @@ def own_inventory_absent(api,kernel):
                             "same_positive_id":False
                         }),flush=True)
                         raise ValueError("INVENTORY_DUPLICATE_SLUG_AMBIGUOUS")
-                    # owner/slug is Kaggle's unique kernel key. Duplicate list
-                    # rows are safe to collapse unless two positive ids conflict.
                     if previous_id is None and item_id is not None:
                         refs[ref]=item_id
                     duplicate_rows+=1
@@ -222,19 +221,28 @@ def own_inventory_absent(api,kernel):
             if not token:
                 if witness not in refs:
                     raise ValueError("PRIVATE_V5_VISIBILITY_WITNESS_MISSING")
-                print("V6_PRIVATE_INVENTORY_VERIFIED",
-                      json.dumps({"kernels":len(refs),"title_slug_inferred":inferred_count,
-                                  "numeric_id_missing":missing_id_count,"identical_duplicate_rows":duplicate_rows}),
-                      flush=True)
+                print("V6_PRIVATE_INVENTORY_VERIFIED",json.dumps({
+                    "kernels":len(refs),"pages_read":pages_read,"rows_seen":rows_seen,
+                    "title_slug_inferred":inferred_count,"numeric_id_missing":missing_id_count,
+                    "identical_duplicate_rows":duplicate_rows,
+                    "elapsed_seconds":round(time.monotonic()-started,3),
+                    "target_present":kernel in refs
+                }),flush=True)
                 return kernel not in refs
             if not isinstance(token,str) or token in seen:
                 raise ValueError("INVALID_INVENTORY_PAGINATION")
             seen.add(token)
+            if pages_read%25==0:
+                print("V6_PRIVATE_INVENTORY_PROGRESS",json.dumps({
+                    "pages_read":pages_read,"rows_seen":rows_seen,"unique_kernels":len(refs)
+                }),flush=True)
+        raise ValueError("INVENTORY_PAGE_CAP_REACHED")
     except Exception as exc:
         reason=str(exc)
-        print("V6_INVENTORY_REJECTED",type(exc).__name__,reason if reason.startswith(("INVENTORY_","PRIVATE_","INVALID_")) else "NONCANONICAL_ERROR",flush=True)
+        print("V6_INVENTORY_REJECTED",type(exc).__name__,
+              reason if reason.startswith(("INVENTORY_","PRIVATE_","INVALID_")) else "NONCANONICAL_ERROR",
+              flush=True)
         raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED") from None
-    raise RuntimeError("KAGGLE_KERNEL_ABSENCE_NOT_VERIFIED")
 
 
 def status_absent(api,kernel):
