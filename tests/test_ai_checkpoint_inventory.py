@@ -46,7 +46,7 @@ def v6_fixture(root,include_optimizer=True):
     with ZipFile(b,"w") as z:
         z.writestr(prefix+"latest_adapter/adapter_model.safetensors",adapter)
         z.writestr(prefix+"latest_adapter/adapter_config.json",json.dumps(adapter_cfg))
-        z.writestr(prefix+"research_result.json",json.dumps({"adapter_sha256":sha,"total_optimizer_steps":20,"optimizer_skips_in_this_session":0}))
+        z.writestr(prefix+"research_result.json",json.dumps({"adapter_sha256":"parameter-digest-not-file-sha","latest_adapter_files":{"adapter_model.safetensors":sha},"total_optimizer_steps":20,"optimizer_skips_in_this_session":0}))
         z.writestr(prefix+"contract.json",contract_bytes)
         z.writestr(prefix+"checkpoint_sha256.json",json.dumps(manifest))
         for name,data in checkpoint.items():z.writestr(prefix+"checkpoints/checkpoint-20/"+name,data)

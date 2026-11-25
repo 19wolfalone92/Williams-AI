@@ -88,7 +88,7 @@ def inspect_v6(directory:Path,secret:str):
         if name not in names: raise ValueError("V6_REQUIRED_RECOVERY_MEMBER_MISSING")
     weight=members[weight_name]; receipt=json.loads(members[receipt_name]); cfg=json.loads(members[config_name])
     adapter_sha=hashlib.sha256(weight).hexdigest()
-    receipt_adapter_sha=receipt.get("adapter_sha256") or receipt.get("latest_adapter_files",{}).get("adapter_model.safetensors")
+    receipt_adapter_sha=receipt.get("latest_adapter_files",{}).get("adapter_model.safetensors") or receipt.get("adapter_sha256")
     if adapter_sha!=V6_ADAPTER_SHA256 or receipt_adapter_sha!=adapter_sha:
         raise ValueError("V6_RECOVERED_ADAPTER_SHA_MISMATCH")
     ckpt_prefix=prefix+"checkpoints/checkpoint-20/"
