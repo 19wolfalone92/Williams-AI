@@ -4,7 +4,7 @@ import argparse,hashlib,json,os,re,subprocess,sys
 from pathlib import Path
 from scripts.ai_submit_v5_qlora_kaggle import _seal_data
 
-KERNEL="19wolfalone92/williams-ai-v6-objective-smoke-20261125-a1"
+KERNEL_SLUG="williams-ai-v6-objective-smoke-20261125-a1"
 
 def redact(text,secrets):
     value=str(text)
@@ -76,12 +76,17 @@ def run(output_dir:Path,secret_env:str,secondary_env:str):
     os.environ["KAGGLE_API_TOKEN"]=primary
     from kaggle.api.kaggle_api_extended import KaggleApi
     api=KaggleApi();api.authenticate()
+    from kagglehub.auth import get_username
+    owner=get_username()
+    if not isinstance(owner,str) or not re.fullmatch(r"[a-zA-Z0-9_-]+",owner):
+        raise ValueError("KAGGLE_OWNER_UNVERIFIED")
+    kernel=owner+"/"+KERNEL_SLUG
     try:
-        status=str(api.kernels_status(KERNEL).status)
+        status=str(api.kernels_status(kernel).status)
     except Exception as exc:
         status="STATUS_QUERY_ERROR:"+type(exc).__name__
     try:
-        kernel_log=api.kernels_logs(KERNEL) or ""
+        kernel_log=api.kernels_logs(kernel) or ""
     except Exception:
         kernel_log=""
     # Report only fixed categories in public CI, never remote error strings.
@@ -100,7 +105,7 @@ def run(output_dir:Path,secret_env:str,secondary_env:str):
     print("WILLIAMS_AI_KERNEL_FAILURE_CLASSES",json.dumps({"classes":matched,"log_available":bool(kernel_log)},sort_keys=True),flush=True)
     outdir=output_dir/"kernel-output"
     outdir.mkdir(mode=0o700)
-    cmd=["kaggle","kernels","output",KERNEL,"-p",str(outdir)]
+    cmd=["kaggle","kernels","output",kernel,"-p",str(outdir)]
     proc=subprocess.run(cmd,capture_output=True,text=True,timeout=240,env=os.environ.copy())
     secrets=[primary,secondary]
     files=[];log_tail=[]
@@ -111,13 +116,13 @@ def run(output_dir:Path,secret_env:str,secondary_env:str):
         text=redact(_extract_text(path),secrets)
         if text:
             log_tail.append({"name":path.name,"tail":text.splitlines()[-240:]})
-    report={"schema":"WILLIAMS_AI_KAGGLE_KERNEL_DIAGNOSTIC_V1","kernel":KERNEL,"status":redact(status,secrets),
+    report={"schema":"WILLIAMS_AI_KAGGLE_KERNEL_DIAGNOSTIC_V1","kernel":KERNEL_SLUG,"status":redact(status,secrets),
       "accounts":accounts,"output_command":{"exit_code":proc.returncode,"stdout":redact(proc.stdout,secrets)[-12000:],
       "stderr":redact(proc.stderr,secrets)[-12000:]},"files":files,"log_tail":log_tail,"kernel_log":redact(kernel_log,secrets),
       "training_claim":False,"new_gpu_run_started":False,"private_output_only":True}
     sealed=_seal_data(json.dumps(report,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode(),primary)
     dest=output_dir/"kaggle-kernel-diagnostic.json.sealed";dest.write_bytes(sealed)
-    print("WILLIAMS_AI_KAGGLE_KERNEL_DIAGNOSTIC",json.dumps({"kernel":KERNEL,"status":report["status"],
+    print("WILLIAMS_AI_KAGGLE_KERNEL_DIAGNOSTIC",json.dumps({"kernel":KERNEL_SLUG,"status":report["status"],
       "output_files":len(files),"secondary_account":accounts["secondary"]["authenticated"],
       "encrypted_sha256":hashlib.sha256(sealed).hexdigest(),"plaintext_logs_emitted":False},sort_keys=True),flush=True)
 
