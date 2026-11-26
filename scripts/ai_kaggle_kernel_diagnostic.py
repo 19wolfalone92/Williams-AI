@@ -76,8 +76,28 @@ def run(output_dir:Path,secret_env:str,secondary_env:str):
     os.environ["KAGGLE_API_TOKEN"]=primary
     from kaggle.api.kaggle_api_extended import KaggleApi
     api=KaggleApi();api.authenticate()
-    try:status=str(api.kernels_status(KERNEL))
-    except Exception as exc:status="STATUS_QUERY_ERROR:"+type(exc).__name__+":"+str(exc)
+    try:
+        status=str(api.kernels_status(KERNEL).status)
+    except Exception as exc:
+        status="STATUS_QUERY_ERROR:"+type(exc).__name__
+    try:
+        kernel_log=api.kernels_logs(KERNEL) or ""
+    except Exception:
+        kernel_log=""
+    # Report only fixed categories in public CI, never remote error strings.
+    log_text=str(kernel_log).lower()
+    signatures={
+        "RELOADED_ADAPTER_LOGITS_MISMATCH":"reloaded_adapter_logits_mismatch",
+        "CUDA_OUT_OF_MEMORY":"cuda out of memory",
+        "DEPENDENCY_IMPORT_ERROR":"modulenotfounderror",
+        "HF_DOWNLOAD_ERROR":"huggingface_hub.errors",
+        "NONFINITE_LOSS":"nonfinite",
+        "WORKER_TIMEOUT":"timeout",
+        "WORKER_EXIT":"worker_command_failed",
+        "PYTHON_TRACEBACK":"traceback",
+    }
+    matched=[name for name,pattern in signatures.items() if pattern in log_text]
+    print("WILLIAMS_AI_KERNEL_FAILURE_CLASSES",json.dumps({"classes":matched,"log_available":bool(kernel_log)},sort_keys=True),flush=True)
     outdir=output_dir/"kernel-output"
     outdir.mkdir(mode=0o700)
     cmd=["kaggle","kernels","output",KERNEL,"-p",str(outdir)]
@@ -93,7 +113,7 @@ def run(output_dir:Path,secret_env:str,secondary_env:str):
             log_tail.append({"name":path.name,"tail":text.splitlines()[-240:]})
     report={"schema":"WILLIAMS_AI_KAGGLE_KERNEL_DIAGNOSTIC_V1","kernel":KERNEL,"status":redact(status,secrets),
       "accounts":accounts,"output_command":{"exit_code":proc.returncode,"stdout":redact(proc.stdout,secrets)[-12000:],
-      "stderr":redact(proc.stderr,secrets)[-12000:]},"files":files,"log_tail":log_tail,
+      "stderr":redact(proc.stderr,secrets)[-12000:]},"files":files,"log_tail":log_tail,"kernel_log":redact(kernel_log,secrets),
       "training_claim":False,"new_gpu_run_started":False,"private_output_only":True}
     sealed=_seal_data(json.dumps(report,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode(),primary)
     dest=output_dir/"kaggle-kernel-diagnostic.json.sealed";dest.write_bytes(sealed)
