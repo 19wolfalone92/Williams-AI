@@ -39,11 +39,29 @@ def _extract_text(path):
     except Exception:return ""
 
 def _account_check(token):
-    from kaggle.api.kaggle_api_extended import KaggleApi
-    os.environ["KAGGLE_API_TOKEN"]=token
-    api=KaggleApi();api.authenticate()
-    quota=api.get_accelerator_quota_statistics()
-    return {"authenticated":True,"quota":str(quota)}
+    # Separate process avoids cached authentication across accounts.
+    env=os.environ.copy()
+    for key in ("KAGGLE_API_TOKEN","KAGGLE_API_TOKEN_2","KAGGLE_KEY","KAGGLE_USERNAME"):
+        env.pop(key,None)
+    env["KAGGLE_API_TOKEN"]=token
+    probe="""import json
+from kaggle.api.kaggle_api_extended import KaggleApi
+from kagglesdk.kernels.types.kernels_api_service import ApiGetAcceleratorQuotaStatisticsRequest
+api=KaggleApi()
+api.authenticate()
+with api.build_kaggle_client() as client:
+    quota=client.kernels.kernels_api_client.get_accelerator_quota_statistics(ApiGetAcceleratorQuotaStatisticsRequest()).gpu_quota
+remaining=(quota.total_time_allowed-quota.time_used).total_seconds() if quota else None
+print(json.dumps({"authenticated":True,"gpu_quota_seconds":remaining}))
+"""
+    try:
+        proc=subprocess.run([sys.executable,"-c",probe],env=env,capture_output=True,text=True,timeout=60)
+        if proc.returncode: return {"authenticated":False,"state":"ACCOUNT_PROBE_FAILED","exit_code":proc.returncode}
+        data=json.loads(proc.stdout.splitlines()[-1])
+        if data.get("authenticated") is not True: raise ValueError("INVALID_ACCOUNT_PROBE")
+        return data
+    except (OSError,ValueError,IndexError,subprocess.TimeoutExpired) as exc:
+        return {"authenticated":False,"state":type(exc).__name__}
 
 def run(output_dir:Path,secret_env:str,secondary_env:str):
     primary=os.environ.get(secret_env,"")
@@ -53,6 +71,8 @@ def run(output_dir:Path,secret_env:str,secondary_env:str):
     output_dir.mkdir(parents=True,exist_ok=False)
     accounts={"primary":_account_check(primary),
               "secondary":_account_check(secondary) if len(secondary)>=20 else {"authenticated":False,"state":"NOT_CONFIGURED"}}
+    print("WILLIAMS_AI_KAGGLE_ACCOUNT_QUOTAS",json.dumps(accounts,sort_keys=True),flush=True)
+    if not accounts["primary"]["authenticated"]:raise RuntimeError("PRIMARY_KAGGLE_AUTH_NOT_VERIFIED")
     os.environ["KAGGLE_API_TOKEN"]=primary
     from kaggle.api.kaggle_api_extended import KaggleApi
     api=KaggleApi();api.authenticate()

@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install Kaggle API and authenticated artifact dependency
-        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'cryptography>=44,<48'
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'cryptography>=44,<48' 'six>=1.16,<2' 'numpy>=2,<3' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1'
       - name: Test log redaction
         run: python -m unittest tests.test_ai_kaggle_kernel_diagnostic -v
       - name: Retrieve failed kernel diagnostics and check optional second account
