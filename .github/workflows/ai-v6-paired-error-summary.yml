@@ -1,0 +1,69 @@
+name: Williams AI paired development error summary (no answer export)
+on:
+  push:
+    branches: [research/williams-ai-source-sft-v6-20261124]
+    paths: ['.github/workflows/ai-v6-paired-error-summary.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: williams-ai-paired-error-summary
+  cancel-in-progress: false
+jobs:
+  analyze:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+      - uses: actions/download-artifact@v4
+        with:
+          name: Williams-v6-recovered-development-comparison
+          run-id: 45497821820
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/williams-v6-comparison
+      - name: Compute paired statistics without releasing answers or source material
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python - <<'PY'
+          from collections import Counter
+          from math import comb
+          from pathlib import Path
+          import json,os
+          from scripts.ai_v6_decrypt_dev_comparison import build_error_map_from_directory
+          report=build_error_map_from_directory(Path(os.environ["RUNNER_TEMP"])/"williams-v6-comparison",os.environ.pop("KAGGLE_API_TOKEN"))
+          names=("BASE","V5","V6")
+          def paired(a,b,cases):
+              gains=sum(c["models"][a]["grade"]=="CORRECT" and c["models"][b]["grade"]!="CORRECT" for c in cases)
+              losses=sum(c["models"][a]["grade"]!="CORRECT" and c["models"][b]["grade"]=="CORRECT" for c in cases)
+              n=gains+losses
+              p=min(1.0,2*sum(comb(n,k) for k in range(min(gains,losses)+1))/2**n) if n else 1.0
+              return {"gains":gains,"losses":losses,"unchanged":len(cases)-n,"mcnemar_exact_two_sided_p":p}
+          cases=report["cases"]
+          families={}
+          for family in sorted({c["family"] for c in cases}):
+              group=[c for c in cases if c["family"]==family]
+              families[family]={"both_trained_vs_base":{m:paired(m,"BASE",group) for m in ("V5","V6")},
+                  "all_models_wrong":sum(all(c["models"][m]["grade"]!="CORRECT" for m in names) for c in group)}
+          matrix=[{"ordinal":i+1,"family":c["family"],"grades":{m:c["models"][m]["grade"] for m in names}} for i,c in enumerate(cases)]
+          out={"schema":"WILLIAMS_PAIRED_DEVELOPMENT_DIAGNOSTIC_V1","n":len(cases),"source_run":45497821820,
+               "paired":{m:paired(m,"BASE",cases) for m in ("V5","V6")},"families":families,
+               "grade_matrix":matrix,"raw_answers_exported":False,"root_causes_proven":False,"qualification":False}
+          assert len(matrix)==32 and all(set(c)=={"ordinal","family","grades"} for c in matrix)
+          dest=Path(os.environ["RUNNER_TEMP"])/"paired-summary.json"
+          dest.write_text(json.dumps(out,sort_keys=True,indent=2))
+          print("WILLIAMS_PAIRED_SUMMARY",json.dumps(out,sort_keys=True),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: williams-ai-paired-error-summary
+          path: ${{ runner.temp }}/paired-summary.json
+          if-no-files-found: error
+          retention-days: 21
