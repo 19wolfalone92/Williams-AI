@@ -1,0 +1,39 @@
+name: Williams AI V6 controlled GPU recovery and Candidate A corrective training
+on:
+  push:
+    branches: [research/williams-ai-source-sft-v6-20261124]
+    paths: ['.github/workflows/ai-v6-corrective-gpu.yml']
+permissions:
+  contents: read
+concurrency:
+  group: williams-v6-objective-cuda-smoke-20261124
+  cancel-in-progress: false
+jobs:
+  train:
+    if: github.repository == '19wolfalone92/Williams-AI' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify Python syntax and existing corrective data contracts
+        run: |
+          python -m pip install --quiet 'cryptography>=44,<48' 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3' 'python-slugify>=8,<9'
+          python -m py_compile scripts/ai_v6_corrective_gpu.py scripts/ai_submit_v6_corrective_gpu.py
+          python -m unittest tests.test_v6_corrective_curriculum tests.test_ai_v6_corrective_probe_cpu -v
+      - name: One new private Kaggle job with quota and reload gates
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: python -m scripts.ai_submit_v6_corrective_gpu
+      - name: Preserve encrypted weights even if later qualification fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-v6-corrective-a-${{ github.run_id }}
+          path: ${{ runner.temp }}/williams-corrective-sealed/
+          if-no-files-found: warn
+          retention-days: 21
