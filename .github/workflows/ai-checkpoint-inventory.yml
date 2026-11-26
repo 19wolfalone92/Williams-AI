@@ -1,0 +1,60 @@
+name: Williams AI inspect encrypted V5 V6 checkpoint recoverability
+on:
+  push:
+    branches: [research/williams-ai-source-sft-v6-20261124]
+    paths:
+      - .github/workflows/ai-checkpoint-inventory.yml
+      - scripts/ai_checkpoint_inventory.py
+      - tests/test_ai_checkpoint_inventory.py
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: williams-ai-checkpoint-inventory
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimal cryptographic runtime
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+      - name: Verify checkpoint inventory and encryption tests
+        run: python -m unittest discover -s tests -p test_ai_checkpoint_inventory.py -v
+      - name: Download sealed V5 adapter recovery artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Williams-v5-strict-recovery-45406594397-1
+          run-id: 45406594397
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/v5-recovery
+      - name: Download sealed V6 adapter and checkpoint recovery artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: williams-v6-failed-run-recovery-encrypted
+          run-id: 45480042116
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/v6-recovery
+      - name: Inspect archive manifests and encrypt the report for this session
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python -m scripts.ai_checkpoint_inventory \
+            --v5-directory "$RUNNER_TEMP/v5-recovery" \
+            --v6-directory "$RUNNER_TEMP/v6-recovery" \
+            --public-key research/keys/williams-ai-diagnostic-public.pem \
+            --output "$RUNNER_TEMP/checkpoint-inventory-encrypted.json"
+      - name: Upload only the encrypted checkpoint inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-ai-checkpoint-inventory-encrypted-${{ github.run_id }}
+          path: ${{ runner.temp }}/checkpoint-inventory-encrypted.json
+          if-no-files-found: error
+          retention-days: 7

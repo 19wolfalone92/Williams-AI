@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install test dependency for authenticated LoRA test
-        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'python-slugify>=8,<9'
       - name: Offline unit tests (no credentials, no network needed)
         run: python -m unittest discover -s tests -p "test_williams_ai_*.py" -v
       - name: CLI read-only example

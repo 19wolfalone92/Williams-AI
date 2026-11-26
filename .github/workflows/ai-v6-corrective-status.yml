@@ -1,0 +1,45 @@
+name: Williams AI verify actual corrective Kaggle job status (read only)
+on:
+  push:
+    branches: [research/williams-ai-source-sft-v6-20261124]
+    paths: ['.github/workflows/ai-v6-corrective-status.yml']
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --quiet 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Read only the authenticated job state and quota
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json,time
+          from kaggle.api.kaggle_api_extended import KaggleApi
+          from kagglehub.auth import get_username
+          from kagglesdk.kernels.types.kernels_api_service import ApiGetAcceleratorQuotaStatisticsRequest
+          api=KaggleApi();api.authenticate()
+          owner=get_username()
+          if not owner:raise RuntimeError("OWNER_NOT_VERIFIED")
+          slug="williams-ai-v6-corrective-a-20261126-g1"
+          state="NOT_OBSERVED"
+          for _ in range(6):
+              try:
+                  state=str(api.kernels_status(owner+"/"+slug).status)
+                  break
+              except Exception:
+                  time.sleep(10)
+          with api.build_kaggle_client() as client:
+              q=client.kernels.kernels_api_client.get_accelerator_quota_statistics(ApiGetAcceleratorQuotaStatisticsRequest()).gpu_quota
+              remaining=(q.total_time_allowed-q.time_used).total_seconds() if q else None
+          try: logs=str(api.kernels_logs(owner+"/"+slug) or "")
+          except Exception: logs=""
+          tags=[s for s in ("WILLIAMS_A_GPU_RECEIPT","VERIFIED_V6_SOURCE_NOT_MOUNTED","CONTROLLED_RELOAD_LOGITS_MISMATCH","DIAGNOSTIC_OPTIMIZER_SKIPPED","WORKER_COMMAND_FAILED","OUT_OF_MEMORY","CORRECTIVE_DATASET_SHA_MISMATCH") if s in logs]
+          print("CORRECTIVE_STATUS_EVIDENCE",json.dumps({"slug":slug,"state":state,"quota_seconds":remaining,"markers":tags,"logs_available":bool(logs)},sort_keys=True),flush=True)
+          if state=="NOT_OBSERVED":raise RuntimeError("KAGGLE_SUBMISSION_NOT_YET_CONFIRMED")
+          PY

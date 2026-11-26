@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install authenticated artifact and reviewer signature test dependency
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'python-slugify>=8,<9'
       - name: Supervision leakage and approval contracts
         run: python -m unittest discover -s tests -p 'test_williams_ai_*.py' -q
       - name: Tokenizer runtime only, NO torch or weights or GPU
@@ -42,7 +44,8 @@ jobs:
           from test_williams_ai_chart_supervision import chart_case
 
           repo='Qwen/Qwen3-4B'
-          revision=HfApi().model_info(repo).sha
+          revision='3fb356690bbdae7353c94efb3eecdce276e6ed1c'
+          assert HfApi().model_info(repo,revision=revision).sha==revision
           root=Path(snapshot_download(repo, revision=revision,
               allow_patterns=['tokenizer.json','tokenizer_config.json','vocab.json',
                               'merges.txt','config.json'],

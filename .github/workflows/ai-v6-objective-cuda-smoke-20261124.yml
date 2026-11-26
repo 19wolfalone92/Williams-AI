@@ -1,0 +1,43 @@
+name: Williams AI V6 objective Qwen3-4B CUDA smoke (owner-scoped metadata, private)
+on:
+  push:
+    branches: [research/williams-ai-source-sft-v6-20261124]
+    paths: ['.github/workflows/ai-v6-objective-cuda-smoke-20261124.yml', 'scripts/ai_submit_v6_objective_smoke.py', 'tests/test_williams_ai_v6_objective_gpu_submit.py']
+permissions:
+  contents: read
+concurrency:
+  group: williams-v6-objective-cuda-smoke-20261124
+  cancel-in-progress: false
+jobs:
+  private-gpu-smoke:
+    if: github.repository == '19wolfalone92/Williams-AI' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Objective practice, held-out development labels and submission contracts
+        run: |
+          python -m pip install --quiet --disable-pip-version-check 'python-slugify>=8,<9'
+          python -m unittest discover -s tests -p 'test_williams_ai_v6_objective*.py' -v
+          python -m unittest discover -s tests -p 'test_williams_ai_lora_step_accounting.py' -v
+          python -m williams_ai.v6_objective_practice
+      - name: Install official Kaggle API and encryption dependency
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48' 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'kagglesdk>=0.1' 'six>=1.16,<2' 'numpy>=2,<3'
+      - name: Submit exactly one private run with confirmed free GPU quota and bounded timeout
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: python -m scripts.ai_submit_v6_objective_smoke
+      - name: Publish aggregate and authenticated encrypted checkpoints ONLY
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-v6-objective-cuda-smoke-sealed-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/williams-v6-objective-sealed/aggregate.json
+            ${{ runner.temp }}/williams-v6-objective-sealed/v6-objective-checkpoints.zip.sealed
+          if-no-files-found: error
+          retention-days: 21

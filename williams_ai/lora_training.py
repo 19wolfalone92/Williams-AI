@@ -13,6 +13,17 @@ from typing import Any
 from .lora_integrity import EDITIONS, validation_admission
 
 
+def require_actual_optimizer_step(accelerator, *, previous_step: int, reported_step: int) -> int:
+    """Never count an AMP-overflow skip or a discontinuous Trainer counter as an update."""
+    skipped = getattr(accelerator, "optimizer_step_was_skipped", None)
+    if skipped is not False:
+        raise ValueError("OPTIMIZER_UPDATE_SKIPPED_OR_UNOBSERVABLE")
+    if (type(previous_step) is not int or previous_step < 0 or
+            type(reported_step) is not int or reported_step != previous_step + 1):
+        raise ValueError("OPTIMIZER_STEP_COUNTER_DISCONTINUITY")
+    return reported_step
+
+
 @dataclass(frozen=True)
 class LoraPlan:
     rank: int = 16
@@ -76,11 +87,21 @@ def fit_lora(base_model: Any, trainrows: list[dict], validation: dict[str, list[
         return {"input_ids": pad("input_ids", pad_token_id),
                 "attention_mask": pad("attention_mask", 0), "labels": pad("labels", -100)}
 
+    observed_steps = 0
+
     class FiniteGradients(TrainerCallback):
         def on_pre_optimizer_step(self, args, state, control, **kwargs):
             gradients = [p.grad for p in trainable.values() if p.grad is not None]
             if not gradients or any(not torch.isfinite(g).all().item() for g in gradients):
                 raise ValueError("NONFINITE_OR_MISSING_LORA_GRADIENTS")
+            if not any(torch.count_nonzero(g).item() for g in gradients):
+                raise ValueError("ALL_ZERO_LORA_GRADIENTS")
+
+        def on_step_end(self, args, state, control, **kwargs):
+            nonlocal observed_steps
+            observed_steps = require_actual_optimizer_step(trainer.accelerator,
+                previous_step=observed_steps, reported_step=state.global_step)
+            return control
 
         def on_log(self, args, state, control, logs=None, **kwargs):
             for key in ("loss", "grad_norm"):
@@ -126,7 +147,7 @@ def fit_lora(base_model: Any, trainrows: list[dict], validation: dict[str, list[
     after = scores()  # Trainer has reloaded its best validation checkpoint.
     steps = trainer.state.global_step
     checkpoint = trainer.state.best_model_checkpoint
-    if type(steps) is not int or steps <= 0 or not checkpoint:
+    if type(steps) is not int or steps <= 0 or steps != observed_steps or not checkpoint:
         raise ValueError("NO_ACTUAL_LORA_OPTIMIZER_STEP_OR_BEST_CHECKPOINT")
     selected = int(Path(checkpoint).name.removeprefix("checkpoint-"))
     if not 0 < selected <= steps:
@@ -137,7 +158,8 @@ def fit_lora(base_model: Any, trainrows: list[dict], validation: dict[str, list[
                   for name, p in trainable.items())
     if not changed:
         raise ValueError("LORA_WEIGHTS_DID_NOT_CHANGE")
-    return model, {"optimizer_steps": steps, "selected_checkpoint_step": selected,
+    return model, {"optimizer_steps": observed_steps, "trainer_global_step": steps,
+        "optimizer_skips": 0, "selected_checkpoint_step": selected,
         "best_validation_checkpoint_reloaded": True, "adapter_weights_changed": True,
         "trainable_parameters": sum(p.numel() for p in trainable.values()),
         "base_parameters_frozen": True, "baseline_by_book": before,

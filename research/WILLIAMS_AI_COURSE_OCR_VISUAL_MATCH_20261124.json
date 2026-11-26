@@ -1,0 +1,42 @@
+{
+  "schema": "WILLIAMS_AI_COURSE_OCR_IMAGE_IDENTITY_AUDIT_V1",
+  "original": {
+    "file": "Bill Williams - Trading Chaos Course(1).pdf",
+    "pages": 122,
+    "sha256": "fc57f707378087bfc5146db5e242c51ce8135e0b359f0c607305b364e0decfca"
+  },
+  "searchable_copy": {
+    "file": "Course_122_SEARCHABLE_PRIVATE_OCR_UNVERIFIED.pdf",
+    "pages": 122,
+    "sha256": "bad46c5470ed4bc0b8943f604f04294dc7efdfd256e97644ffa2a9f688474671"
+  },
+  "comparison": {
+    "method": "PyMuPDF render each original and OCR page at identical 72-DPI RGB settings and compare dimensions and rendered pixel bytes",
+    "pages_compared": 122,
+    "pixel_identical_pages": 122,
+    "mismatched_pages": [],
+    "result": "PASS_IMAGE_LAYER_IDENTICAL"
+  },
+  "text_layer": {
+    "status": "OCR_NAVIGATION_ONLY_NOT_SOURCE_OF_TRUTH",
+    "pages_with_less_than_20_extracted_text_characters": [
+      56,
+      119
+    ],
+    "visual_pages_reviewed": [
+      43,
+      44,
+      45,
+      56,
+      119,
+      120,
+      122
+    ],
+    "note": "Page 56 contains a wave-structure diagram and no OCR text; page 119 is a sparse level diagram. Handwritten marginal notes are not treated as printed book rules."
+  },
+  "constraints": {
+    "original_scan_remains_canonical": true,
+    "do_not_publish_either_pdf": true,
+    "verify_rule_claims_against_original_page_images": true
+  }
+}

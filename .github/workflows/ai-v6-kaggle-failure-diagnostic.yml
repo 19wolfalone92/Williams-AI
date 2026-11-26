@@ -1,0 +1,130 @@
+name: Williams AI V6 failed Kaggle run diagnostic
+
+on:
+  push:
+    branches:
+      - research/williams-ai-source-sft-v6-20261124
+    paths:
+      - .github/workflows/ai-v6-kaggle-failure-diagnostic.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/ai-v6-kaggle-failure-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  collect-private-kaggle-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      V6_FAILED_KERNEL_SLUG: williams-ai-v6-objective-smoke-20261124
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned Kaggle API and encryption dependency
+        run: python -m pip install --quiet --disable-pip-version-check 'kaggle==2.2.5' 'kagglehub>=0.3,<1' 'cryptography>=44,<48' 'six>=1.16'
+      - name: Collect private failed-run logs and seal any partial outputs
+        run: |
+          python - <<'PY'
+          import hashlib, io, json, os, re, shutil, tempfile
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          from kaggle.api.kaggle_api_extended import KaggleApi
+          from kagglehub.auth import get_username
+          from scripts.ai_submit_v5_qlora_kaggle import _seal_data
+
+          token = os.environ["KAGGLE_API_TOKEN"]
+          if len(token) < 20:
+              raise SystemExit("KAGGLE_CREDENTIAL_MISSING")
+          api = KaggleApi()
+          api.authenticate()
+          owner = get_username()
+          if not owner:
+              raise SystemExit("KAGGLE_OWNER_UNVERIFIED")
+          kernel = owner + "/" + os.environ["V6_FAILED_KERNEL_SLUG"]
+          status_response = api.kernels_status(kernel)
+          status = str(getattr(status_response, "status", "UNKNOWN"))
+          failure_message = str(getattr(status_response, "failure_message", "") or "")
+          logs = api.kernels_logs(kernel) or ""
+
+          def redact(value):
+              value = str(value)
+              value = value.replace(token, "<REDACTED_KAGGLE_TOKEN>")
+              value = re.sub(r"(?i)(authorization|api[_ -]?key|token|password|secret)(\s*[:=]\s*)\S+", r"\1\2<REDACTED>", value)
+              return value
+
+          exception_lines = [
+              line.strip() for line in logs.splitlines()
+              if re.search(r"(?i)(Traceback|[A-Za-z_][A-Za-z0-9_.]*(Error|Exception)|out of memory|CUDA error|killed|failed)", line)
+          ]
+          error_signature = redact(exception_lines[-1])[:1000] if exception_lines else redact(failure_message)[:1000]
+
+          temp_root = Path(tempfile.mkdtemp(prefix="williams-v6-failed-run-"))
+          output_dir = temp_root / "kaggle-output"
+          output_dir.mkdir()
+          output_error = None
+          output_paths = []
+          try:
+              output_paths, next_token = api.kernels_output(kernel, str(output_dir), quiet=True, page_size=100)
+          except Exception as exc:
+              output_error = type(exc).__name__ + ":" + redact(exc)[:500]
+
+          file_info = []
+          for item in sorted(output_dir.rglob("*")):
+              if item.is_symlink():
+                  raise SystemExit("SYMLINK_IN_PRIVATE_OUTPUT")
+              if item.is_file():
+                  file_info.append({
+                      "path": str(item.relative_to(output_dir)),
+                      "bytes": item.stat().st_size,
+                      "sha256": hashlib.sha256(item.read_bytes()).hexdigest()
+                  })
+
+          diagnostic = {
+              "schema": "WILLIAMS_V6_FAILED_KAGGLE_DIAGNOSTIC_V1",
+              "kernel": kernel,
+              "status": status,
+              "failure_message": redact(failure_message)[:1000],
+              "log_bytes": len(logs.encode("utf-8")),
+              "log_sha256": hashlib.sha256(logs.encode("utf-8")).hexdigest(),
+              "error_signature": error_signature,
+              "output_download_error": output_error,
+              "output_file_count": len(file_info),
+              "output_files": file_info
+          }
+          print("V6_FAILED_KERNEL_DIAGNOSTIC", json.dumps(diagnostic, sort_keys=True), flush=True)
+
+          (temp_root / "kernel.log").write_text(logs, encoding="utf-8")
+          (temp_root / "diagnostic.json").write_text(json.dumps(diagnostic, sort_keys=True, indent=2), encoding="utf-8")
+          archive = io.BytesIO()
+          with ZipFile(archive, "w", compression=ZIP_DEFLATED, compresslevel=3) as z:
+              z.write(temp_root / "kernel.log", "kernel.log")
+              z.write(temp_root / "diagnostic.json", "diagnostic.json")
+              for item in sorted(output_dir.rglob("*")):
+                  if item.is_file() and not item.is_symlink():
+                      z.write(item, "output/" + str(item.relative_to(output_dir)))
+          sealed = _seal_data(archive.getvalue(), token)
+          sealed_path = Path(os.environ["RUNNER_TEMP"]) / "williams-v6-failed-run-recovery.zip.sealed"
+          sealed_path.write_bytes(sealed)
+          print("V6_FAILED_RUN_ENCRYPTED_ARCHIVE", json.dumps({
+              "bytes": len(sealed),
+              "sha256": hashlib.sha256(sealed).hexdigest(),
+              "path": str(sealed_path)
+          }), flush=True)
+          shutil.rmtree(temp_root, ignore_errors=True)
+          PY
+      - name: Upload encrypted recovery artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-v6-failed-run-recovery-encrypted
+          path: ${{ runner.temp }}/williams-v6-failed-run-recovery.zip.sealed
+          if-no-files-found: error
+          retention-days: 7

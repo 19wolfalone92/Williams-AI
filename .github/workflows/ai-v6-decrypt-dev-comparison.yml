@@ -1,0 +1,53 @@
+name: Williams AI decrypt sealed development responses privately
+on:
+  push:
+    branches: [research/williams-ai-source-sft-v6-20261124]
+    paths:
+      - .github/workflows/ai-v6-decrypt-dev-comparison.yml
+      - scripts/ai_v6_decrypt_dev_comparison.py
+      - tests/test_williams_ai_v6_decrypt_dev_comparison.py
+      - research/keys/williams-ai-diagnostic-public.pem
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: williams-v6-decrypt-development-diagnostics
+  cancel-in-progress: false
+jobs:
+  decrypt:
+    if: github.repository == '19wolfalone92/Williams-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimal cryptographic runtime
+        run: python -m pip install --quiet --disable-pip-version-check 'cryptography>=44,<48'
+      - name: Verify decryption, grading and encryption contracts
+        run: python -m unittest discover -s tests -p test_williams_ai_v6_decrypt_dev_comparison.py -v
+      - name: Download the exact existing encrypted comparison artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Williams-v6-recovered-development-comparison
+          run-id: 45497821820
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/williams-v6-comparison
+      - name: Decrypt in runner memory and encrypt the map to the session public key
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python -m scripts.ai_v6_decrypt_dev_comparison \
+            --directory "$RUNNER_TEMP/williams-v6-comparison" \
+            --public-key research/keys/williams-ai-diagnostic-public.pem \
+            --encrypted-output "$RUNNER_TEMP/williams-v6-diagnostic-encrypted.json"
+      - name: Upload only the RSA/AES encrypted per-case map
+        uses: actions/upload-artifact@v4
+        with:
+          name: williams-v6-answer-map-encrypted-${{ github.run_id }}
+          path: ${{ runner.temp }}/williams-v6-diagnostic-encrypted.json
+          if-no-files-found: error
+          retention-days: 7

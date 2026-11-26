@@ -16,6 +16,7 @@ import tempfile
 from typing import Any
 
 from .lora_integrity import strict_json, validation_admission
+from .lora_training import require_actual_optimizer_step
 
 ED=("TC1","NTD","TC2","COURSE")
 
@@ -308,7 +309,7 @@ def _fit_resumable_adapter(model,train,validation,*,output:Path,spec:dict,
     dataset,collate=_dataset(train,pad_token_id)
     combined=[row for edition in ED for row in validation[edition]]
     evaluation,_=_dataset(combined,pad_token_id)
-    measurements={}
+    measurements={"observed_steps":done}
 
     class SessionCheckpoint(TrainerCallback):
         def on_train_begin(self,args,state,control,**kwargs):
@@ -320,6 +321,8 @@ def _fit_resumable_adapter(model,train,validation,*,output:Path,spec:dict,
             gradients=[p.grad for p in parameters.values() if p.grad is not None]
             if not gradients or any(not torch.isfinite(g).all().item() for g in gradients):
                 raise ValueError("NONFINITE_OR_MISSING_LORA_GRADIENTS")
+            if not any(torch.count_nonzero(g).item() for g in gradients):
+                raise ValueError("ALL_ZERO_LORA_GRADIENTS")
             return control
 
         def on_log(self,args,state,control,logs=None,**kwargs):
@@ -329,6 +332,8 @@ def _fit_resumable_adapter(model,train,validation,*,output:Path,spec:dict,
             return control
 
         def on_step_end(self,args,state,control,**kwargs):
+            measurements["observed_steps"]=require_actual_optimizer_step(coach.accelerator,
+                previous_step=measurements["observed_steps"],reported_step=state.global_step)
             if state.global_step>=ceiling:
                 control.should_save=True
                 control.should_training_stop=True
@@ -390,7 +395,7 @@ def _fit_resumable_adapter(model,train,validation,*,output:Path,spec:dict,
     if not math.isfinite(float(fitted.training_loss)):
         raise ValueError("NONFINITE_LORA_TRAINING_LOSS")
     steps=coach.state.global_step
-    if (type(steps) is not int or steps!=ceiling or steps<=done
+    if (type(steps) is not int or steps!=ceiling or steps<=done or steps!=measurements["observed_steps"]
         or any(not torch.isfinite(p).all().item() for p in parameters.values())):
         raise ValueError("INVALID_ACTUAL_OPTIMIZER_STEPS_OR_WEIGHTS")
     after_digest=_adapter_digest(parameters)
@@ -405,7 +410,8 @@ def _fit_resumable_adapter(model,train,validation,*,output:Path,spec:dict,
     model.save_pretrained(output/"latest_adapter",safe_serialization=True)
     result={"mode":("SYNTHETIC_CPU_SOFTWARE_DIAGNOSTIC" if use_cpu else
                     "RESEARCH_QWEN_QLORA_NOT_TRADE_QUALIFIED"),
-        "new_optimizer_steps":steps-done,"total_optimizer_steps":steps,
+        "new_optimizer_steps":measurements["observed_steps"]-done,"total_optimizer_steps":steps,
+        "optimizer_skips_in_this_session":0,
         "source_only_research":spec["source_only_research"],
         "original_baseline":baseline,"final_validation":after,
         "baseline_comparison":validation_admission(baseline,after),
